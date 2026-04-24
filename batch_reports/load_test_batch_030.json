@@ -1,0 +1,2328 @@
+{
+  "config": {
+    "dry_run": false,
+    "judge0_url": "http://localhost:2358",
+    "ramp_up_sec": 6,
+    "users": 30
+  },
+  "per_problem_report": [
+    {
+      "problem_id": "two_sum",
+      "submissions": [
+        {
+          "user_id": 5,
+          "solution_id": "two_sum_syntax_error",
+          "solution_type": "syntax_error",
+          "harness_status": "BLOCKED",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 0,
+          "error": "AST check: Possible SyntaxError: missing colon in 'if n \u003e 0'",
+          "test_cases": null
+        },
+        {
+          "user_id": 12,
+          "solution_id": "two_sum_syntax_error",
+          "solution_type": "syntax_error",
+          "harness_status": "BLOCKED",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 0,
+          "error": "AST check: Possible SyntaxError: missing colon in 'if n \u003e 0'",
+          "test_cases": null
+        },
+        {
+          "user_id": 20,
+          "solution_id": "two_sum_syntax_error",
+          "solution_type": "syntax_error",
+          "harness_status": "BLOCKED",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 0,
+          "error": "AST check: Possible SyntaxError: missing colon in 'if n \u003e 0'",
+          "test_cases": null
+        },
+        {
+          "user_id": 26,
+          "solution_id": "two_sum_syntax_error",
+          "solution_type": "syntax_error",
+          "harness_status": "BLOCKED",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 0,
+          "error": "AST check: Possible SyntaxError: missing colon in 'if n \u003e 0'",
+          "test_cases": null
+        },
+        {
+          "user_id": 19,
+          "solution_id": "two_sum_wrong_answer",
+          "solution_type": "wrong_answer",
+          "harness_status": "FAIL",
+          "score": 2,
+          "total_tcs": 4,
+          "latency_ms": 5050,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "basic - pair at start",
+              "stdin": "4\n2 7 11 15\n9\n",
+              "expected": "0 1",
+              "got": "0 1",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "non-adjacent pair",
+              "stdin": "3\n3 2 4\n6\n",
+              "expected": "1 2",
+              "got": "0 1",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "duplicate values",
+              "stdin": "2\n3 3\n6\n",
+              "expected": "0 1",
+              "got": "0 1",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "pair in middle",
+              "stdin": "5\n1 8 3 7 9\n10\n",
+              "expected": "2 3",
+              "got": "0 1",
+              "status": "FAIL"
+            }
+          ]
+        },
+        {
+          "user_id": 23,
+          "solution_id": "two_sum_wrong_answer",
+          "solution_type": "wrong_answer",
+          "harness_status": "FAIL",
+          "score": 2,
+          "total_tcs": 4,
+          "latency_ms": 5077,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "basic - pair at start",
+              "stdin": "4\n2 7 11 15\n9\n",
+              "expected": "0 1",
+              "got": "0 1",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "non-adjacent pair",
+              "stdin": "3\n3 2 4\n6\n",
+              "expected": "1 2",
+              "got": "0 1",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "duplicate values",
+              "stdin": "2\n3 3\n6\n",
+              "expected": "0 1",
+              "got": "0 1",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "pair in middle",
+              "stdin": "5\n1 8 3 7 9\n10\n",
+              "expected": "2 3",
+              "got": "0 1",
+              "status": "FAIL"
+            }
+          ]
+        },
+        {
+          "user_id": 13,
+          "solution_id": "two_sum_runtime_error",
+          "solution_type": "runtime_error",
+          "harness_status": "ERROR",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 7092,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "basic - pair at start",
+              "stdin": "4\n2 7 11 15\n9\n",
+              "expected": "0 1",
+              "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "non-adjacent pair",
+              "stdin": "3\n3 2 4\n6\n",
+              "expected": "1 2",
+              "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "duplicate values",
+              "stdin": "2\n3 3\n6\n",
+              "expected": "0 1",
+              "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "pair in middle",
+              "stdin": "5\n1 8 3 7 9\n10\n",
+              "expected": "2 3",
+              "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+              "status": "ERROR"
+            }
+          ]
+        },
+        {
+          "user_id": 24,
+          "solution_id": "two_sum_runtime_error",
+          "solution_type": "runtime_error",
+          "harness_status": "ERROR",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 5050,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "basic - pair at start",
+              "stdin": "4\n2 7 11 15\n9\n",
+              "expected": "0 1",
+              "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "non-adjacent pair",
+              "stdin": "3\n3 2 4\n6\n",
+              "expected": "1 2",
+              "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "duplicate values",
+              "stdin": "2\n3 3\n6\n",
+              "expected": "0 1",
+              "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "pair in middle",
+              "stdin": "5\n1 8 3 7 9\n10\n",
+              "expected": "2 3",
+              "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+              "status": "ERROR"
+            }
+          ]
+        },
+        {
+          "user_id": 25,
+          "solution_id": "two_sum_tle",
+          "solution_type": "time_limit_exceeded",
+          "harness_status": "TLE",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 7086,
+          "judge0_status": "Time Limit Exceeded",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "basic - pair at start",
+              "stdin": "4\n2 7 11 15\n9\n",
+              "expected": "0 1",
+              "detail": "Judge0 global TLE",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "non-adjacent pair",
+              "stdin": "3\n3 2 4\n6\n",
+              "expected": "1 2",
+              "detail": "Judge0 global TLE",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "duplicate values",
+              "stdin": "2\n3 3\n6\n",
+              "expected": "0 1",
+              "detail": "Judge0 global TLE",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "pair in middle",
+              "stdin": "5\n1 8 3 7 9\n10\n",
+              "expected": "2 3",
+              "detail": "Judge0 global TLE",
+              "status": "TLE"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "problem_id": "lis",
+      "submissions": [
+        {
+          "user_id": 7,
+          "solution_id": "lis_syntax_error",
+          "solution_type": "syntax_error",
+          "harness_status": "BLOCKED",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 0,
+          "error": "AST check: Possible SyntaxError: missing colon in 'for x in a'",
+          "test_cases": null
+        },
+        {
+          "user_id": 14,
+          "solution_id": "lis_syntax_error",
+          "solution_type": "syntax_error",
+          "harness_status": "BLOCKED",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 0,
+          "error": "AST check: Possible SyntaxError: missing colon in 'for x in a'",
+          "test_cases": null
+        },
+        {
+          "user_id": 0,
+          "solution_id": "lis_accepted",
+          "solution_type": "accepted",
+          "harness_status": "PASS",
+          "score": 4,
+          "total_tcs": 4,
+          "latency_ms": 3019,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "decreasing then small increase",
+              "stdin": "5\n10 9 2 5 3\n",
+              "expected": "2",
+              "got": "2",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "mixed sequence",
+              "stdin": "6\n3 10 2 1 20 15\n",
+              "expected": "3",
+              "got": "3",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "strictly decreasing",
+              "stdin": "5\n5 4 3 2 1\n",
+              "expected": "1",
+              "got": "1",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "classic test - LIS=6",
+              "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+              "expected": "6",
+              "got": "6",
+              "status": "PASS"
+            }
+          ]
+        },
+        {
+          "user_id": 28,
+          "solution_id": "lis_syntax_error",
+          "solution_type": "syntax_error",
+          "harness_status": "BLOCKED",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 0,
+          "error": "AST check: Possible SyntaxError: missing colon in 'for x in a'",
+          "test_cases": null
+        },
+        {
+          "user_id": 10,
+          "solution_id": "lis_wrong_answer",
+          "solution_type": "wrong_answer",
+          "harness_status": "FAIL",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 5059,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "decreasing then small increase",
+              "stdin": "5\n10 9 2 5 3\n",
+              "expected": "2",
+              "got": "5",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "mixed sequence",
+              "stdin": "6\n3 10 2 1 20 15\n",
+              "expected": "3",
+              "got": "6",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "strictly decreasing",
+              "stdin": "5\n5 4 3 2 1\n",
+              "expected": "1",
+              "got": "5",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "classic test - LIS=6",
+              "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+              "expected": "6",
+              "got": "16",
+              "status": "FAIL"
+            }
+          ]
+        },
+        {
+          "user_id": 11,
+          "solution_id": "lis_wrong_answer",
+          "solution_type": "wrong_answer",
+          "harness_status": "FAIL",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 5057,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "decreasing then small increase",
+              "stdin": "5\n10 9 2 5 3\n",
+              "expected": "2",
+              "got": "5",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "mixed sequence",
+              "stdin": "6\n3 10 2 1 20 15\n",
+              "expected": "3",
+              "got": "6",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "strictly decreasing",
+              "stdin": "5\n5 4 3 2 1\n",
+              "expected": "1",
+              "got": "5",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "classic test - LIS=6",
+              "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+              "expected": "6",
+              "got": "16",
+              "status": "FAIL"
+            }
+          ]
+        },
+        {
+          "user_id": 1,
+          "solution_id": "lis_tle",
+          "solution_type": "time_limit_exceeded",
+          "harness_status": "TLE",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 7073,
+          "judge0_status": "Time Limit Exceeded",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "decreasing then small increase",
+              "stdin": "5\n10 9 2 5 3\n",
+              "expected": "2",
+              "detail": "Judge0 global TLE",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "mixed sequence",
+              "stdin": "6\n3 10 2 1 20 15\n",
+              "expected": "3",
+              "detail": "Judge0 global TLE",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "strictly decreasing",
+              "stdin": "5\n5 4 3 2 1\n",
+              "expected": "1",
+              "detail": "Judge0 global TLE",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "classic test - LIS=6",
+              "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+              "expected": "6",
+              "detail": "Judge0 global TLE",
+              "status": "TLE"
+            }
+          ]
+        },
+        {
+          "user_id": 6,
+          "solution_id": "lis_tle",
+          "solution_type": "time_limit_exceeded",
+          "harness_status": "TLE",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 7075,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "decreasing then small increase",
+              "stdin": "5\n10 9 2 5 3\n",
+              "expected": "2",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "mixed sequence",
+              "stdin": "6\n3 10 2 1 20 15\n",
+              "expected": "3",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "strictly decreasing",
+              "stdin": "5\n5 4 3 2 1\n",
+              "expected": "1",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "classic test - LIS=6",
+              "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+              "expected": "6",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            }
+          ]
+        },
+        {
+          "user_id": 16,
+          "solution_id": "lis_runtime_error",
+          "solution_type": "runtime_error",
+          "harness_status": "ERROR",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 5070,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "decreasing then small increase",
+              "stdin": "5\n10 9 2 5 3\n",
+              "expected": "2",
+              "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "mixed sequence",
+              "stdin": "6\n3 10 2 1 20 15\n",
+              "expected": "3",
+              "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "strictly decreasing",
+              "stdin": "5\n5 4 3 2 1\n",
+              "expected": "1",
+              "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "classic test - LIS=6",
+              "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+              "expected": "6",
+              "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+              "status": "ERROR"
+            }
+          ]
+        },
+        {
+          "user_id": 15,
+          "solution_id": "lis_tle",
+          "solution_type": "time_limit_exceeded",
+          "harness_status": "TLE",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 7077,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "decreasing then small increase",
+              "stdin": "5\n10 9 2 5 3\n",
+              "expected": "2",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "mixed sequence",
+              "stdin": "6\n3 10 2 1 20 15\n",
+              "expected": "3",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "strictly decreasing",
+              "stdin": "5\n5 4 3 2 1\n",
+              "expected": "1",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "classic test - LIS=6",
+              "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+              "expected": "6",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            }
+          ]
+        },
+        {
+          "user_id": 17,
+          "solution_id": "lis_tle",
+          "solution_type": "time_limit_exceeded",
+          "harness_status": "TLE",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 7051,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "decreasing then small increase",
+              "stdin": "5\n10 9 2 5 3\n",
+              "expected": "2",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "mixed sequence",
+              "stdin": "6\n3 10 2 1 20 15\n",
+              "expected": "3",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "strictly decreasing",
+              "stdin": "5\n5 4 3 2 1\n",
+              "expected": "1",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "classic test - LIS=6",
+              "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+              "expected": "6",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            }
+          ]
+        },
+        {
+          "user_id": 27,
+          "solution_id": "lis_runtime_error",
+          "solution_type": "runtime_error",
+          "harness_status": "ERROR",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 5052,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "decreasing then small increase",
+              "stdin": "5\n10 9 2 5 3\n",
+              "expected": "2",
+              "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "mixed sequence",
+              "stdin": "6\n3 10 2 1 20 15\n",
+              "expected": "3",
+              "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "strictly decreasing",
+              "stdin": "5\n5 4 3 2 1\n",
+              "expected": "1",
+              "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "classic test - LIS=6",
+              "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+              "expected": "6",
+              "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+              "status": "ERROR"
+            }
+          ]
+        },
+        {
+          "user_id": 21,
+          "solution_id": "lis_wrong_answer",
+          "solution_type": "wrong_answer",
+          "harness_status": "FAIL",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 7049,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "decreasing then small increase",
+              "stdin": "5\n10 9 2 5 3\n",
+              "expected": "2",
+              "got": "5",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "mixed sequence",
+              "stdin": "6\n3 10 2 1 20 15\n",
+              "expected": "3",
+              "got": "6",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "strictly decreasing",
+              "stdin": "5\n5 4 3 2 1\n",
+              "expected": "1",
+              "got": "5",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "classic test - LIS=6",
+              "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+              "expected": "6",
+              "got": "16",
+              "status": "FAIL"
+            }
+          ]
+        },
+        {
+          "user_id": 29,
+          "solution_id": "lis_tle",
+          "solution_type": "time_limit_exceeded",
+          "harness_status": "TLE",
+          "score": 0,
+          "total_tcs": 4,
+          "latency_ms": 7055,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "decreasing then small increase",
+              "stdin": "5\n10 9 2 5 3\n",
+              "expected": "2",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "mixed sequence",
+              "stdin": "6\n3 10 2 1 20 15\n",
+              "expected": "3",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "strictly decreasing",
+              "stdin": "5\n5 4 3 2 1\n",
+              "expected": "1",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "classic test - LIS=6",
+              "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+              "expected": "6",
+              "detail": "Exceeded 2s",
+              "status": "TLE"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "problem_id": "fibonacci",
+      "submissions": [
+        {
+          "user_id": 2,
+          "solution_id": "fib_wrong_answer",
+          "solution_type": "wrong_answer",
+          "harness_status": "FAIL",
+          "score": 2,
+          "total_tcs": 4,
+          "latency_ms": 3015,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "base case F(0)",
+              "stdin": "0\n",
+              "expected": "0",
+              "got": "0",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "base case F(1)",
+              "stdin": "1\n",
+              "expected": "1",
+              "got": "1",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "F(10) = 55",
+              "stdin": "10\n",
+              "expected": "55",
+              "got": "10",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "F(20) = 6765",
+              "stdin": "20\n",
+              "expected": "6765",
+              "got": "20",
+              "status": "FAIL"
+            }
+          ]
+        },
+        {
+          "user_id": 3,
+          "solution_id": "fib_wrong_answer",
+          "solution_type": "wrong_answer",
+          "harness_status": "FAIL",
+          "score": 2,
+          "total_tcs": 4,
+          "latency_ms": 3030,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "base case F(0)",
+              "stdin": "0\n",
+              "expected": "0",
+              "got": "0",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "base case F(1)",
+              "stdin": "1\n",
+              "expected": "1",
+              "got": "1",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "F(10) = 55",
+              "stdin": "10\n",
+              "expected": "55",
+              "got": "10",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "F(20) = 6765",
+              "stdin": "20\n",
+              "expected": "6765",
+              "got": "20",
+              "status": "FAIL"
+            }
+          ]
+        },
+        {
+          "user_id": 4,
+          "solution_id": "fib_wrong_answer",
+          "solution_type": "wrong_answer",
+          "harness_status": "FAIL",
+          "score": 2,
+          "total_tcs": 4,
+          "latency_ms": 5049,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "base case F(0)",
+              "stdin": "0\n",
+              "expected": "0",
+              "got": "0",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "base case F(1)",
+              "stdin": "1\n",
+              "expected": "1",
+              "got": "1",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "F(10) = 55",
+              "stdin": "10\n",
+              "expected": "55",
+              "got": "10",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "F(20) = 6765",
+              "stdin": "20\n",
+              "expected": "6765",
+              "got": "20",
+              "status": "FAIL"
+            }
+          ]
+        },
+        {
+          "user_id": 8,
+          "solution_id": "fib_runtime_error",
+          "solution_type": "runtime_error",
+          "harness_status": "ERROR",
+          "score": 1,
+          "total_tcs": 4,
+          "latency_ms": 5058,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "base case F(0)",
+              "stdin": "0\n",
+              "expected": "0",
+              "detail": "  File \"\u003cstudent\u003e\", line 2, in \u003cmodule\u003e | ZeroDivisionError: integer division or modulo by zero",
+              "status": "ERROR"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "base case F(1)",
+              "stdin": "1\n",
+              "expected": "1",
+              "got": "1",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "F(10) = 55",
+              "stdin": "10\n",
+              "expected": "55",
+              "got": "0",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "F(20) = 6765",
+              "stdin": "20\n",
+              "expected": "6765",
+              "got": "0",
+              "status": "FAIL"
+            }
+          ]
+        },
+        {
+          "user_id": 9,
+          "solution_id": "fib_accepted",
+          "solution_type": "accepted",
+          "harness_status": "PASS",
+          "score": 4,
+          "total_tcs": 4,
+          "latency_ms": 5054,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "base case F(0)",
+              "stdin": "0\n",
+              "expected": "0",
+              "got": "0",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "base case F(1)",
+              "stdin": "1\n",
+              "expected": "1",
+              "got": "1",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "F(10) = 55",
+              "stdin": "10\n",
+              "expected": "55",
+              "got": "55",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "F(20) = 6765",
+              "stdin": "20\n",
+              "expected": "6765",
+              "got": "6765",
+              "status": "PASS"
+            }
+          ]
+        },
+        {
+          "user_id": 18,
+          "solution_id": "fib_accepted",
+          "solution_type": "accepted",
+          "harness_status": "PASS",
+          "score": 4,
+          "total_tcs": 4,
+          "latency_ms": 5063,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "base case F(0)",
+              "stdin": "0\n",
+              "expected": "0",
+              "got": "0",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "base case F(1)",
+              "stdin": "1\n",
+              "expected": "1",
+              "got": "1",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "F(10) = 55",
+              "stdin": "10\n",
+              "expected": "55",
+              "got": "55",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "F(20) = 6765",
+              "stdin": "20\n",
+              "expected": "6765",
+              "got": "6765",
+              "status": "PASS"
+            }
+          ]
+        },
+        {
+          "user_id": 22,
+          "solution_id": "fib_wrong_answer",
+          "solution_type": "wrong_answer",
+          "harness_status": "FAIL",
+          "score": 2,
+          "total_tcs": 4,
+          "latency_ms": 5077,
+          "judge0_status": "Accepted",
+          "test_cases": [
+            {
+              "tc_id": "tc1",
+              "description": "base case F(0)",
+              "stdin": "0\n",
+              "expected": "0",
+              "got": "0",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc2",
+              "description": "base case F(1)",
+              "stdin": "1\n",
+              "expected": "1",
+              "got": "1",
+              "status": "PASS"
+            },
+            {
+              "tc_id": "tc3",
+              "description": "F(10) = 55",
+              "stdin": "10\n",
+              "expected": "55",
+              "got": "10",
+              "status": "FAIL"
+            },
+            {
+              "tc_id": "tc4",
+              "description": "F(20) = 6765",
+              "stdin": "20\n",
+              "expected": "6765",
+              "got": "20",
+              "status": "FAIL"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "problem_counts": {
+    "fibonacci": 7,
+    "lis": 14,
+    "two_sum": 9
+  },
+  "results": [
+    {
+      "UserID": 5,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_syntax_error",
+      "SolutionType": "syntax_error",
+      "HarnessStatus": "BLOCKED",
+      "TCDetails": null,
+      "LatencyMs": 0,
+      "Judge0Status": "",
+      "Error": "AST check: Possible SyntaxError: missing colon in 'if n \u003e 0'",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 7,
+      "ProblemID": "lis",
+      "SolutionID": "lis_syntax_error",
+      "SolutionType": "syntax_error",
+      "HarnessStatus": "BLOCKED",
+      "TCDetails": null,
+      "LatencyMs": 0,
+      "Judge0Status": "",
+      "Error": "AST check: Possible SyntaxError: missing colon in 'for x in a'",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 12,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_syntax_error",
+      "SolutionType": "syntax_error",
+      "HarnessStatus": "BLOCKED",
+      "TCDetails": null,
+      "LatencyMs": 0,
+      "Judge0Status": "",
+      "Error": "AST check: Possible SyntaxError: missing colon in 'if n \u003e 0'",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 14,
+      "ProblemID": "lis",
+      "SolutionID": "lis_syntax_error",
+      "SolutionType": "syntax_error",
+      "HarnessStatus": "BLOCKED",
+      "TCDetails": null,
+      "LatencyMs": 0,
+      "Judge0Status": "",
+      "Error": "AST check: Possible SyntaxError: missing colon in 'for x in a'",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 0,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "decreasing then small increase",
+          "stdin": "5\n10 9 2 5 3\n",
+          "expected": "2",
+          "got": "2",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "mixed sequence",
+          "stdin": "6\n3 10 2 1 20 15\n",
+          "expected": "3",
+          "got": "3",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "strictly decreasing",
+          "stdin": "5\n5 4 3 2 1\n",
+          "expected": "1",
+          "got": "1",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "classic test - LIS=6",
+          "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+          "expected": "6",
+          "got": "6",
+          "status": "PASS"
+        }
+      ],
+      "LatencyMs": 3019,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 2,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_wrong_answer",
+      "SolutionType": "wrong_answer",
+      "HarnessStatus": "FAIL",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "base case F(0)",
+          "stdin": "0\n",
+          "expected": "0",
+          "got": "0",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "base case F(1)",
+          "stdin": "1\n",
+          "expected": "1",
+          "got": "1",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "F(10) = 55",
+          "stdin": "10\n",
+          "expected": "55",
+          "got": "10",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "F(20) = 6765",
+          "stdin": "20\n",
+          "expected": "6765",
+          "got": "20",
+          "status": "FAIL"
+        }
+      ],
+      "LatencyMs": 3015,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 2,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 3,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_wrong_answer",
+      "SolutionType": "wrong_answer",
+      "HarnessStatus": "FAIL",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "base case F(0)",
+          "stdin": "0\n",
+          "expected": "0",
+          "got": "0",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "base case F(1)",
+          "stdin": "1\n",
+          "expected": "1",
+          "got": "1",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "F(10) = 55",
+          "stdin": "10\n",
+          "expected": "55",
+          "got": "10",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "F(20) = 6765",
+          "stdin": "20\n",
+          "expected": "6765",
+          "got": "20",
+          "status": "FAIL"
+        }
+      ],
+      "LatencyMs": 3030,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 2,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 20,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_syntax_error",
+      "SolutionType": "syntax_error",
+      "HarnessStatus": "BLOCKED",
+      "TCDetails": null,
+      "LatencyMs": 0,
+      "Judge0Status": "",
+      "Error": "AST check: Possible SyntaxError: missing colon in 'if n \u003e 0'",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 26,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_syntax_error",
+      "SolutionType": "syntax_error",
+      "HarnessStatus": "BLOCKED",
+      "TCDetails": null,
+      "LatencyMs": 0,
+      "Judge0Status": "",
+      "Error": "AST check: Possible SyntaxError: missing colon in 'if n \u003e 0'",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 28,
+      "ProblemID": "lis",
+      "SolutionID": "lis_syntax_error",
+      "SolutionType": "syntax_error",
+      "HarnessStatus": "BLOCKED",
+      "TCDetails": null,
+      "LatencyMs": 0,
+      "Judge0Status": "",
+      "Error": "AST check: Possible SyntaxError: missing colon in 'for x in a'",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 4,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_wrong_answer",
+      "SolutionType": "wrong_answer",
+      "HarnessStatus": "FAIL",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "base case F(0)",
+          "stdin": "0\n",
+          "expected": "0",
+          "got": "0",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "base case F(1)",
+          "stdin": "1\n",
+          "expected": "1",
+          "got": "1",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "F(10) = 55",
+          "stdin": "10\n",
+          "expected": "55",
+          "got": "10",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "F(20) = 6765",
+          "stdin": "20\n",
+          "expected": "6765",
+          "got": "20",
+          "status": "FAIL"
+        }
+      ],
+      "LatencyMs": 5049,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 2,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 8,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_runtime_error",
+      "SolutionType": "runtime_error",
+      "HarnessStatus": "ERROR",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "base case F(0)",
+          "stdin": "0\n",
+          "expected": "0",
+          "detail": "  File \"\u003cstudent\u003e\", line 2, in \u003cmodule\u003e | ZeroDivisionError: integer division or modulo by zero",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "base case F(1)",
+          "stdin": "1\n",
+          "expected": "1",
+          "got": "1",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "F(10) = 55",
+          "stdin": "10\n",
+          "expected": "55",
+          "got": "0",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "F(20) = 6765",
+          "stdin": "20\n",
+          "expected": "6765",
+          "got": "0",
+          "status": "FAIL"
+        }
+      ],
+      "LatencyMs": 5058,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 1,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 9,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "base case F(0)",
+          "stdin": "0\n",
+          "expected": "0",
+          "got": "0",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "base case F(1)",
+          "stdin": "1\n",
+          "expected": "1",
+          "got": "1",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "F(10) = 55",
+          "stdin": "10\n",
+          "expected": "55",
+          "got": "55",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "F(20) = 6765",
+          "stdin": "20\n",
+          "expected": "6765",
+          "got": "6765",
+          "status": "PASS"
+        }
+      ],
+      "LatencyMs": 5054,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 10,
+      "ProblemID": "lis",
+      "SolutionID": "lis_wrong_answer",
+      "SolutionType": "wrong_answer",
+      "HarnessStatus": "FAIL",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "decreasing then small increase",
+          "stdin": "5\n10 9 2 5 3\n",
+          "expected": "2",
+          "got": "5",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "mixed sequence",
+          "stdin": "6\n3 10 2 1 20 15\n",
+          "expected": "3",
+          "got": "6",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "strictly decreasing",
+          "stdin": "5\n5 4 3 2 1\n",
+          "expected": "1",
+          "got": "5",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "classic test - LIS=6",
+          "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+          "expected": "6",
+          "got": "16",
+          "status": "FAIL"
+        }
+      ],
+      "LatencyMs": 5059,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 11,
+      "ProblemID": "lis",
+      "SolutionID": "lis_wrong_answer",
+      "SolutionType": "wrong_answer",
+      "HarnessStatus": "FAIL",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "decreasing then small increase",
+          "stdin": "5\n10 9 2 5 3\n",
+          "expected": "2",
+          "got": "5",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "mixed sequence",
+          "stdin": "6\n3 10 2 1 20 15\n",
+          "expected": "3",
+          "got": "6",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "strictly decreasing",
+          "stdin": "5\n5 4 3 2 1\n",
+          "expected": "1",
+          "got": "5",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "classic test - LIS=6",
+          "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+          "expected": "6",
+          "got": "16",
+          "status": "FAIL"
+        }
+      ],
+      "LatencyMs": 5057,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 1,
+      "ProblemID": "lis",
+      "SolutionID": "lis_tle",
+      "SolutionType": "time_limit_exceeded",
+      "HarnessStatus": "TLE",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "decreasing then small increase",
+          "stdin": "5\n10 9 2 5 3\n",
+          "expected": "2",
+          "detail": "Judge0 global TLE",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "mixed sequence",
+          "stdin": "6\n3 10 2 1 20 15\n",
+          "expected": "3",
+          "detail": "Judge0 global TLE",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "strictly decreasing",
+          "stdin": "5\n5 4 3 2 1\n",
+          "expected": "1",
+          "detail": "Judge0 global TLE",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "classic test - LIS=6",
+          "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+          "expected": "6",
+          "detail": "Judge0 global TLE",
+          "status": "TLE"
+        }
+      ],
+      "LatencyMs": 7073,
+      "Judge0Status": "Time Limit Exceeded",
+      "Error": "",
+      "GlobalTLE": true,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 6,
+      "ProblemID": "lis",
+      "SolutionID": "lis_tle",
+      "SolutionType": "time_limit_exceeded",
+      "HarnessStatus": "TLE",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "decreasing then small increase",
+          "stdin": "5\n10 9 2 5 3\n",
+          "expected": "2",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "mixed sequence",
+          "stdin": "6\n3 10 2 1 20 15\n",
+          "expected": "3",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "strictly decreasing",
+          "stdin": "5\n5 4 3 2 1\n",
+          "expected": "1",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "classic test - LIS=6",
+          "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+          "expected": "6",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        }
+      ],
+      "LatencyMs": 7075,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 16,
+      "ProblemID": "lis",
+      "SolutionID": "lis_runtime_error",
+      "SolutionType": "runtime_error",
+      "HarnessStatus": "ERROR",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "decreasing then small increase",
+          "stdin": "5\n10 9 2 5 3\n",
+          "expected": "2",
+          "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "mixed sequence",
+          "stdin": "6\n3 10 2 1 20 15\n",
+          "expected": "3",
+          "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "strictly decreasing",
+          "stdin": "5\n5 4 3 2 1\n",
+          "expected": "1",
+          "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "classic test - LIS=6",
+          "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+          "expected": "6",
+          "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+          "status": "ERROR"
+        }
+      ],
+      "LatencyMs": 5070,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 18,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "base case F(0)",
+          "stdin": "0\n",
+          "expected": "0",
+          "got": "0",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "base case F(1)",
+          "stdin": "1\n",
+          "expected": "1",
+          "got": "1",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "F(10) = 55",
+          "stdin": "10\n",
+          "expected": "55",
+          "got": "55",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "F(20) = 6765",
+          "stdin": "20\n",
+          "expected": "6765",
+          "got": "6765",
+          "status": "PASS"
+        }
+      ],
+      "LatencyMs": 5063,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 19,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_wrong_answer",
+      "SolutionType": "wrong_answer",
+      "HarnessStatus": "FAIL",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "basic - pair at start",
+          "stdin": "4\n2 7 11 15\n9\n",
+          "expected": "0 1",
+          "got": "0 1",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "non-adjacent pair",
+          "stdin": "3\n3 2 4\n6\n",
+          "expected": "1 2",
+          "got": "0 1",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "duplicate values",
+          "stdin": "2\n3 3\n6\n",
+          "expected": "0 1",
+          "got": "0 1",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "pair in middle",
+          "stdin": "5\n1 8 3 7 9\n10\n",
+          "expected": "2 3",
+          "got": "0 1",
+          "status": "FAIL"
+        }
+      ],
+      "LatencyMs": 5050,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 2,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 22,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_wrong_answer",
+      "SolutionType": "wrong_answer",
+      "HarnessStatus": "FAIL",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "base case F(0)",
+          "stdin": "0\n",
+          "expected": "0",
+          "got": "0",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "base case F(1)",
+          "stdin": "1\n",
+          "expected": "1",
+          "got": "1",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "F(10) = 55",
+          "stdin": "10\n",
+          "expected": "55",
+          "got": "10",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "F(20) = 6765",
+          "stdin": "20\n",
+          "expected": "6765",
+          "got": "20",
+          "status": "FAIL"
+        }
+      ],
+      "LatencyMs": 5077,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 2,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 23,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_wrong_answer",
+      "SolutionType": "wrong_answer",
+      "HarnessStatus": "FAIL",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "basic - pair at start",
+          "stdin": "4\n2 7 11 15\n9\n",
+          "expected": "0 1",
+          "got": "0 1",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "non-adjacent pair",
+          "stdin": "3\n3 2 4\n6\n",
+          "expected": "1 2",
+          "got": "0 1",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "duplicate values",
+          "stdin": "2\n3 3\n6\n",
+          "expected": "0 1",
+          "got": "0 1",
+          "status": "PASS"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "pair in middle",
+          "stdin": "5\n1 8 3 7 9\n10\n",
+          "expected": "2 3",
+          "got": "0 1",
+          "status": "FAIL"
+        }
+      ],
+      "LatencyMs": 5077,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 2,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 13,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_runtime_error",
+      "SolutionType": "runtime_error",
+      "HarnessStatus": "ERROR",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "basic - pair at start",
+          "stdin": "4\n2 7 11 15\n9\n",
+          "expected": "0 1",
+          "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "non-adjacent pair",
+          "stdin": "3\n3 2 4\n6\n",
+          "expected": "1 2",
+          "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "duplicate values",
+          "stdin": "2\n3 3\n6\n",
+          "expected": "0 1",
+          "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "pair in middle",
+          "stdin": "5\n1 8 3 7 9\n10\n",
+          "expected": "2 3",
+          "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+          "status": "ERROR"
+        }
+      ],
+      "LatencyMs": 7092,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 24,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_runtime_error",
+      "SolutionType": "runtime_error",
+      "HarnessStatus": "ERROR",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "basic - pair at start",
+          "stdin": "4\n2 7 11 15\n9\n",
+          "expected": "0 1",
+          "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "non-adjacent pair",
+          "stdin": "3\n3 2 4\n6\n",
+          "expected": "1 2",
+          "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "duplicate values",
+          "stdin": "2\n3 3\n6\n",
+          "expected": "0 1",
+          "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "pair in middle",
+          "stdin": "5\n1 8 3 7 9\n10\n",
+          "expected": "2 3",
+          "detail": "  File \"\u003cstudent\u003e\", line 4, in \u003cmodule\u003e | IndexError: list index out of range",
+          "status": "ERROR"
+        }
+      ],
+      "LatencyMs": 5050,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 15,
+      "ProblemID": "lis",
+      "SolutionID": "lis_tle",
+      "SolutionType": "time_limit_exceeded",
+      "HarnessStatus": "TLE",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "decreasing then small increase",
+          "stdin": "5\n10 9 2 5 3\n",
+          "expected": "2",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "mixed sequence",
+          "stdin": "6\n3 10 2 1 20 15\n",
+          "expected": "3",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "strictly decreasing",
+          "stdin": "5\n5 4 3 2 1\n",
+          "expected": "1",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "classic test - LIS=6",
+          "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+          "expected": "6",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        }
+      ],
+      "LatencyMs": 7077,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 17,
+      "ProblemID": "lis",
+      "SolutionID": "lis_tle",
+      "SolutionType": "time_limit_exceeded",
+      "HarnessStatus": "TLE",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "decreasing then small increase",
+          "stdin": "5\n10 9 2 5 3\n",
+          "expected": "2",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "mixed sequence",
+          "stdin": "6\n3 10 2 1 20 15\n",
+          "expected": "3",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "strictly decreasing",
+          "stdin": "5\n5 4 3 2 1\n",
+          "expected": "1",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "classic test - LIS=6",
+          "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+          "expected": "6",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        }
+      ],
+      "LatencyMs": 7051,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 27,
+      "ProblemID": "lis",
+      "SolutionID": "lis_runtime_error",
+      "SolutionType": "runtime_error",
+      "HarnessStatus": "ERROR",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "decreasing then small increase",
+          "stdin": "5\n10 9 2 5 3\n",
+          "expected": "2",
+          "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "mixed sequence",
+          "stdin": "6\n3 10 2 1 20 15\n",
+          "expected": "3",
+          "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "strictly decreasing",
+          "stdin": "5\n5 4 3 2 1\n",
+          "expected": "1",
+          "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+          "status": "ERROR"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "classic test - LIS=6",
+          "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+          "expected": "6",
+          "detail": "  File \"\u003cstudent\u003e\", line 3, in \u003cmodule\u003e | ValueError: intentional error",
+          "status": "ERROR"
+        }
+      ],
+      "LatencyMs": 5052,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 21,
+      "ProblemID": "lis",
+      "SolutionID": "lis_wrong_answer",
+      "SolutionType": "wrong_answer",
+      "HarnessStatus": "FAIL",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "decreasing then small increase",
+          "stdin": "5\n10 9 2 5 3\n",
+          "expected": "2",
+          "got": "5",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "mixed sequence",
+          "stdin": "6\n3 10 2 1 20 15\n",
+          "expected": "3",
+          "got": "6",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "strictly decreasing",
+          "stdin": "5\n5 4 3 2 1\n",
+          "expected": "1",
+          "got": "5",
+          "status": "FAIL"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "classic test - LIS=6",
+          "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+          "expected": "6",
+          "got": "16",
+          "status": "FAIL"
+        }
+      ],
+      "LatencyMs": 7049,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 25,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_tle",
+      "SolutionType": "time_limit_exceeded",
+      "HarnessStatus": "TLE",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "basic - pair at start",
+          "stdin": "4\n2 7 11 15\n9\n",
+          "expected": "0 1",
+          "detail": "Judge0 global TLE",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "non-adjacent pair",
+          "stdin": "3\n3 2 4\n6\n",
+          "expected": "1 2",
+          "detail": "Judge0 global TLE",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "duplicate values",
+          "stdin": "2\n3 3\n6\n",
+          "expected": "0 1",
+          "detail": "Judge0 global TLE",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "pair in middle",
+          "stdin": "5\n1 8 3 7 9\n10\n",
+          "expected": "2 3",
+          "detail": "Judge0 global TLE",
+          "status": "TLE"
+        }
+      ],
+      "LatencyMs": 7086,
+      "Judge0Status": "Time Limit Exceeded",
+      "Error": "",
+      "GlobalTLE": true,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 29,
+      "ProblemID": "lis",
+      "SolutionID": "lis_tle",
+      "SolutionType": "time_limit_exceeded",
+      "HarnessStatus": "TLE",
+      "TCDetails": [
+        {
+          "tc_id": "tc1",
+          "description": "decreasing then small increase",
+          "stdin": "5\n10 9 2 5 3\n",
+          "expected": "2",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc2",
+          "description": "mixed sequence",
+          "stdin": "6\n3 10 2 1 20 15\n",
+          "expected": "3",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc3",
+          "description": "strictly decreasing",
+          "stdin": "5\n5 4 3 2 1\n",
+          "expected": "1",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        },
+        {
+          "tc_id": "tc4",
+          "description": "classic test - LIS=6",
+          "stdin": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+          "expected": "6",
+          "detail": "Exceeded 2s",
+          "status": "TLE"
+        }
+      ],
+      "LatencyMs": 7055,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    }
+  ],
+  "status_counts": {
+    "BLOCKED": 7,
+    "ERROR": 5,
+    "FAIL": 9,
+    "PASS": 3,
+    "TLE": 6
+  },
+  "summary": {
+    "batch_equivalent": 120,
+    "blocked_by_ast": 7,
+    "completed": 30,
+    "errors": 0,
+    "harness_jobs": 30,
+    "latency_p50_ms": 5054,
+    "latency_p95_ms": 7077,
+    "latency_p99_ms": 7086,
+    "peak_in_flight_jobs": 20,
+    "queue_reduction": "4x",
+    "throughput_per_sec": 2.3287791792392443,
+    "total_submissions": 30
+  },
+  "type_counts": {
+    "accepted": 3,
+    "runtime_error": 5,
+    "syntax_error": 7,
+    "time_limit_exceeded": 6,
+    "wrong_answer": 9
+  }
+}

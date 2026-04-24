@@ -1,0 +1,62 @@
+
+  Judge0 Harness Load Tester
+  ───────────────────────────────────────────────
+  Target:       http://localhost:2358
+  Users:        10
+  Ramp-up:      2s
+  Problems:     3
+  Dry run:      false
+  Mode:         Harness (1 job per submission)
+  Batch equiv:  ~40 jobs if using batch approach
+  ───────────────────────────────────────────────
+
+  Progress: 1/10 (10%) | In-flight: 0 | Elapsed: 2s  Progress: 5/10 (50%) | In-flight: 0 | Elapsed: 4s  Progress: 6/10 (60%) | In-flight: 0 | Elapsed: 6s
+
+╔══════════════════════════════════════════════════════════════╗
+║              JUDGE0 HARNESS LOAD TEST RESULTS               ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Total Users:                   10
+  Test Duration:                 6.9s
+  Total Submissions:             10
+  Completed:                     10
+  Errors (network/poll):         0
+  Blocked by AST checker:        1
+
+  ── Queue Depth Comparison ─────────────────────────────────
+  Harness jobs (actual):         10
+  Batch equivalent jobs:         40
+  Queue reduction factor:        4.0x
+  Peak in-flight jobs:           9
+
+  ── Latency ────────────────────────────────────────────────
+  Average:                       3736ms
+  p50:                           3047ms
+  p95:                           5050ms
+  p99:                           5050ms
+  Max:                           5051ms
+
+  ── Throughput ─────────────────────────────────────────────
+  Submissions/sec:               1.46/sec
+
+  ── Result Status Breakdown ────────────────────────────────
+  PASS:                          4 (40.0%)
+  FAIL:                          3 (30.0%)
+  TLE:                           1 (10.0%)
+  ERROR:                         1 (10.0%)
+  BLOCKED:                       1 (10.0%)
+
+  ── Solution Type Breakdown ────────────────────────────────
+  syntax_error:                  1
+  accepted:                      4
+  runtime_error:                 1
+  wrong_answer:                  3
+  time_limit_exceeded:           1
+
+  ── Per-Problem Breakdown ──────────────────────────────────
+  lis:                           2 submissions
+  fibonacci:                     4 submissions
+  two_sum:                       4 submissions
+
+  JSON report written to: batch_reports/pipelined/batch_09.json
+

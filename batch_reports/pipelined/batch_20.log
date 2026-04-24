@@ -1,0 +1,60 @@
+
+  Judge0 Harness Load Tester
+  ───────────────────────────────────────────────
+  Target:       http://localhost:2358
+  Users:        10
+  Ramp-up:      2s
+  Problems:     3
+  Dry run:      false
+  Mode:         Harness (1 job per submission)
+  Batch equiv:  ~40 jobs if using batch approach
+  ───────────────────────────────────────────────
+
+  Progress: 3/10 (30%) | In-flight: 0 | Elapsed: 2s  Progress: 3/10 (30%) | In-flight: 0 | Elapsed: 4s  Progress: 3/10 (30%) | In-flight: 0 | Elapsed: 6s  Progress: 5/10 (50%) | In-flight: 0 | Elapsed: 8s
+
+╔══════════════════════════════════════════════════════════════╗
+║              JUDGE0 HARNESS LOAD TEST RESULTS               ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Total Users:                   10
+  Test Duration:                 8.9s
+  Total Submissions:             10
+  Completed:                     10
+  Errors (network/poll):         0
+  Blocked by AST checker:        3
+
+  ── Queue Depth Comparison ─────────────────────────────────
+  Harness jobs (actual):         10
+  Batch equivalent jobs:         40
+  Queue reduction factor:        4.0x
+  Peak in-flight jobs:           7
+
+  ── Latency ────────────────────────────────────────────────
+  Average:                       4946ms
+  p50:                           7064ms
+  p95:                           7075ms
+  p99:                           7075ms
+  Max:                           7078ms
+
+  ── Throughput ─────────────────────────────────────────────
+  Submissions/sec:               1.13/sec
+
+  ── Result Status Breakdown ────────────────────────────────
+  FAIL:                          2 (20.0%)
+  TLE:                           2 (20.0%)
+  ERROR:                         3 (30.0%)
+  BLOCKED:                       3 (30.0%)
+
+  ── Solution Type Breakdown ────────────────────────────────
+  syntax_error:                  3
+  runtime_error:                 3
+  wrong_answer:                  2
+  time_limit_exceeded:           2
+
+  ── Per-Problem Breakdown ──────────────────────────────────
+  lis:                           2 submissions
+  fibonacci:                     4 submissions
+  two_sum:                       4 submissions
+
+  JSON report written to: batch_reports/pipelined/batch_20.json
+
