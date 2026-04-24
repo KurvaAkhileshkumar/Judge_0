@@ -139,8 +139,8 @@ type SubmissionResult struct {
 	ProblemID     string
 	SolutionID    string
 	SolutionType  string
-	HarnessStatus string   // PASS/FAIL/TLE/ERROR/BLOCKED/JUDGE0_ERROR
-	TCStatuses    []string // per-TC breakdown
+	HarnessStatus string     // PASS/FAIL/TLE/ERROR/BLOCKED/JUDGE0_ERROR
+	TCDetails     []TCResult // per-TC full breakdown
 	LatencyMs     int64
 	Judge0Status  string
 	Error         string
@@ -565,7 +565,8 @@ type Judge0Client struct {
 	HTTPClient   *http.Client
 	PollInterval time.Duration
 	MaxPollSecs  int
-	pollSem      chan struct{} // limits concurrent in-flight poll requests
+	submitSem    chan struct{} // limits concurrent submit requests
+	pollSem      chan struct{} // limits concurrent poll requests
 }
 
 func NewJudge0Client(cfg Config) *Judge0Client {
@@ -577,10 +578,10 @@ func NewJudge0Client(cfg Config) *Judge0Client {
 		},
 		PollInterval: cfg.PollInterval,
 		MaxPollSecs:  cfg.MaxPollSecs,
-		// Cap concurrent polls at 8 so Puma's 10 threads aren't saturated by
-		// 1000 goroutines each firing requests every PollInterval.
-		// This leaves 2 threads free for submit requests.
-		pollSem: make(chan struct{}, 8),
+		// submitSem(12) + pollSem(8) = 20 concurrent requests, matching RAILS_MAX_THREADS=20.
+		// Without this, 1000 goroutines all submit simultaneously → EOF errors.
+		submitSem: make(chan struct{}, 12),
+		pollSem:   make(chan struct{}, 8),
 	}
 }
 
@@ -615,7 +616,9 @@ func (c *Judge0Client) Submit(harness string, cpuLimitS int, memLimitMB int) (st
 		httpReq.Header.Set("X-Auth-Token", c.APIKey)
 	}
 
+	c.submitSem <- struct{}{}
 	resp, err := c.HTTPClient.Do(httpReq)
+	<-c.submitSem
 	if err != nil {
 		return "", fmt.Errorf("submit HTTP error: %w", err)
 	}
@@ -681,29 +684,36 @@ func (c *Judge0Client) Poll(token string) (*Judge0StatusResponse, error) {
 // ── Output Parser ─────────────────────────────────────────────────────────
 
 type ParsedResult struct {
-	TCStatuses []string
-	Score      int
-	Total      int
-	GlobalTLE  bool
+	TCDetails []TCResult
+	Score     int
+	Total     int
+	GlobalTLE bool
 }
 
-func parseHarnessOutput(stdout, sessionID string, totalTCs int) ParsedResult {
+func parseHarnessOutput(stdout, sessionID string, testCases []TestCase) ParsedResult {
+	totalTCs := len(testCases)
 	delim := fmt.Sprintf("@@TC_RESULT__%s__", sessionID)
 	doneMarker := delim + "DONE"
 	globalTLE := !strings.Contains(stdout, doneMarker)
 
 	result := ParsedResult{
-		TCStatuses: make([]string, totalTCs),
-		Total:      totalTCs,
-		GlobalTLE:  globalTLE,
+		TCDetails: make([]TCResult, totalTCs),
+		Total:     totalTCs,
+		GlobalTLE: globalTLE,
 	}
 
-	// Fill with TLE default if global TLE (not MISSING — per your requirement)
-	for i := range result.TCStatuses {
+	// Fill defaults
+	for i, tc := range testCases {
+		defaultStatus := "MISSING"
 		if globalTLE {
-			result.TCStatuses[i] = "TLE"
-		} else {
-			result.TCStatuses[i] = "MISSING"
+			defaultStatus = "TLE"
+		}
+		result.TCDetails[i] = TCResult{
+			TCID:        tc.ID,
+			Description: tc.Description,
+			Stdin:       tc.StdinText,
+			Expected:    tc.Expected,
+			Status:      defaultStatus,
 		}
 	}
 
@@ -726,7 +736,8 @@ func parseHarnessOutput(stdout, sessionID string, totalTCs int) ParsedResult {
 
 		var tcData map[string]interface{}
 		if err := json.Unmarshal([]byte(content), &tcData); err != nil {
-			result.TCStatuses[i-1] = "PARSE_ERROR"
+			result.TCDetails[i-1].Status = "PARSE_ERROR"
+			result.TCDetails[i-1].Detail = "JSON parse error: " + err.Error()
 			continue
 		}
 
@@ -734,7 +745,17 @@ func parseHarnessOutput(stdout, sessionID string, totalTCs int) ParsedResult {
 		if status == "" {
 			status = "UNKNOWN"
 		}
-		result.TCStatuses[i-1] = status
+		result.TCDetails[i-1].Status = status
+		if got, ok := tcData["got"].(string); ok {
+			result.TCDetails[i-1].Got = got
+		}
+		if detail, ok := tcData["detail"].(string); ok {
+			result.TCDetails[i-1].Detail = detail
+		}
+		// Overwrite expected from harness output if present (authoritative)
+		if exp, ok := tcData["expected"].(string); ok && exp != "" {
+			result.TCDetails[i-1].Expected = exp
+		}
 		if status == "PASS" {
 			result.Score++
 		}
@@ -874,9 +895,16 @@ func runUser(
 		// Judge0 global TLE — all TCs marked TLE
 		result.HarnessStatus = "TLE"
 		result.GlobalTLE = true
-		result.TCStatuses = make([]string, len(prob.TestCases))
-		for i := range result.TCStatuses {
-			result.TCStatuses[i] = "TLE"
+		result.TCDetails = make([]TCResult, len(prob.TestCases))
+		for i, tc := range prob.TestCases {
+			result.TCDetails[i] = TCResult{
+				TCID:        tc.ID,
+				Description: tc.Description,
+				Stdin:       tc.StdinText,
+				Expected:    tc.Expected,
+				Status:      "TLE",
+				Detail:      "Judge0 global TLE",
+			}
 		}
 	} else if j0result.Status.ID == 6 {
 		// Compilation error (shouldn't happen for Python)
@@ -888,8 +916,8 @@ func runUser(
 		result.HarnessStatus = "JUDGE0_ERROR"
 		result.Error = fmt.Sprintf("Judge0 infrastructure error (status %d): %s", j0result.Status.ID, j0result.Status.Description)
 	} else {
-		parsed := parseHarnessOutput(stdout, sessionID, len(prob.TestCases))
-		result.TCStatuses = parsed.TCStatuses
+		parsed := parseHarnessOutput(stdout, sessionID, prob.TestCases)
+		result.TCDetails = parsed.TCDetails
 		result.Score = parsed.Score
 		result.GlobalTLE = parsed.GlobalTLE
 
@@ -899,8 +927,8 @@ func runUser(
 		} else {
 			// Find the dominant non-PASS status
 			statusCount := make(map[string]int)
-			for _, s := range parsed.TCStatuses {
-				statusCount[s]++
+			for _, tc := range parsed.TCDetails {
+				statusCount[tc.Status]++
 			}
 			dominant := "FAIL"
 			for _, s := range []string{"TLE", "ERROR", "FAIL"} {
@@ -939,6 +967,57 @@ func printProgress(metrics *Metrics, cfg Config, done chan struct{}) {
 
 // ── Report Writer ─────────────────────────────────────────────────────────
 
+// PerProblemSubmission is a single submission entry in the per-problem report.
+type PerProblemSubmission struct {
+	UserID        int        `json:"user_id"`
+	SolutionID    string     `json:"solution_id"`
+	SolutionType  string     `json:"solution_type"`
+	HarnessStatus string     `json:"harness_status"`
+	Score         int        `json:"score"`
+	TotalTCs      int        `json:"total_tcs"`
+	LatencyMs     int64      `json:"latency_ms"`
+	Judge0Status  string     `json:"judge0_status,omitempty"`
+	Error         string     `json:"error,omitempty"`
+	TestCases     []TCResult `json:"test_cases"`
+}
+
+// PerProblemReport groups all submissions for one problem.
+type PerProblemReport struct {
+	ProblemID   string                 `json:"problem_id"`
+	Submissions []PerProblemSubmission `json:"submissions"`
+}
+
+func buildPerProblemReport(results []SubmissionResult) []PerProblemReport {
+	// Group by problem ID preserving insertion order of first occurrence.
+	order := []string{}
+	byProblem := map[string]*PerProblemReport{}
+
+	for _, r := range results {
+		if _, exists := byProblem[r.ProblemID]; !exists {
+			order = append(order, r.ProblemID)
+			byProblem[r.ProblemID] = &PerProblemReport{ProblemID: r.ProblemID}
+		}
+		byProblem[r.ProblemID].Submissions = append(byProblem[r.ProblemID].Submissions, PerProblemSubmission{
+			UserID:        r.UserID,
+			SolutionID:    r.SolutionID,
+			SolutionType:  r.SolutionType,
+			HarnessStatus: r.HarnessStatus,
+			Score:         r.Score,
+			TotalTCs:      r.TotalTCs,
+			LatencyMs:     r.LatencyMs,
+			Judge0Status:  r.Judge0Status,
+			Error:         r.Error,
+			TestCases:     r.TCDetails,
+		})
+	}
+
+	report := make([]PerProblemReport, 0, len(order))
+	for _, pid := range order {
+		report = append(report, *byProblem[pid])
+	}
+	return report
+}
+
 func writeJSONReport(metrics *Metrics, cfg Config, outputFile string) error {
 	report := map[string]interface{}{
 		"config": map[string]interface{}{
@@ -948,23 +1027,24 @@ func writeJSONReport(metrics *Metrics, cfg Config, outputFile string) error {
 			"dry_run":       cfg.DryRun,
 		},
 		"summary": map[string]interface{}{
-			"total_submissions":    metrics.TotalSubmissions,
-			"completed":            metrics.Completed,
-			"errors":               metrics.Errors,
-			"blocked_by_ast":       metrics.Blocked,
-			"harness_jobs":         metrics.TotalSubmissions,
-			"batch_equivalent":     metrics.TotalSubmissions * 4,
-			"queue_reduction":      "4x",
-			"throughput_per_sec":   float64(metrics.Completed) / metrics.EndTime.Sub(metrics.StartTime).Seconds(),
-			"latency_p50_ms":       percentile(func() []int64 { s := make([]int64, len(metrics.Latencies)); copy(s, metrics.Latencies); sort.Slice(s, func(i, j int) bool { return s[i] < s[j] }); return s }(), 50),
-			"latency_p95_ms":       percentile(func() []int64 { s := make([]int64, len(metrics.Latencies)); copy(s, metrics.Latencies); sort.Slice(s, func(i, j int) bool { return s[i] < s[j] }); return s }(), 95),
-			"latency_p99_ms":       percentile(func() []int64 { s := make([]int64, len(metrics.Latencies)); copy(s, metrics.Latencies); sort.Slice(s, func(i, j int) bool { return s[i] < s[j] }); return s }(), 99),
-			"peak_in_flight_jobs":  metrics.MaxInFlight,
+			"total_submissions":   metrics.TotalSubmissions,
+			"completed":           metrics.Completed,
+			"errors":              metrics.Errors,
+			"blocked_by_ast":      metrics.Blocked,
+			"harness_jobs":        metrics.TotalSubmissions,
+			"batch_equivalent":    metrics.TotalSubmissions * 4,
+			"queue_reduction":     "4x",
+			"throughput_per_sec":  float64(metrics.Completed) / metrics.EndTime.Sub(metrics.StartTime).Seconds(),
+			"latency_p50_ms":      percentile(func() []int64 { s := make([]int64, len(metrics.Latencies)); copy(s, metrics.Latencies); sort.Slice(s, func(i, j int) bool { return s[i] < s[j] }); return s }(), 50),
+			"latency_p95_ms":      percentile(func() []int64 { s := make([]int64, len(metrics.Latencies)); copy(s, metrics.Latencies); sort.Slice(s, func(i, j int) bool { return s[i] < s[j] }); return s }(), 95),
+			"latency_p99_ms":      percentile(func() []int64 { s := make([]int64, len(metrics.Latencies)); copy(s, metrics.Latencies); sort.Slice(s, func(i, j int) bool { return s[i] < s[j] }); return s }(), 99),
+			"peak_in_flight_jobs": metrics.MaxInFlight,
 		},
-		"status_counts":  metrics.StatusCounts,
-		"problem_counts": metrics.ProblemCounts,
-		"type_counts":    metrics.TypeCounts,
-		"results":        metrics.Results,
+		"status_counts":        metrics.StatusCounts,
+		"problem_counts":       metrics.ProblemCounts,
+		"type_counts":          metrics.TypeCounts,
+		"results":              metrics.Results,
+		"per_problem_report":   buildPerProblemReport(metrics.Results),
 	}
 
 	f, err := os.Create(outputFile)

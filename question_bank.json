@@ -2,12 +2,12 @@
   "harness_config": {
     "mode": "stdio",
     "notes": [
-      "All problems use stdio mode \u2014 student writes full stdin/stdout programs.",
+      "All problems use stdio mode — student writes full stdin/stdout programs.",
       "The harness re-execs student code per TC with stdin replaced by tc.stdin_text.",
       "cpu_time_limit is per-TC (signal.alarm per TC), not global.",
       "Judge0 global limit = cpu_time_limit * len(test_cases) + 5s overhead.",
       "expected_output must be exact trimmed string match.",
-      "Solutions marked type=compile_error will be caught by AST checker (SyntaxError).",
+      "Solutions marked type=syntax_error will be caught by AST checker.",
       "Solutions marked type=time_limit_exceeded will be caught by per-TC signal.alarm.",
       "Solutions marked type=runtime_error will be caught by per-TC try/except.",
       "harness_status maps: PASS=accepted, FAIL=wrong_answer, TLE=tle, ERROR=runtime_error"
@@ -52,13 +52,36 @@
           "id": "two_sum_accepted",
           "type": "accepted",
           "description": "O(n) hash map - optimal",
-          "expected_harness_statuses": [
-            "PASS",
-            "PASS",
-            "PASS",
-            "PASS"
-          ],
+          "expected_harness_statuses": ["PASS", "PASS", "PASS", "PASS"],
           "source_code": "n = int(input())\nnums = list(map(int, input().split()))\ntarget = int(input())\nseen = {}\nfor i, x in enumerate(nums):\n    comp = target - x\n    if comp in seen:\n        print(seen[comp], i)\n        break\n    seen[x] = i\n"
+        },
+        {
+          "id": "two_sum_wrong_answer",
+          "type": "wrong_answer",
+          "description": "Always outputs 0 1 regardless of input",
+          "expected_harness_statuses": ["PASS", "FAIL", "PASS", "FAIL"],
+          "source_code": "n = int(input())\nnums = list(map(int, input().split()))\ntarget = int(input())\nprint(0, 1)\n"
+        },
+        {
+          "id": "two_sum_tle",
+          "type": "time_limit_exceeded",
+          "description": "Infinite loop - always TLEs",
+          "expected_harness_statuses": ["TLE", "TLE", "TLE", "TLE"],
+          "source_code": "n = int(input())\nnums = list(map(int, input().split()))\ntarget = int(input())\nwhile True:\n    pass\n"
+        },
+        {
+          "id": "two_sum_runtime_error",
+          "type": "runtime_error",
+          "description": "Index out of bounds",
+          "expected_harness_statuses": ["ERROR", "ERROR", "ERROR", "ERROR"],
+          "source_code": "n = int(input())\nnums = list(map(int, input().split()))\ntarget = int(input())\nprint(nums[n + 100])\n"
+        },
+        {
+          "id": "two_sum_syntax_error",
+          "type": "syntax_error",
+          "description": "Python syntax error - missing colon",
+          "expected_harness_statuses": ["BLOCKED", "BLOCKED", "BLOCKED", "BLOCKED"],
+          "source_code": "n = int(input())\nnums = list(map(int, input().split()))\ntarget = int(input())\nif n > 0\n    print(0, 1)\n"
         }
       ]
     },
@@ -100,13 +123,36 @@
           "id": "fib_accepted",
           "type": "accepted",
           "description": "Iterative O(n) - optimal",
-          "expected_harness_statuses": [
-            "PASS",
-            "PASS",
-            "PASS",
-            "PASS"
-          ],
+          "expected_harness_statuses": ["PASS", "PASS", "PASS", "PASS"],
           "source_code": "n = int(input())\nif n == 0:\n    print(0)\nelif n == 1:\n    print(1)\nelse:\n    a, b = 0, 1\n    for _ in range(2, n + 1):\n        a, b = b, a + b\n    print(b)\n"
+        },
+        {
+          "id": "fib_wrong_answer",
+          "type": "wrong_answer",
+          "description": "Prints n instead of fib(n)",
+          "expected_harness_statuses": ["PASS", "PASS", "FAIL", "FAIL"],
+          "source_code": "n = int(input())\nprint(n)\n"
+        },
+        {
+          "id": "fib_tle",
+          "type": "time_limit_exceeded",
+          "description": "Infinite loop - always TLEs",
+          "expected_harness_statuses": ["TLE", "TLE", "TLE", "TLE"],
+          "source_code": "n = int(input())\ncount = 0\nwhile True:\n    count += 1\n"
+        },
+        {
+          "id": "fib_runtime_error",
+          "type": "runtime_error",
+          "description": "Division by zero",
+          "expected_harness_statuses": ["ERROR", "ERROR", "ERROR", "ERROR"],
+          "source_code": "n = int(input())\nresult = 1 // n\nprint(result)\n"
+        },
+        {
+          "id": "fib_syntax_error",
+          "type": "syntax_error",
+          "description": "Python syntax error - incomplete if",
+          "expected_harness_statuses": ["BLOCKED", "BLOCKED", "BLOCKED", "BLOCKED"],
+          "source_code": "n = int(input())\nif n == 0\n    print(0)\nelse:\n    print(n)\n"
         }
       ]
     },
@@ -148,13 +194,36 @@
           "id": "lis_accepted",
           "type": "accepted",
           "description": "O(n log n) patience sort with bisect",
-          "expected_harness_statuses": [
-            "PASS",
-            "PASS",
-            "PASS",
-            "PASS"
-          ],
+          "expected_harness_statuses": ["PASS", "PASS", "PASS", "PASS"],
           "source_code": "import bisect\n\nn = int(input())\na = list(map(int, input().split()))\nans = []\nfor x in a:\n    if not ans or x > ans[-1]:\n        ans.append(x)\n    else:\n        ans[bisect.bisect_left(ans, x)] = x\nprint(len(ans))\n"
+        },
+        {
+          "id": "lis_wrong_answer",
+          "type": "wrong_answer",
+          "description": "Outputs n (length of array) instead of LIS length",
+          "expected_harness_statuses": ["FAIL", "FAIL", "FAIL", "FAIL"],
+          "source_code": "n = int(input())\na = list(map(int, input().split()))\nprint(n)\n"
+        },
+        {
+          "id": "lis_tle",
+          "type": "time_limit_exceeded",
+          "description": "Infinite loop - always TLEs",
+          "expected_harness_statuses": ["TLE", "TLE", "TLE", "TLE"],
+          "source_code": "n = int(input())\na = list(map(int, input().split()))\nx = 0\nwhile True:\n    x += 1\n"
+        },
+        {
+          "id": "lis_runtime_error",
+          "type": "runtime_error",
+          "description": "Raises ValueError",
+          "expected_harness_statuses": ["ERROR", "ERROR", "ERROR", "ERROR"],
+          "source_code": "n = int(input())\na = list(map(int, input().split()))\nraise ValueError('intentional error')\n"
+        },
+        {
+          "id": "lis_syntax_error",
+          "type": "syntax_error",
+          "description": "Python syntax error - missing colon in for",
+          "expected_harness_statuses": ["BLOCKED", "BLOCKED", "BLOCKED", "BLOCKED"],
+          "source_code": "n = int(input())\na = list(map(int, input().split()))\nfor x in a\n    print(x)\n"
         }
       ]
     }
