@@ -1,0 +1,95 @@
+{
+  "config": {
+    "dry_run": false,
+    "judge0_url": "http://localhost:2358",
+    "ramp_up_sec": 1,
+    "users": 3
+  },
+  "problem_counts": {
+    "fibonacci": 2,
+    "lis": 1
+  },
+  "results": [
+    {
+      "UserID": 0,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_wrong",
+      "SolutionType": "wrong_answer",
+      "HarnessStatus": "FAIL",
+      "TCStatuses": [
+        "FAIL",
+        "FAIL",
+        "FAIL",
+        "FAIL"
+      ],
+      "LatencyMs": 1544,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 1,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 1523,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 2,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_runtime_error",
+      "SolutionType": "runtime_error",
+      "HarnessStatus": "ERROR",
+      "TCStatuses": [
+        "ERROR",
+        "ERROR",
+        "ERROR",
+        "ERROR"
+      ],
+      "LatencyMs": 1533,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 0,
+      "TotalTCs": 4
+    }
+  ],
+  "status_counts": {
+    "ERROR": 1,
+    "FAIL": 1,
+    "PASS": 1
+  },
+  "summary": {
+    "batch_equivalent": 12,
+    "blocked_by_ast": 0,
+    "completed": 3,
+    "errors": 0,
+    "harness_jobs": 3,
+    "latency_p50_ms": 1533,
+    "latency_p95_ms": 1533,
+    "latency_p99_ms": 1533,
+    "peak_in_flight_jobs": 3,
+    "queue_reduction": "4x",
+    "throughput_per_sec": 1.362796359499578,
+    "total_submissions": 3
+  },
+  "type_counts": {
+    "accepted": 1,
+    "runtime_error": 1,
+    "wrong_answer": 1
+  }
+}

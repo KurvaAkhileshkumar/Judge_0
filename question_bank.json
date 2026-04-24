@@ -1,0 +1,162 @@
+{
+  "harness_config": {
+    "mode": "stdio",
+    "notes": [
+      "All problems use stdio mode \u2014 student writes full stdin/stdout programs.",
+      "The harness re-execs student code per TC with stdin replaced by tc.stdin_text.",
+      "cpu_time_limit is per-TC (signal.alarm per TC), not global.",
+      "Judge0 global limit = cpu_time_limit * len(test_cases) + 5s overhead.",
+      "expected_output must be exact trimmed string match.",
+      "Solutions marked type=compile_error will be caught by AST checker (SyntaxError).",
+      "Solutions marked type=time_limit_exceeded will be caught by per-TC signal.alarm.",
+      "Solutions marked type=runtime_error will be caught by per-TC try/except.",
+      "harness_status maps: PASS=accepted, FAIL=wrong_answer, TLE=tle, ERROR=runtime_error"
+    ]
+  },
+  "problems": [
+    {
+      "id": "two_sum",
+      "title": "Two Sum",
+      "difficulty": "easy",
+      "language": "python",
+      "per_tc_limit_s": 2,
+      "memory_limit_mb": 500,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "4\n2 7 11 15\n9\n",
+          "expected": "0 1",
+          "description": "basic - pair at start"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "3\n3 2 4\n6\n",
+          "expected": "1 2",
+          "description": "non-adjacent pair"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "2\n3 3\n6\n",
+          "expected": "0 1",
+          "description": "duplicate values"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "5\n1 8 3 7 9\n10\n",
+          "expected": "2 3",
+          "description": "pair in middle"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "two_sum_accepted",
+          "type": "accepted",
+          "description": "O(n) hash map - optimal",
+          "expected_harness_statuses": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS"
+          ],
+          "source_code": "n = int(input())\nnums = list(map(int, input().split()))\ntarget = int(input())\nseen = {}\nfor i, x in enumerate(nums):\n    comp = target - x\n    if comp in seen:\n        print(seen[comp], i)\n        break\n    seen[x] = i\n"
+        }
+      ]
+    },
+    {
+      "id": "fibonacci",
+      "title": "Nth Fibonacci Number",
+      "difficulty": "easy",
+      "language": "python",
+      "per_tc_limit_s": 2,
+      "memory_limit_mb": 500,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "0\n",
+          "expected": "0",
+          "description": "base case F(0)"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "1\n",
+          "expected": "1",
+          "description": "base case F(1)"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "10\n",
+          "expected": "55",
+          "description": "F(10) = 55"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "20\n",
+          "expected": "6765",
+          "description": "F(20) = 6765"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "fib_accepted",
+          "type": "accepted",
+          "description": "Iterative O(n) - optimal",
+          "expected_harness_statuses": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS"
+          ],
+          "source_code": "n = int(input())\nif n == 0:\n    print(0)\nelif n == 1:\n    print(1)\nelse:\n    a, b = 0, 1\n    for _ in range(2, n + 1):\n        a, b = b, a + b\n    print(b)\n"
+        }
+      ]
+    },
+    {
+      "id": "lis",
+      "title": "Longest Increasing Subsequence",
+      "difficulty": "medium",
+      "language": "python",
+      "per_tc_limit_s": 2,
+      "memory_limit_mb": 500,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "5\n10 9 2 5 3\n",
+          "expected": "2",
+          "description": "decreasing then small increase"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "6\n3 10 2 1 20 15\n",
+          "expected": "3",
+          "description": "mixed sequence"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "5\n5 4 3 2 1\n",
+          "expected": "1",
+          "description": "strictly decreasing"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "16\n0 8 4 12 2 10 6 14 1 9 5 13 3 11 7 15\n",
+          "expected": "6",
+          "description": "classic test - LIS=6"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "lis_accepted",
+          "type": "accepted",
+          "description": "O(n log n) patience sort with bisect",
+          "expected_harness_statuses": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS"
+          ],
+          "source_code": "import bisect\n\nn = int(input())\na = list(map(int, input().split()))\nans = []\nfor x in a:\n    if not ans or x > ans[-1]:\n        ans.append(x)\n    else:\n        ans[bisect.bisect_left(ans, x)] = x\nprint(len(ans))\n"
+        }
+      ]
+    }
+  ]
+}

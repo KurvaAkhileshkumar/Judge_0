@@ -1,0 +1,3835 @@
+{
+  "config": {
+    "dry_run": false,
+    "judge0_url": "http://localhost:2358",
+    "ramp_up_sec": 30,
+    "users": 200
+  },
+  "problem_counts": {
+    "fibonacci": 61,
+    "lis": 69,
+    "two_sum": 70
+  },
+  "results": [
+    {
+      "UserID": 0,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3048,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 1,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3023,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 2,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3023,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 3,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3015,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 4,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3030,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 5,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3028,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 6,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3033,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 7,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3034,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 8,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3027,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 9,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3027,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 10,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3026,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 11,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3029,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 12,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3026,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 13,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3031,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 14,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3035,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 15,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3019,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 16,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3022,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 17,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 3032,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 18,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4065,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 19,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4056,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 20,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4060,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 21,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4084,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 22,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4055,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 23,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4045,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 24,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4076,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 25,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4050,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 26,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4057,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 27,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4057,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 28,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4045,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 30,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4056,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 32,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4067,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 33,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4056,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 29,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5054,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 36,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 4054,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 31,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5090,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 34,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5096,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 35,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5080,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 37,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5086,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 38,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5081,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 39,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5077,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 40,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5081,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 41,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5148,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 42,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5077,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 43,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5061,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 44,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5064,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 45,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5085,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 46,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5096,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 47,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5082,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 48,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5093,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 50,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5073,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 51,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5067,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 54,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5075,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 55,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5082,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 49,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6101,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 57,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 5114,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 52,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6111,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 53,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6096,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 56,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6083,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 58,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6122,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 59,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6083,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 60,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6120,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 61,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6118,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 62,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6117,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 63,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6108,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 64,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6107,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 65,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6098,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 66,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6094,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 67,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6119,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 68,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6126,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 71,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6092,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 72,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6126,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 73,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6114,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 69,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7116,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 70,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7145,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 77,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 6113,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 74,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7125,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 75,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7126,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 76,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7130,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 78,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7124,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 79,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7117,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 80,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7122,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 81,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7142,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 83,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7143,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 84,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7129,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 85,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7154,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 86,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7121,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 88,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 7139,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 82,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 8197,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 87,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 8182,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 89,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 8165,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 90,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 8150,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 91,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 8156,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 92,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 8152,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 93,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 8179,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 94,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 8141,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 95,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 8150,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 97,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 8231,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 98,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 8175,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 96,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 9172,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 99,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 9294,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 100,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 9279,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 101,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 9266,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 103,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 9313,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 104,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 9311,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 102,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 10279,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 105,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 10326,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 106,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 10377,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 107,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 10342,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 108,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 10239,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 110,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 10374,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 111,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 11422,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 112,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 11405,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 113,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 11299,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 114,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 11401,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 115,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 11359,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 109,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 12359,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 116,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 11503,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 117,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 11456,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 118,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 11641,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 119,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 12568,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 120,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 12542,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 121,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 12623,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 122,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 13529,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 123,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 13626,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 124,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 13497,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 125,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 13685,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 126,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 13568,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 127,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 13591,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 128,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 13519,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 129,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 14605,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 130,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 14582,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 131,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 14791,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 132,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 14664,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 133,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 14547,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 134,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 14729,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 136,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 14653,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 138,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 14669,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 135,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 15750,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 139,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 15540,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 137,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 15944,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 140,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 15603,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 141,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 15769,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 145,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 15710,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 142,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 16750,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 143,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 16804,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 144,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 16792,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 146,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 16700,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 147,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 16772,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 148,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 16652,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 150,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 16846,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 152,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 16750,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 153,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 16602,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 154,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 16692,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 149,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 17746,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 151,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18033,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 155,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 17659,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 156,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 17710,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 157,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 17766,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 158,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 17696,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 159,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 17639,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 160,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 17879,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 162,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 17613,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 163,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 17859,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 164,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 17713,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 165,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 17662,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 161,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18582,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 166,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18594,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 167,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18753,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 168,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18656,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 169,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18603,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 170,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18708,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 171,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18750,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 172,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18643,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 173,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18608,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 174,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18801,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 176,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18651,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 175,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18856,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 177,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18630,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 178,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18492,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 181,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18704,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 179,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19575,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 180,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19653,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 182,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19692,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 183,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19721,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 184,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19611,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 185,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19699,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 186,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19604,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 187,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19590,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 194,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18633,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 188,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19552,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 196,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18497,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 189,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19626,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 190,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19558,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 197,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18580,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 191,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19647,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 198,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18597,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 199,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 18507,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 192,
+      "ProblemID": "lis",
+      "SolutionID": "lis_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19560,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 193,
+      "ProblemID": "fibonacci",
+      "SolutionID": "fib_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19616,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    },
+    {
+      "UserID": 195,
+      "ProblemID": "two_sum",
+      "SolutionID": "two_sum_accepted",
+      "SolutionType": "accepted",
+      "HarnessStatus": "PASS",
+      "TCStatuses": [
+        "PASS",
+        "PASS",
+        "PASS",
+        "PASS"
+      ],
+      "LatencyMs": 19503,
+      "Judge0Status": "Accepted",
+      "Error": "",
+      "GlobalTLE": false,
+      "Score": 4,
+      "TotalTCs": 4
+    }
+  ],
+  "status_counts": {
+    "PASS": 200
+  },
+  "summary": {
+    "batch_equivalent": 800,
+    "blocked_by_ast": 0,
+    "completed": 200,
+    "errors": 0,
+    "harness_jobs": 200,
+    "latency_p50_ms": 9266,
+    "latency_p95_ms": 19575,
+    "latency_p99_ms": 19692,
+    "peak_in_flight_jobs": 81,
+    "queue_reduction": "4x",
+    "throughput_per_sec": 4.091809850537618,
+    "total_submissions": 200
+  },
+  "type_counts": {
+    "accepted": 200
+  }
+}

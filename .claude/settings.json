@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s https://ce.judge0.com/system_info)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s --max-time 10 \"https://judge0-ce.p.rapidapi.com/system_info\" -H \"x-rapidapi-host: judge0-ce.p.rapidapi.com\")",
+      "Bash(curl -s --max-time 10 \"https://ce.judge0.com/languages\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\([x for x in d if x['id']==71]\\)\")",
+      "Bash(go version *)",
+      "Bash(brew install *)",
+      "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
+      "Bash(go build *)",
+      "Bash(/tmp/loadtester -dryrun=true -users=50 -ramp=2 -bank=question_bank.json)",
+      "Bash(docker --version)",
+      "Read(//Applications/**)",
+      "Bash(brew list *)",
+      "Read(//usr/local/bin/**)",
+      "Read(//Users/akhilesh/.docker/**)",
+      "Bash(osascript -e 'quit app \"Docker\"')",
+      "Bash(/Applications/Docker.app/Contents/MacOS/uninstall)",
+      "Bash(sudo rm *)",
+      "Bash(curl -L \"https://desktop.docker.com/mac/main/arm64/Docker.dmg\" -o /tmp/Docker.dmg --progress-bar)",
+      "Bash(hdiutil attach *)",
+      "Read(//Volumes/**)",
+      "Bash(hdiutil detach *)",
+      "Bash(rm /tmp/Docker.dmg)",
+      "Bash(open /Applications/Docker.app)"
+    ],
+    "additionalDirectories": [
+      "/Applications/Docker.app"
+    ]
+  }
+}

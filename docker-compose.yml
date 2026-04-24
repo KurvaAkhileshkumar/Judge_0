@@ -1,0 +1,91 @@
+version: "3.9"
+
+services:
+
+  # ── cgroup v1 init ────────────────────────────────────────────────────────
+  # Docker Desktop on Apple Silicon uses cgroup v2 by default.
+  # isolate (Judge0's sandbox) requires cgroup v1 subsystem directories
+  # (/sys/fs/cgroup/memory, /sys/fs/cgroup/cpuacct, etc.).
+  # This init container attempts to mount them before workers start.
+  # On cgroup-v1 or hybrid Linux hosts this fully fixes the issue.
+  # On pure cgroup-v2 hosts (Docker Desktop Mac) it skips gracefully.
+  cgroupv1-init:
+    image: alpine
+    privileged: true
+    network_mode: none
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    command: >-
+      sh -c "
+        echo 'cgroupv1-init: mounting cgroup v1 controllers...' &&
+        for ctrl in memory cpuacct pids cpu; do
+          dir=/sys/fs/cgroup/$$ctrl &&
+          if mountpoint -q $$dir 2>/dev/null; then
+            echo EXISTS: $$ctrl
+          else
+            mkdir -p $$dir &&
+            (mount -t cgroup -o $$ctrl cgroup $$dir && echo MOUNTED: $$ctrl) ||
+            echo SKIP: $$ctrl
+          fi
+        done &&
+        echo 'cgroupv1-init: done' &&
+        exit 0"
+    restart: "no"
+
+  server:
+    image: judge0/judge0:1.13.0
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    ports:
+      - "2358:2358"
+    privileged: true
+    restart: always
+    environment:
+      - RAILS_MAX_THREADS=10
+      - WEB_CONCURRENCY=1
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+      cgroupv1-init:
+        condition: service_completed_successfully
+
+  workers:
+    image: judge0/judge0:1.13.0
+    command: ["./scripts/workers"]
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    privileged: true
+    restart: always
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+      cgroupv1-init:
+        condition: service_completed_successfully
+
+  db:
+    image: postgres:13
+    env_file: judge0.conf
+    command: postgres -c max_connections=200
+    volumes:
+      - postgres-data:/var/lib/postgresql/data/
+    restart: always
+
+  redis:
+    image: redis:6.0
+    command:
+      [
+        "redis-server",
+        "--appendonly", "yes",
+        "--requirepass", "judge0redis"
+      ]
+    volumes:
+      - redis-data:/data
+    restart: always
+
+volumes:
+  postgres-data:
+  redis-data:
