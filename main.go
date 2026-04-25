@@ -736,10 +736,10 @@ func NewJudge0Client(cfg Config) *Judge0Client {
 		},
 		PollInterval: cfg.PollInterval,
 		MaxPollSecs:  cfg.MaxPollSecs,
-		// submitSem(12) + pollSem(8) = 20 concurrent requests, matching RAILS_MAX_THREADS=20.
-		// Without this, 1000 goroutines all submit simultaneously → EOF errors.
-		submitSem: make(chan struct{}, 12),
-		pollSem:   make(chan struct{}, 8),
+		// submitSem(15) + pollSem(15) = 30 concurrent requests.
+		// Polls are instant DB SELECTs; slightly overcommitting vs RAILS_MAX_THREADS=20 is fine.
+		submitSem: make(chan struct{}, 15),
+		pollSem:   make(chan struct{}, 15),
 	}
 }
 
@@ -797,9 +797,8 @@ func (c *Judge0Client) Submit(harness string, cpuLimitS int, memLimitMB int) (st
 func (c *Judge0Client) Poll(token string) (*Judge0StatusResponse, error) {
 	deadline := time.Now().Add(time.Duration(c.MaxPollSecs) * time.Second)
 
-	// Wait a few seconds before the first poll — submissions take time to queue
-	// and process, so immediate polls waste server capacity.
-	time.Sleep(3 * time.Second)
+	// Wait for submission to be queued and a worker to pick it up before first poll.
+	time.Sleep(2 * time.Second)
 
 	for time.Now().Before(deadline) {
 		// Acquire semaphore before making the HTTP request.
@@ -1278,8 +1277,8 @@ func main() {
 	flag.IntVar(&cfg.BatchSize, "batch", 0, "Batch size for pipelined mode (0 = flat concurrent mode)")
 	flag.BoolVar(&cfg.AcceptOnly, "accept-only", false, "Only submit accepted solutions (100% pass target)")
 	flag.StringVar(&cfg.QuestionBank, "bank", "question_bank.json", "Path to question_bank.json")
-	flag.DurationVar(&cfg.PollInterval, "poll", 500*time.Millisecond, "Poll interval for Judge0 results")
-	flag.IntVar(&cfg.MaxPollSecs, "maxpoll", 120, "Max seconds to wait for a single submission result")
+	flag.DurationVar(&cfg.PollInterval, "poll", 400*time.Millisecond, "Poll interval for Judge0 results")
+	flag.IntVar(&cfg.MaxPollSecs, "maxpoll", 180, "Max seconds to wait for a single submission result")
 	flag.BoolVar(&cfg.DryRun, "dryrun", false, "Dry run: build harnesses but don't submit to Judge0")
 	flag.StringVar(&cfg.OutputFile, "out", "load_test_report.json", "Output JSON report file")
 	flag.Parse()
