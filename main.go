@@ -49,6 +49,8 @@ type Config struct {
 	APIKey       string
 	Users        int
 	RampUpSec    int
+	BatchSize    int  // >0 enables pipelined batch mode: all batches fire simultaneously
+	AcceptOnly   bool // only pick "accepted" solutions → 100% pass target
 	QuestionBank string
 	PollInterval time.Duration
 	MaxPollSecs  int
@@ -321,6 +323,162 @@ func max64(a, b int64) int64 {
 		return a
 	}
 	return b
+}
+
+// ── Batch Record ─────────────────────────────────────────────────────────
+
+type BatchRecord struct {
+	BatchID   int
+	StartTime time.Time
+	EndTime   time.Time
+	Results   []SubmissionResult
+}
+
+func (b *BatchRecord) Duration() time.Duration { return b.EndTime.Sub(b.StartTime) }
+
+func (b *BatchRecord) Passed() int {
+	n := 0
+	for _, r := range b.Results {
+		if r.HarnessStatus == "PASS" {
+			n++
+		}
+	}
+	return n
+}
+
+func (b *BatchRecord) AvgLatencyMs() float64 {
+	if len(b.Results) == 0 {
+		return 0
+	}
+	var sum int64
+	for _, r := range b.Results {
+		sum += r.LatencyMs
+	}
+	return float64(sum) / float64(len(b.Results))
+}
+
+func (b *BatchRecord) MaxLatencyMs() int64 {
+	var mx int64
+	for _, r := range b.Results {
+		if r.LatencyMs > mx {
+			mx = r.LatencyMs
+		}
+	}
+	return mx
+}
+
+// runBatch submits batchSize users concurrently and returns a BatchRecord.
+func runBatch(
+	batchID int,
+	userIDs []int,
+	bank QuestionBank,
+	client *Judge0Client,
+	metrics *Metrics,
+	cfg Config,
+	inFlight *int64,
+	maxInFlight *int64,
+) BatchRecord {
+	br := BatchRecord{BatchID: batchID, StartTime: time.Now()}
+
+	resCh := make(chan SubmissionResult, len(userIDs))
+	var wg sync.WaitGroup
+
+	for _, uid := range userIDs {
+		wg.Add(1)
+		go func(uid int) {
+			defer wg.Done()
+			var innerWG sync.WaitGroup
+			innerWG.Add(1)
+			// Intercept the result by wrapping metrics.Record
+			// We call runUser which appends to metrics; snapshot index before.
+			metrics.mu.Lock()
+			snapshotLen := len(metrics.Results)
+			metrics.mu.Unlock()
+
+			runUser(uid, bank, client, metrics, cfg, &innerWG, inFlight, maxInFlight)
+			innerWG.Wait()
+
+			metrics.mu.Lock()
+			if len(metrics.Results) > snapshotLen {
+				resCh <- metrics.Results[len(metrics.Results)-1]
+			}
+			metrics.mu.Unlock()
+		}(uid)
+	}
+
+	wg.Wait()
+	close(resCh)
+	for r := range resCh {
+		br.Results = append(br.Results, r)
+	}
+	br.EndTime = time.Now()
+	return br
+}
+
+// runPipelinedBatches fires all batches simultaneously and collects per-batch results.
+func runPipelinedBatches(
+	bank QuestionBank,
+	client *Judge0Client,
+	metrics *Metrics,
+	cfg Config,
+	inFlight *int64,
+	maxInFlight *int64,
+) []BatchRecord {
+	numBatches := (cfg.Users + cfg.BatchSize - 1) / cfg.BatchSize
+
+	fmt.Printf("\n  ═══════════════════════════════════════════════════════════\n")
+	fmt.Printf("  JUDGE0 PIPELINED BATCH LOAD TEST\n")
+	fmt.Printf("  ═══════════════════════════════════════════════════════════\n")
+	fmt.Printf("  Batches:       %d\n", numBatches)
+	fmt.Printf("  Users/batch:   %d\n", cfg.BatchSize)
+	fmt.Printf("  Total users:   %d\n", cfg.Users)
+	fmt.Printf("  Pipeline mode: all %d batches fired simultaneously\n", numBatches)
+	fmt.Printf("  ═══════════════════════════════════════════════════════════\n\n")
+
+	// Build per-batch user ID slices
+	batchUserIDs := make([][]int, numBatches)
+	uid := 1
+	for b := 0; b < numBatches; b++ {
+		end := uid + cfg.BatchSize
+		if end > cfg.Users+1 {
+			end = cfg.Users + 1
+		}
+		for u := uid; u < end; u++ {
+			batchUserIDs[b] = append(batchUserIDs[b], u)
+		}
+		uid = end
+	}
+
+	batchResults := make([]BatchRecord, numBatches)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	for b := 0; b < numBatches; b++ {
+		wg.Add(1)
+		go func(bIdx int) {
+			defer wg.Done()
+			fmt.Printf("  [Batch %02d] FIRED  @ %s  (%d users)\n",
+				bIdx+1, time.Now().Format("15:04:05.000"), len(batchUserIDs[bIdx]))
+
+			br := runBatch(bIdx+1, batchUserIDs[bIdx], bank, client, metrics, cfg, inFlight, maxInFlight)
+
+			mu.Lock()
+			batchResults[bIdx] = br
+			mu.Unlock()
+
+			passed := br.Passed()
+			total := len(br.Results)
+			pct := 0.0
+			if total > 0 {
+				pct = float64(passed) / float64(total) * 100
+			}
+			fmt.Printf("  [Batch %02d] DONE   @ %s  duration=%.2fs  passed=%d/%d (%.0f%%)  avg_lat=%.0fms\n",
+				bIdx+1, time.Now().Format("15:04:05.000"),
+				br.Duration().Seconds(), passed, total, pct, br.AvgLatencyMs())
+		}(b)
+	}
+	wg.Wait()
+	return batchResults
 }
 
 // ── Python Harness Builder ────────────────────────────────────────────────
@@ -783,8 +941,19 @@ func runUser(
 	// Pick random problem
 	prob := bank.Problems[rng.Intn(len(bank.Problems))]
 
-	// Pick random solution
-	sol := prob.Solutions[rng.Intn(len(prob.Solutions))]
+	// Pick solution — accepted-only mode filters to type=="accepted"
+	var candidates []Solution
+	if cfg.AcceptOnly {
+		for _, s := range prob.Solutions {
+			if s.Type == "accepted" {
+				candidates = append(candidates, s)
+			}
+		}
+	}
+	if len(candidates) == 0 {
+		candidates = prob.Solutions
+	}
+	sol := candidates[rng.Intn(len(candidates))]
 
 	sessionID := fmt.Sprintf("%d_%d_%d", userID, time.Now().UnixNano(), rng.Int63())
 
@@ -1018,33 +1187,72 @@ func buildPerProblemReport(results []SubmissionResult) []PerProblemReport {
 	return report
 }
 
-func writeJSONReport(metrics *Metrics, cfg Config, outputFile string) error {
+func writeJSONReport(metrics *Metrics, cfg Config, outputFile string, batchResults []BatchRecord) error {
+	sortedLats := func() []int64 {
+		s := make([]int64, len(metrics.Latencies))
+		copy(s, metrics.Latencies)
+		sort.Slice(s, func(i, j int) bool { return s[i] < s[j] })
+		return s
+	}()
+
 	report := map[string]interface{}{
 		"config": map[string]interface{}{
-			"users":         cfg.Users,
-			"ramp_up_sec":   cfg.RampUpSec,
-			"judge0_url":    cfg.Judge0URL,
-			"dry_run":       cfg.DryRun,
+			"users":       cfg.Users,
+			"ramp_up_sec": cfg.RampUpSec,
+			"batch_size":  cfg.BatchSize,
+			"judge0_url":  cfg.Judge0URL,
+			"dry_run":     cfg.DryRun,
 		},
 		"summary": map[string]interface{}{
-			"total_submissions":   metrics.TotalSubmissions,
-			"completed":           metrics.Completed,
-			"errors":              metrics.Errors,
-			"blocked_by_ast":      metrics.Blocked,
-			"harness_jobs":        metrics.TotalSubmissions,
-			"batch_equivalent":    metrics.TotalSubmissions * 4,
-			"queue_reduction":     "4x",
-			"throughput_per_sec":  float64(metrics.Completed) / metrics.EndTime.Sub(metrics.StartTime).Seconds(),
-			"latency_p50_ms":      percentile(func() []int64 { s := make([]int64, len(metrics.Latencies)); copy(s, metrics.Latencies); sort.Slice(s, func(i, j int) bool { return s[i] < s[j] }); return s }(), 50),
-			"latency_p95_ms":      percentile(func() []int64 { s := make([]int64, len(metrics.Latencies)); copy(s, metrics.Latencies); sort.Slice(s, func(i, j int) bool { return s[i] < s[j] }); return s }(), 95),
-			"latency_p99_ms":      percentile(func() []int64 { s := make([]int64, len(metrics.Latencies)); copy(s, metrics.Latencies); sort.Slice(s, func(i, j int) bool { return s[i] < s[j] }); return s }(), 99),
+			"total_submissions":  metrics.TotalSubmissions,
+			"completed":          metrics.Completed,
+			"errors":             metrics.Errors,
+			"blocked_by_ast":     metrics.Blocked,
+			"harness_jobs":       metrics.TotalSubmissions,
+			"batch_equivalent":   metrics.TotalSubmissions * 4,
+			"queue_reduction":    "4x",
+			"throughput_per_sec": float64(metrics.Completed) / metrics.EndTime.Sub(metrics.StartTime).Seconds(),
+			"latency_p50_ms":     percentile(sortedLats, 50),
+			"latency_p95_ms":     percentile(sortedLats, 95),
+			"latency_p99_ms":     percentile(sortedLats, 99),
 			"peak_in_flight_jobs": metrics.MaxInFlight,
 		},
-		"status_counts":        metrics.StatusCounts,
-		"problem_counts":       metrics.ProblemCounts,
-		"type_counts":          metrics.TypeCounts,
-		"results":              metrics.Results,
-		"per_problem_report":   buildPerProblemReport(metrics.Results),
+		"status_counts":      metrics.StatusCounts,
+		"problem_counts":     metrics.ProblemCounts,
+		"type_counts":        metrics.TypeCounts,
+		"results":            metrics.Results,
+		"per_problem_report": buildPerProblemReport(metrics.Results),
+	}
+
+	if len(batchResults) > 0 {
+		type batchJSON struct {
+			BatchID       int     `json:"batch_id"`
+			DurationS     float64 `json:"duration_s"`
+			TotalUsers    int     `json:"total_users"`
+			Passed        int     `json:"passed"`
+			AcceptancePct float64 `json:"acceptance_pct"`
+			AvgLatencyMs  float64 `json:"avg_latency_ms"`
+			MaxLatencyMs  int64   `json:"max_latency_ms"`
+		}
+		batches := make([]batchJSON, 0, len(batchResults))
+		for _, br := range batchResults {
+			passed := br.Passed()
+			total := len(br.Results)
+			pct := 0.0
+			if total > 0 {
+				pct = float64(passed) / float64(total) * 100
+			}
+			batches = append(batches, batchJSON{
+				BatchID:       br.BatchID,
+				DurationS:     br.Duration().Seconds(),
+				TotalUsers:    total,
+				Passed:        passed,
+				AcceptancePct: pct,
+				AvgLatencyMs:  br.AvgLatencyMs(),
+				MaxLatencyMs:  br.MaxLatencyMs(),
+			})
+		}
+		report["batches"] = batches
 	}
 
 	f, err := os.Create(outputFile)
@@ -1065,8 +1273,10 @@ func main() {
 
 	flag.StringVar(&cfg.Judge0URL, "url", "http://localhost:2358", "Judge0 base URL")
 	flag.StringVar(&cfg.APIKey, "key", "", "Judge0 API key (X-Auth-Token)")
-	flag.IntVar(&cfg.Users, "users", 500, "Number of concurrent virtual users")
-	flag.IntVar(&cfg.RampUpSec, "ramp", 10, "Ramp-up duration in seconds (spread user starts)")
+	flag.IntVar(&cfg.Users, "users", 500, "Number of virtual users")
+	flag.IntVar(&cfg.RampUpSec, "ramp", 10, "Ramp-up duration in seconds (flat mode only)")
+	flag.IntVar(&cfg.BatchSize, "batch", 0, "Batch size for pipelined mode (0 = flat concurrent mode)")
+	flag.BoolVar(&cfg.AcceptOnly, "accept-only", false, "Only submit accepted solutions (100% pass target)")
 	flag.StringVar(&cfg.QuestionBank, "bank", "question_bank.json", "Path to question_bank.json")
 	flag.DurationVar(&cfg.PollInterval, "poll", 500*time.Millisecond, "Poll interval for Judge0 results")
 	flag.IntVar(&cfg.MaxPollSecs, "maxpoll", 120, "Max seconds to wait for a single submission result")
@@ -1088,10 +1298,20 @@ func main() {
 	fmt.Printf("  ───────────────────────────────────────────────\n")
 	fmt.Printf("  Target:       %s\n", cfg.Judge0URL)
 	fmt.Printf("  Users:        %d\n", cfg.Users)
-	fmt.Printf("  Ramp-up:      %ds\n", cfg.RampUpSec)
+	if cfg.BatchSize > 0 {
+		numBatches := (cfg.Users + cfg.BatchSize - 1) / cfg.BatchSize
+		fmt.Printf("  Mode:         Pipelined batches (%d batches × %d users, all batches fire simultaneously)\n", numBatches, cfg.BatchSize)
+	} else {
+		fmt.Printf("  Mode:         Flat concurrent  (ramp-up %ds)\n", cfg.RampUpSec)
+	}
 	fmt.Printf("  Problems:     %d\n", len(bank.Problems))
+	fmt.Printf("  Solutions:    %s\n", func() string {
+		if cfg.AcceptOnly {
+			return "accepted only (100% pass target)"
+		}
+		return "random (all types)"
+	}())
 	fmt.Printf("  Dry run:      %v\n", cfg.DryRun)
-	fmt.Printf("  Mode:         Harness (1 job per submission)\n")
 	fmt.Printf("  Batch equiv:  ~%d jobs if using batch approach\n", cfg.Users*4)
 	fmt.Printf("  ───────────────────────────────────────────────\n\n")
 
@@ -1101,42 +1321,53 @@ func main() {
 	var inFlight int64
 	var maxInFlight int64
 
-	var wg sync.WaitGroup
-	progressDone := make(chan struct{})
+	var batchResults []BatchRecord
 
-	go printProgress(metrics, cfg, progressDone)
+	if cfg.BatchSize > 0 {
+		// ── Pipelined batch mode ────────────────────────────────────────
+		batchResults = runPipelinedBatches(bank, client, metrics, cfg, &inFlight, &maxInFlight)
+		metrics.mu.Lock()
+		metrics.EndTime = time.Now()
+		metrics.InFlight = inFlight
+		metrics.MaxInFlight = maxInFlight
+		metrics.mu.Unlock()
+	} else {
+		// ── Flat concurrent mode (original behaviour) ───────────────────
+		var wg sync.WaitGroup
+		progressDone := make(chan struct{})
+		go printProgress(metrics, cfg, progressDone)
 
-	// Ramp-up: spread user goroutine starts evenly over ramp-up period
-	rampDelay := time.Duration(0)
-	if cfg.RampUpSec > 0 && cfg.Users > 1 {
-		rampDelay = time.Duration(cfg.RampUpSec) * time.Second / time.Duration(cfg.Users)
-	}
-
-	for i := 0; i < cfg.Users; i++ {
-		wg.Add(1)
-		go func(uid int) {
-			runUser(uid, bank, client, metrics, cfg, &wg, &inFlight, &maxInFlight)
-		}(i)
-
-		if rampDelay > 0 && i < cfg.Users-1 {
-			time.Sleep(rampDelay)
+		rampDelay := time.Duration(0)
+		if cfg.RampUpSec > 0 && cfg.Users > 1 {
+			rampDelay = time.Duration(cfg.RampUpSec) * time.Second / time.Duration(cfg.Users)
 		}
+
+		for i := 0; i < cfg.Users; i++ {
+			wg.Add(1)
+			go func(uid int) {
+				runUser(uid, bank, client, metrics, cfg, &wg, &inFlight, &maxInFlight)
+			}(i)
+			if rampDelay > 0 && i < cfg.Users-1 {
+				time.Sleep(rampDelay)
+			}
+		}
+
+		wg.Wait()
+		close(progressDone)
+
+		metrics.mu.Lock()
+		metrics.EndTime = time.Now()
+		metrics.InFlight = inFlight
+		metrics.MaxInFlight = maxInFlight
+		metrics.mu.Unlock()
+
+		fmt.Println()
 	}
 
-	wg.Wait()
-	close(progressDone)
-
-	metrics.mu.Lock()
-	metrics.EndTime = time.Now()
-	metrics.InFlight = inFlight
-	metrics.MaxInFlight = maxInFlight
-	metrics.mu.Unlock()
-
-	fmt.Println() // newline after progress
 	metrics.Print(cfg)
 
 	if cfg.OutputFile != "" {
-		if err := writeJSONReport(metrics, cfg, cfg.OutputFile); err != nil {
+		if err := writeJSONReport(metrics, cfg, cfg.OutputFile, batchResults); err != nil {
 			log.Printf("Failed to write report: %v", err)
 		} else {
 			fmt.Printf("  JSON report written to: %s\n\n", cfg.OutputFile)
