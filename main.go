@@ -45,17 +45,19 @@ import (
 // ── Config ────────────────────────────────────────────────────────────────
 
 type Config struct {
-	Judge0URL    string
-	APIKey       string
-	Users        int
-	RampUpSec    int
-	BatchSize    int  // >0 enables pipelined batch mode: all batches fire simultaneously
-	AcceptOnly   bool // only pick "accepted" solutions → 100% pass target
-	QuestionBank string
-	PollInterval time.Duration
-	MaxPollSecs  int
-	DryRun       bool   // build harness but don't submit — for local testing
-	OutputFile   string // write JSON report here
+	Judge0URL     string
+	APIKey        string
+	Users         int
+	RampUpSec     int
+	BatchSize     int  // >0 enables pipelined batch mode: all batches fire simultaneously
+	AcceptOnly    bool // only pick "accepted" solutions → 100% pass target
+	CallbackPort  int    // >0 enables callback mode: embedded HTTP server on this port
+	CallbackHost  string // hostname Judge0 uses to reach us (default: host.docker.internal)
+	QuestionBank  string
+	PollInterval  time.Duration
+	MaxPollSecs   int
+	DryRun        bool   // build harness but don't submit — for local testing
+	OutputFile    string // write JSON report here
 }
 
 // ── Question Bank Types ───────────────────────────────────────────────────
@@ -114,8 +116,9 @@ type Judge0SubmitRequest struct {
 	Base64Encoded bool   `json:"base64_encoded"`
 	// Both true → isolate_job.rb omits --cg from isolate command.
 	// Required for Docker Desktop on Mac (cgroup v2 only, no cgroup v1).
-	EnablePerProcessThreadTimeLimit   bool `json:"enable_per_process_and_thread_time_limit"`
-	EnablePerProcessThreadMemoryLimit bool `json:"enable_per_process_and_thread_memory_limit"`
+	EnablePerProcessThreadTimeLimit   bool   `json:"enable_per_process_and_thread_time_limit"`
+	EnablePerProcessThreadMemoryLimit bool   `json:"enable_per_process_and_thread_memory_limit"`
+	CallbackURL                       string `json:"callback_url,omitempty"`
 }
 
 type Judge0SubmitResponse struct {
@@ -123,15 +126,16 @@ type Judge0SubmitResponse struct {
 }
 
 type Judge0StatusResponse struct {
+	Token  string `json:"token"` // populated in callback mode; empty in poll mode
 	Status struct {
 		ID          int    `json:"id"`
 		Description string `json:"description"`
 	} `json:"status"`
-	Stdout        string  `json:"stdout"`
-	Stderr        string  `json:"stderr"`
-	CompileOutput string  `json:"compile_output"`
-	Time          string  `json:"time"`
-	Memory        int     `json:"memory"`
+	Stdout        string `json:"stdout"`
+	Stderr        string `json:"stderr"`
+	CompileOutput string `json:"compile_output"`
+	Time          string `json:"time"`
+	Memory        int    `json:"memory"`
 }
 
 // ── Result Types ──────────────────────────────────────────────────────────
@@ -377,6 +381,7 @@ func runBatch(
 	cfg Config,
 	inFlight *int64,
 	maxInFlight *int64,
+	cs *CallbackServer,
 ) BatchRecord {
 	br := BatchRecord{BatchID: batchID, StartTime: time.Now()}
 
@@ -395,7 +400,7 @@ func runBatch(
 			snapshotLen := len(metrics.Results)
 			metrics.mu.Unlock()
 
-			runUser(uid, bank, client, metrics, cfg, &innerWG, inFlight, maxInFlight)
+			runUser(uid, bank, client, metrics, cfg, &innerWG, inFlight, maxInFlight, cs)
 			innerWG.Wait()
 
 			metrics.mu.Lock()
@@ -423,8 +428,14 @@ func runPipelinedBatches(
 	cfg Config,
 	inFlight *int64,
 	maxInFlight *int64,
+	cs *CallbackServer,
 ) []BatchRecord {
 	numBatches := (cfg.Users + cfg.BatchSize - 1) / cfg.BatchSize
+
+	resultMode := "Polling"
+	if cs != nil {
+		resultMode = fmt.Sprintf("Callback → %s", cs.URL(cfg.CallbackHost, cfg.CallbackPort))
+	}
 
 	fmt.Printf("\n  ═══════════════════════════════════════════════════════════\n")
 	fmt.Printf("  JUDGE0 PIPELINED BATCH LOAD TEST\n")
@@ -433,6 +444,7 @@ func runPipelinedBatches(
 	fmt.Printf("  Users/batch:   %d\n", cfg.BatchSize)
 	fmt.Printf("  Total users:   %d\n", cfg.Users)
 	fmt.Printf("  Pipeline mode: all %d batches fired simultaneously\n", numBatches)
+	fmt.Printf("  Result mode:   %s\n", resultMode)
 	fmt.Printf("  ═══════════════════════════════════════════════════════════\n\n")
 
 	// Build per-batch user ID slices
@@ -460,7 +472,7 @@ func runPipelinedBatches(
 			fmt.Printf("  [Batch %02d] FIRED  @ %s  (%d users)\n",
 				bIdx+1, time.Now().Format("15:04:05.000"), len(batchUserIDs[bIdx]))
 
-			br := runBatch(bIdx+1, batchUserIDs[bIdx], bank, client, metrics, cfg, inFlight, maxInFlight)
+			br := runBatch(bIdx+1, batchUserIDs[bIdx], bank, client, metrics, cfg, inFlight, maxInFlight, cs)
 
 			mu.Lock()
 			batchResults[bIdx] = br
@@ -743,7 +755,7 @@ func NewJudge0Client(cfg Config) *Judge0Client {
 	}
 }
 
-func (c *Judge0Client) Submit(harness string, cpuLimitS int, memLimitMB int) (string, error) {
+func (c *Judge0Client) Submit(harness string, cpuLimitS int, memLimitMB int, callbackURL string) (string, error) {
 	encoded := base64.StdEncoding.EncodeToString([]byte(harness))
 
 	req := Judge0SubmitRequest{
@@ -756,6 +768,7 @@ func (c *Judge0Client) Submit(harness string, cpuLimitS int, memLimitMB int) (st
 		Base64Encoded: true,
 		EnablePerProcessThreadTimeLimit:   true,
 		EnablePerProcessThreadMemoryLimit: true,
+		CallbackURL:                       callbackURL,
 	}
 
 	body, err := json.Marshal(req)
@@ -836,6 +849,70 @@ func (c *Judge0Client) Poll(token string) (*Judge0StatusResponse, error) {
 		return &result, nil
 	}
 	return nil, fmt.Errorf("poll timeout after %ds", c.MaxPollSecs)
+}
+
+// ── Callback Server ───────────────────────────────────────────────────────
+// Judge0 PUTs the full result to /result when a job finishes (HTTParty.put in isolate_job.rb).
+// CallbackServer maps token → channel so each waiting goroutine unblocks instantly.
+
+type CallbackServer struct {
+	pending sync.Map   // token (string) → chan Judge0StatusResponse
+	server  *http.Server
+}
+
+func NewCallbackServer() *CallbackServer { return &CallbackServer{} }
+
+// Register adds token to the pending set; returns a channel that receives exactly one result.
+func (cs *CallbackServer) Register(token string) <-chan Judge0StatusResponse {
+	ch := make(chan Judge0StatusResponse, 1)
+	cs.pending.Store(token, ch)
+	return ch
+}
+
+func (cs *CallbackServer) handleResult(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut && r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	defer r.Body.Close()
+	var payload Judge0StatusResponse
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.Token == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	// Respond 200 immediately — Judge0 does not retry on non-2xx so we must be fast.
+	w.WriteHeader(http.StatusOK)
+	if v, ok := cs.pending.LoadAndDelete(payload.Token); ok {
+		v.(chan Judge0StatusResponse) <- payload
+	}
+}
+
+func (cs *CallbackServer) Start(port int) error {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/result", cs.handleResult)
+	cs.server = &http.Server{Addr: fmt.Sprintf(":%d", port), Handler: mux}
+	errCh := make(chan error, 1)
+	go func() {
+		if err := cs.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+		}
+	}()
+	select {
+	case err := <-errCh:
+		return fmt.Errorf("callback server: %w", err)
+	case <-time.After(150 * time.Millisecond):
+		return nil // started successfully
+	}
+}
+
+func (cs *CallbackServer) Stop() {
+	if cs.server != nil {
+		cs.server.Close()
+	}
+}
+
+func (cs *CallbackServer) URL(host string, port int) string {
+	return fmt.Sprintf("http://%s:%d/result", host, port)
 }
 
 // ── Output Parser ─────────────────────────────────────────────────────────
@@ -932,6 +1009,7 @@ func runUser(
 	wg *sync.WaitGroup,
 	inFlight *int64,
 	maxInFlight *int64,
+	cs *CallbackServer, // nil = polling mode; non-nil = callback mode
 ) {
 	defer wg.Done()
 
@@ -1008,7 +1086,6 @@ func runUser(
 
 	// ── Submit to Judge0 ─────────────────────────────────────────────
 	current := atomic.AddInt64(inFlight, 1)
-	// Update max in-flight
 	for {
 		max := atomic.LoadInt64(maxInFlight)
 		if current <= max {
@@ -1022,7 +1099,12 @@ func runUser(
 	// v3 parallel harness: all TCs run at t=0, worst case = 1 TC limit + overhead
 	globalLimitS := prob.PerTCLimitS + 5
 
-	token, err := client.Submit(harness, globalLimitS, prob.MemoryLimitMB)
+	var callbackURL string
+	if cs != nil {
+		callbackURL = cs.URL(cfg.CallbackHost, cfg.CallbackPort)
+	}
+
+	token, err := client.Submit(harness, globalLimitS, prob.MemoryLimitMB, callbackURL)
 	if err != nil {
 		atomic.AddInt64(inFlight, -1)
 		result.HarnessStatus = "JUDGE0_ERROR"
@@ -1032,17 +1114,35 @@ func runUser(
 		return
 	}
 
-	// ── Poll for result ───────────────────────────────────────────────
-	j0result, err := client.Poll(token)
-	atomic.AddInt64(inFlight, -1)
-
-	if err != nil {
-		result.HarnessStatus = "JUDGE0_ERROR"
-		result.Error = "poll: " + err.Error()
-		result.LatencyMs = time.Since(start).Milliseconds()
-		metrics.Record(result)
-		return
+	// ── Wait for result: callback (push) or polling (pull) ────────────
+	var j0result *Judge0StatusResponse
+	if cs != nil {
+		// Callback mode: register before submit returns; block until Judge0 fires PUT /result.
+		resultCh := cs.Register(token)
+		select {
+		case r := <-resultCh:
+			j0result = &r
+		case <-time.After(time.Duration(cfg.MaxPollSecs) * time.Second):
+			atomic.AddInt64(inFlight, -1)
+			result.HarnessStatus = "JUDGE0_ERROR"
+			result.Error = fmt.Sprintf("callback timeout after %ds — job may still be queued", cfg.MaxPollSecs)
+			result.LatencyMs = time.Since(start).Milliseconds()
+			metrics.Record(result)
+			return
+		}
+	} else {
+		var pollErr error
+		j0result, pollErr = client.Poll(token)
+		if pollErr != nil {
+			atomic.AddInt64(inFlight, -1)
+			result.HarnessStatus = "JUDGE0_ERROR"
+			result.Error = "poll: " + pollErr.Error()
+			result.LatencyMs = time.Since(start).Milliseconds()
+			metrics.Record(result)
+			return
+		}
 	}
+	atomic.AddInt64(inFlight, -1)
 
 	result.Judge0Status = j0result.Status.Description
 	result.LatencyMs = time.Since(start).Milliseconds()
@@ -1276,6 +1376,8 @@ func main() {
 	flag.IntVar(&cfg.RampUpSec, "ramp", 10, "Ramp-up duration in seconds (flat mode only)")
 	flag.IntVar(&cfg.BatchSize, "batch", 0, "Batch size for pipelined mode (0 = flat concurrent mode)")
 	flag.BoolVar(&cfg.AcceptOnly, "accept-only", false, "Only submit accepted solutions (100% pass target)")
+	flag.IntVar(&cfg.CallbackPort, "callback-port", 0, "Port for embedded callback server (0 = use polling)")
+	flag.StringVar(&cfg.CallbackHost, "callback-host", "host.docker.internal", "Hostname Judge0 uses to reach this machine")
 	flag.StringVar(&cfg.QuestionBank, "bank", "question_bank.json", "Path to question_bank.json")
 	flag.DurationVar(&cfg.PollInterval, "poll", 400*time.Millisecond, "Poll interval for Judge0 results")
 	flag.IntVar(&cfg.MaxPollSecs, "maxpoll", 180, "Max seconds to wait for a single submission result")
@@ -1310,12 +1412,29 @@ func main() {
 		}
 		return "random (all types)"
 	}())
+	fmt.Printf("  Result mode:  %s\n", func() string {
+		if cfg.CallbackPort > 0 {
+			return fmt.Sprintf("Callback (http://%s:%d/result)", cfg.CallbackHost, cfg.CallbackPort)
+		}
+		return fmt.Sprintf("Polling (interval=%s)", cfg.PollInterval)
+	}())
 	fmt.Printf("  Dry run:      %v\n", cfg.DryRun)
 	fmt.Printf("  Batch equiv:  ~%d jobs if using batch approach\n", cfg.Users*4)
 	fmt.Printf("  ───────────────────────────────────────────────\n\n")
 
 	metrics := NewMetrics()
 	client := NewJudge0Client(cfg)
+
+	// ── Start callback server if requested ────────────────────────────
+	var cs *CallbackServer
+	if cfg.CallbackPort > 0 {
+		cs = NewCallbackServer()
+		if err := cs.Start(cfg.CallbackPort); err != nil {
+			log.Fatalf("Failed to start callback server on port %d: %v", cfg.CallbackPort, err)
+		}
+		defer cs.Stop()
+		fmt.Printf("  Callback server listening on :%d\n\n", cfg.CallbackPort)
+	}
 
 	var inFlight int64
 	var maxInFlight int64
@@ -1324,14 +1443,14 @@ func main() {
 
 	if cfg.BatchSize > 0 {
 		// ── Pipelined batch mode ────────────────────────────────────────
-		batchResults = runPipelinedBatches(bank, client, metrics, cfg, &inFlight, &maxInFlight)
+		batchResults = runPipelinedBatches(bank, client, metrics, cfg, &inFlight, &maxInFlight, cs)
 		metrics.mu.Lock()
 		metrics.EndTime = time.Now()
 		metrics.InFlight = inFlight
 		metrics.MaxInFlight = maxInFlight
 		metrics.mu.Unlock()
 	} else {
-		// ── Flat concurrent mode (original behaviour) ───────────────────
+		// ── Flat concurrent mode ────────────────────────────────────────
 		var wg sync.WaitGroup
 		progressDone := make(chan struct{})
 		go printProgress(metrics, cfg, progressDone)
@@ -1344,7 +1463,7 @@ func main() {
 		for i := 0; i < cfg.Users; i++ {
 			wg.Add(1)
 			go func(uid int) {
-				runUser(uid, bank, client, metrics, cfg, &wg, &inFlight, &maxInFlight)
+				runUser(uid, bank, client, metrics, cfg, &wg, &inFlight, &maxInFlight, cs)
 			}(i)
 			if rampDelay > 0 && i < cfg.Users-1 {
 				time.Sleep(rampDelay)
