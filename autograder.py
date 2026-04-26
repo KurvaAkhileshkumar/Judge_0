@@ -19,7 +19,7 @@ from typing import Any, Optional
 
 from core.harness_builder import HarnessBuilder, HarnessConfig, TestCase
 from core.output_parser   import OutputParser, ParsedSubmission, parse_judge0_response
-from core.judge0_client   import Judge0Client, Judge0Config, Judge0Result
+from core.judge0_client   import Judge0Client, Judge0Config, Judge0Result, CallbackServer
 from security.security    import SecurityChecker, sanitize_for_injection
 
 
@@ -71,8 +71,19 @@ class GradingResult:
 
 class Autograder:
 
-    def __init__(self, judge0_config: Judge0Config):
-        self.judge0   = Judge0Client(judge0_config)
+    def __init__(
+        self,
+        judge0_config:   Judge0Config,
+        callback_server: CallbackServer = None,
+        callback_host:   str = "host.docker.internal",
+        callback_port:   int = 0,
+    ):
+        self.judge0   = Judge0Client(
+            judge0_config,
+            callback_server=callback_server,
+            callback_host=callback_host,
+            callback_port=callback_port,
+        )
         self.security = SecurityChecker()
 
     def grade(self, submission: Submission) -> GradingResult:
