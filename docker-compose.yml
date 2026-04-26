@@ -41,8 +41,17 @@ services:
     privileged: true
     restart: always
     environment:
-      - RAILS_MAX_THREADS=20   # threads per Puma process
-      - WEB_CONCURRENCY=4      # 4 processes × 20 threads = 80 total connections
+      # RAILS_MAX_THREADS = threads per Puma process (holds one DB connection each)
+      # WEB_CONCURRENCY   = number of Puma processes
+      # Total HTTP connections = WEB_CONCURRENCY × RAILS_MAX_THREADS
+      #
+      # Dev   (10 core / 16 GB):  WEB_CONCURRENCY=4  × RAILS_MAX_THREADS=20 =  80 connections
+      # Prod  ( 8 core / 32 GB):  WEB_CONCURRENCY=4  × RAILS_MAX_THREADS=20 =  80 connections
+      # Prod  (16 core / 64 GB):  WEB_CONCURRENCY=8  × RAILS_MAX_THREADS=20 = 160 connections
+      #
+      # Rule: never exceed (postgres max_connections - worker_connections - 20 headroom)
+      - RAILS_MAX_THREADS=20
+      - WEB_CONCURRENCY=4
     depends_on:
       db:
         condition: service_started
@@ -63,10 +72,20 @@ services:
         condition: service_started
       redis:
         condition: service_started
+    # Scale workers with: docker compose up --scale workers=N
+    #
+    # Dev   (10 core / 16 GB):  --scale workers=3   (MAX_RUNNERS=2 → 6 sandboxes)
+    # Prod  ( 8 core / 32 GB):  --scale workers=6   (MAX_RUNNERS=2 → 12 sandboxes)
+    # Prod  (16 core / 64 GB):  --scale workers=12  (MAX_RUNNERS=2 → 24 sandboxes)
+    #
+    # Rule: replicas = available CPU cores − 2 (reserve for server + db)
+    #       MAX_RUNNERS in judge0.conf should stay at 2 regardless of replica count
 
   db:
     image: postgres:13
     env_file: judge0.conf
+    # max_connections must cover: (WEB_CONCURRENCY × RAILS_MAX_THREADS) + (workers × 5) + 20 headroom
+    # Current:  (4 × 20) + (3 × 5) + 20 = 115  →  200 limit is safe
     command: postgres -c max_connections=200
     volumes:
       - postgres-data:/var/lib/postgresql/data/
@@ -77,8 +96,10 @@ services:
     command:
       [
         "redis-server",
-        "--appendonly", "yes",
-        "--requirepass", "judge0redis"
+        "--appendonly", "yes",           # AOF persistence — survives restarts
+        "--maxmemory",        "512mb",   # hard cap — prevents Redis eating all RAM
+        "--maxmemory-policy", "noeviction", # reject new jobs if full, never silently drop
+        "--requirepass",      "judge0redis" # CHANGE THIS before production
       ]
     volumes:
       - redis-data:/data
