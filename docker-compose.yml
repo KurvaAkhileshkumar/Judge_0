@@ -41,8 +41,8 @@ services:
     privileged: true
     restart: always
     environment:
-      - RAILS_MAX_THREADS=20
-      - WEB_CONCURRENCY=1
+      - RAILS_MAX_THREADS=20   # threads per Puma process
+      - WEB_CONCURRENCY=4      # 4 processes × 20 threads = 80 total connections
     depends_on:
       db:
         condition: service_started
@@ -63,8 +63,6 @@ services:
         condition: service_started
       redis:
         condition: service_started
-      cgroupv1-init:
-        condition: service_completed_successfully
 
   db:
     image: postgres:13
