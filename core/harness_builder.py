@@ -17,9 +17,15 @@ import json
 import uuid
 import textwrap
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 SUPPORTED_LANGUAGES = ["python", "c", "cpp", "java"]
+
+# Harness templates sit in harnesses/ next to the core/ package directory.
+# Path(__file__) makes this work whether the repo is cloned, on PYTHONPATH,
+# or installed via pip — no dependency on the current working directory.
+_HARNESSES_DIR = Path(__file__).parent.parent / "harnesses"
 
 
 @dataclass
@@ -72,7 +78,7 @@ class HarnessBuilder:
     # Builder only fills in the data (test cases, limits, student code).
     # ─────────────────────────────────────────────────────────────────
     def _build_python(self) -> str:
-        template = open("harnesses/python_harness.py").read()
+        template = (_HARNESSES_DIR / "python_harness.py").read_text()
 
         if self.cfg.mode == "stdio":
             tc_dicts = [
@@ -126,7 +132,7 @@ class HarnessBuilder:
     # C
     # ─────────────────────────────────────────────────────────────────
     def _build_c(self) -> str:
-        template     = open("harnesses/c_harness.c").read()
+        template     = (_HARNESSES_DIR / "c_harness.c").read_text()
         param_types  = self.cfg.param_types or []
         params       = ", ".join(f"{t} p{i}" for i, t in enumerate(param_types))
         args         = ", ".join(f"p{i}" for i in range(len(param_types)))
@@ -306,7 +312,7 @@ class HarnessBuilder:
     # C++
     # ─────────────────────────────────────────────────────────────────
     def _build_cpp(self) -> str:
-        template    = open("harnesses/cpp_harness.cpp").read()
+        template    = (_HARNESSES_DIR / "cpp_harness.cpp").read_text()
         param_types = self.cfg.param_types or []
         params      = ", ".join(f"{t} p{i}" for i, t in enumerate(param_types))
         args        = ", ".join(f"p{i}" for i in range(len(param_types)))
@@ -451,7 +457,7 @@ class HarnessBuilder:
     # ─────────────────────────────────────────────────────────────────
     def _build_java(self) -> str:
         # Java has too many literal { } braces for Python .format() — use replace() instead.
-        template = open("harnesses/java_harness.java").read()
+        template = (_HARNESSES_DIR / "java_harness.java").read_text()
 
         inner_class = (
             "\n    static class Student {\n" +

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "judge0-autograder"
+version = "0.1.0"
+description = "Judge0-backed autograder with parallel harness execution"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.28",
+]
+
+[tool.setuptools.packages.find]
+# Picks up: core/, security/, and the root package (autograder.py + __init__.py)
+where = ["."]
+include = ["core*", "security*"]
+
+[tool.setuptools.py-modules]
+# Root-level modules that are not inside a package directory
+_ = ["autograder"]
+
+# Include harness template files so they ship with the installed package
+[tool.setuptools.package-data]
+"*" = [
+    "harnesses/*.py",
+    "harnesses/*.c",
+    "harnesses/*.cpp",
+    "harnesses/*.java",
+]
