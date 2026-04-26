@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Go binaries
+load_tester
+main
+
+# macOS
+.DS_Store
+
+# Load test output reports (root-level runs)
+load_test_report*.json
+load_test_report*.xlsx
+
+# Intermediate batch report snapshots
+batch_reports/load_test_batch_*.json
+batch_reports/pipelined/
+batch_reports/pipelined_100pct/latest.json
+batch_reports/pipelined_100pct/latest.xlsx
+
+# Docker runtime mount
+mnt/
