@@ -105,6 +105,20 @@ def _safe_tb():
     lines = traceback.format_exc().strip().splitlines()
     return " | ".join(lines[-2:])
 
+
+# FIX-10: float comparison with relative+absolute epsilon tolerance.
+# Strict string equality fails for 0.1+0.2 → "0.30000000000000004" ≠ "0.3".
+# Only applies when BOTH got and expected parse as finite floats.
+def _num_equal(a_str, b_str):
+    try:
+        a, b = float(a_str), float(b_str)
+        if a != a or b != b:   # NaN — never equal
+            return False
+        diff = abs(a - b)
+        return diff <= max(1e-9, abs(b) * 1e-6)
+    except (ValueError, TypeError):
+        return False
+
 # ── CHILD PROCESS LOGIC ────────────────────────────────────────────────
 # These functions run INSIDE forked children.
 # Children inherit parent memory via fork() — solve() is already available.
@@ -174,12 +188,14 @@ def _child_run_function(tc):
     solve() is inherited from parent via fork — no re-exec needed.
     """
     actual   = solve(*tc["input"])
-    expected = tc["expected"]
-    passed   = str(actual).strip() == str(expected).strip()
+    got_s    = str(actual).strip()
+    exp_s    = str(tc["expected"]).strip()
+    # FIX-10: try numeric tolerance before strict equality
+    passed   = (got_s == exp_s) or _num_equal(got_s, exp_s)
     return {{
         "status":   "PASS" if passed else "FAIL",
-        "got":      str(actual).strip(),
-        "expected": str(expected).strip(),
+        "got":      got_s,
+        "expected": exp_s,
     }}
 
 
@@ -198,8 +214,9 @@ def _child_run_stdio(tc):
 
     got      = fake_stdout.getvalue().strip()
     expected = str(tc["expected"]).strip()
+    passed   = (got == expected) or _num_equal(got, expected)
     return {{
-        "status":   "PASS" if got == expected else "FAIL",
+        "status":   "PASS" if passed else "FAIL",
         "got":      got,
         "expected": expected,
     }}
@@ -234,7 +251,12 @@ def _run_all_parallel(test_cases, per_tc_limit_s, memory_limit_mb):
     _real_stdout = sys.stdout
 
     n            = len(test_cases)
-    mem_per_child = (memory_limit_mb // n) if (memory_limit_mb and n) else 0
+    # FIX-1: each child gets the FULL per-TC limit, not total÷N.
+    # Dividing by N (e.g. 256MB÷10=25MB) was far too restrictive and caused
+    # legitimate solutions to OOM. Judge0 enforces the limit per-process via
+    # enable_per_process_and_thread_memory_limit, so each child is already
+    # capped at memory_limit_mb independently by isolate.
+    mem_per_child = memory_limit_mb
 
     # ── FORK PHASE: launch all children at t=0 ──────────────────────────
     jobs = []   # (pid, read_fd, tc_index)
@@ -435,7 +457,8 @@ def _run_tc_sequential(tc, per_tc_limit_s, memory_limit_mb):
             sys.stdout = real_stdout
             got      = fake_stdout.getvalue().strip()
             expected = str(tc["expected"]).strip()
-            return {{"status": "PASS" if got == expected else "FAIL",
+            passed   = (got == expected) or _num_equal(got, expected)
+            return {{"status": "PASS" if passed else "FAIL",
                      "got": got, "expected": expected}}
         else:
             actual   = solve(*tc["input"])
@@ -449,10 +472,11 @@ def _run_tc_sequential(tc, per_tc_limit_s, memory_limit_mb):
             if memory_limit_mb and mem_used > memory_limit_mb:
                 return {{"status": "MLE",
                          "detail": f"Used ~{{int(mem_used)}}MB, limit {{memory_limit_mb}}MB"}}
-            expected = tc["expected"]
-            passed   = str(actual).strip() == str(expected).strip()
+            got_s  = str(actual).strip()
+            exp_s  = str(tc["expected"]).strip()
+            passed = (got_s == exp_s) or _num_equal(got_s, exp_s)
             return {{"status": "PASS" if passed else "FAIL",
-                     "got": str(actual).strip(), "expected": str(expected).strip()}}
+                     "got": got_s, "expected": exp_s}}
 
     except TimeoutError:
         return {{"status": "TLE", "detail": f"Exceeded {{per_tc_limit_s}}s"}}

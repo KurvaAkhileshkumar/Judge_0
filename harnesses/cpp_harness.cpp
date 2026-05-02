@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <new>
+#include <cmath>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
@@ -39,16 +40,19 @@
 
 /* ── END STUDENT CODE ─────────────────────────────────────────────── */
 
+/* FIX-6: Increased buffers from 1024→4096 (got/expected) and 512→1024 (detail).
+ * 1024 bytes silently truncated larger outputs, producing wrong FAIL verdicts. */
 struct TCResult {{
     char status[16];
-    char got[1024];
-    char expected[1024];
-    char detail[512];
+    char got[4096];
+    char expected[4096];
+    char detail[1024];
 }};
 
 /* ── Per-child TLE globals (set inside child before alarm()) ────────── */
 static int  _child_pipe_fd = -1;
-static char _child_expected[1024];
+/* FIX-6: match enlarged expected buffer */
+static char _child_expected[4096];
 
 static void _child_tle_handler(int sig) {{
     (void)sig;
@@ -67,8 +71,51 @@ static void _parent_alarm_handler(int sig) {{
     _global_tle = 1;
 }}
 
-/* ── Child entry point ────────────────────────────────────────────────── */
-static void run_tc_child(int pipe_fd, {tc_params}, const char* expected,
+/* ── FIX-4: JSON string escaper ──────────────────────────────────────
+ * Printing result.got raw inside JSON string literals caused malformed JSON
+ * whenever the output contained '"', '\n', etc.  The parser then fell back to
+ * keyword scanning and mis-reported correct answers as ERROR. */
+static void json_escape(const char *src, char *dst, size_t dstlen) {{
+    size_t di = 0;
+    for (size_t i = 0; src[i] && di + 2 < dstlen; i++) {{
+        unsigned char c = (unsigned char)src[i];
+        if      (c == '"')  {{ dst[di++] = '\\'; dst[di++] = '"';  }}
+        else if (c == '\\') {{ dst[di++] = '\\'; dst[di++] = '\\'; }}
+        else if (c == '\n') {{ dst[di++] = '\\'; dst[di++] = 'n';  }}
+        else if (c == '\r') {{ dst[di++] = '\\'; dst[di++] = 'r';  }}
+        else if (c == '\t') {{ dst[di++] = '\\'; dst[di++] = 't';  }}
+        else                {{ dst[di++] = (char)c; }}
+    }}
+    dst[di] = '\0';
+}}
+
+/* ── FIX-10: float-tolerant result comparator ────────────────────────
+ * strcmp fails for 0.1+0.2 → "0.30000000000000004" ≠ "0.3".
+ * Numeric comparison with relative+absolute epsilon when both strings
+ * parse as finite doubles; falls back to strcmp otherwise. */
+static bool compare_result(const std::string &got, const char *expected) {{
+    if (got == expected) return true;
+    try {{
+        size_t pg = 0, pe = 0;
+        double dg = std::stod(got, &pg);
+        std::string exp_s(expected);
+        double de = std::stod(exp_s, &pe);
+        if (pg == got.size() && pe == exp_s.size() &&
+            !std::isnan(dg) && !std::isnan(de)) {{
+            double diff = std::abs(dg - de);
+            double tol  = std::max(1e-9, std::abs(de) * 1e-6);
+            return diff <= tol;
+        }}
+    }} catch (...) {{}}
+    return false;
+}}
+
+/* ── Child entry point ────────────────────────────────────────────────────
+ * FIX-2: signature uses {tc_params_comma} (trailing comma present only when
+ * params exist), so zero-arg functions don't produce "int pipe_fd, , const"
+ * which is a C++ syntax error.
+ */
+static void run_tc_child(int pipe_fd, {tc_params_comma}const char* expected,
                           int per_tc_limit_s, int memory_limit_mb) {{
 
     /* Memory limit */
@@ -104,12 +151,18 @@ static void run_tc_child(int pipe_fd, {tc_params}, const char* expected,
         alarm(0);
 
         std::string got_str = oss.str();
-        if (!got_str.empty() && got_str.back() == '\n')
+        /* FIX-14: strip ALL trailing whitespace/newlines, not just one '\n'.
+         * Python uses .strip(); the old C++ code stripped only the last char,
+         * causing cross-language inconsistency on multi-newline output. */
+        while (!got_str.empty() &&
+               (got_str.back() == '\n' || got_str.back() == '\r' ||
+                got_str.back() == ' '  || got_str.back() == '\t'))
             got_str.pop_back();
 
         strncpy(result.got, got_str.c_str(), sizeof(result.got) - 1);
 
-        if (got_str == std::string(expected)) {{
+        /* FIX-8/10: float-tolerant comparison */
+        if (compare_result(got_str, expected)) {{
             strncpy(result.status, "PASS", sizeof(result.status) - 1);
         }} else {{
             strncpy(result.status, "FAIL", sizeof(result.status) - 1);
@@ -141,6 +194,7 @@ int main() {{
     /* ── PARALLEL TC EXECUTION ──────────────────────────────────────── */
     {tc_runner_body}
 
+    /* Use ORIGINAL stdout (not captured oss) for the DONE marker */
     std::cout << DELIM << "DONE" << std::endl;
     return 0;
 }}

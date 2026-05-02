@@ -138,20 +138,48 @@ class HarnessBuilder:
         args         = ", ".join(f"p{i}" for i in range(len(param_types)))
         return_type  = self.cfg.return_type if self.cfg.return_type != "auto" else "int"
 
+        # FIX-2: tc_params_comma carries a trailing ", " only when params
+        # exist so the child function signature becomes valid C with zero args:
+        #   run_tc_child(int pipe_fd, const char* expected, ...)   ← 0 params
+        #   run_tc_child(int pipe_fd, int p0, const char* expected,...)← 1+ params
+        tc_params_comma = (params + ", ") if params else ""
+
         return template.format(
             delim                  = self.delim,
             student_code           = self.cfg.student_code,
-            tc_params              = params,
+            tc_params_comma        = tc_params_comma,
             tc_args                = args,
             call_solve_and_capture = self._build_c_call(return_type),
             tc_runner_body         = self._build_c_parallel_runner(),
         )
 
+    # FIX-5: printf format string and cast mapped per C type.
+    # The old code cast EVERY non-void return to (int) and used "%d".
+    # float/double → truncated to int (wrong answer), char* → UB crash.
+    _C_PRINTF_FMT: dict = {
+        "int":                 ("%d",    ""),
+        "long":                ("%ld",   ""),
+        "long long":           ("%lld",  ""),
+        "unsigned int":        ("%u",    ""),
+        "unsigned long":       ("%lu",   ""),
+        "unsigned long long":  ("%llu",  ""),
+        "float":               ("%.9g",  "(double)"),   # promote float→double
+        "double":              ("%.9g",  ""),
+        "long double":         ("%.9Lg", ""),
+        "char":                ("%c",    ""),
+        "short":               ("%d",    "(int)"),
+        "unsigned short":      ("%u",    "(unsigned int)"),
+        "size_t":              ("%zu",   ""),
+        "ssize_t":             ("%zd",   ""),
+    }
+
     def _build_c_call(self, return_type: str) -> str:
         fn   = self.cfg.function_name
         pt   = self.cfg.param_types or []
         args = ", ".join(f"p{i}" for i in range(len(pt)))
+
         if return_type == "void":
+            # Capture whatever the function prints to stdout via tmpfile dup
             return f"""
     char buf[MAX_OUTPUT];
     memset(buf, 0, sizeof(buf));
@@ -165,14 +193,26 @@ class HarnessBuilder:
     fseek(tmp, 0, SEEK_SET);
     fread(buf, 1, MAX_OUTPUT - 1, tmp);
     fclose(tmp);
-    int len = strlen(buf);
-    if (len > 0 && buf[len-1] == '\\n') buf[len-1] = '\\0';
+    /* FIX-14: strip ALL trailing whitespace, not just one '\\n' */
+    int _len = (int)strlen(buf);
+    while (_len > 0 && (buf[_len-1] == '\\n' || buf[_len-1] == '\\r' ||
+                        buf[_len-1] == ' '   || buf[_len-1] == '\\t'))
+        buf[--_len] = '\\0';
     strncpy(result.got, buf, sizeof(result.got) - 1);
 """
-        else:
+
+        # char* / const char*
+        if return_type in ("char*", "const char*", "char *", "const char *"):
             return f"""
     {return_type} ret = {fn}({args});
-    snprintf(result.got, sizeof(result.got), "%d", (int)ret);
+    strncpy(result.got, ret ? ret : "(null)", sizeof(result.got) - 1);
+"""
+
+        # All numeric types — look up the right format and cast
+        fmt, cast = self._C_PRINTF_FMT.get(return_type, ("%d", "(int)"))
+        return f"""
+    {return_type} ret = {fn}({args});
+    snprintf(result.got, sizeof(result.got), "{fmt}", {cast}ret);
 """
 
     def _build_c_parallel_runner(self) -> str:
@@ -186,7 +226,13 @@ class HarnessBuilder:
         n      = len(self.cfg.test_cases)
         ps     = self.cfg.per_tc_limit_s
         mem    = self.cfg.memory_limit_mb
-        mem_c  = mem // n if mem else 0
+        # FIX-1: pass the full per-TC limit to every child, not total÷N.
+        # Dividing (e.g. 256÷10=25MB) starved children and triggered the
+        # Rosetta 2 mmap_anonymous_rw error.  Judge0's per-process memory
+        # enforcement (enable_per_process_and_thread_memory_limit) already
+        # caps each child at memory_limit_mb independently via isolate.
+        # FIX-17: guard against n=0 (no test cases) which caused ZeroDivisionError.
+        mem_c  = mem if mem else 0
         d      = self.delim
 
         lines = []
@@ -207,15 +253,19 @@ class HarnessBuilder:
         # ── Fork phase ─────────────────────────────────────────────────
         lines.append("    /* Phase 1: Fork all children simultaneously */")
         for i, tc in enumerate(self.cfg.test_cases):
-            args_str = ", ".join(str(v) for v in (tc.inputs or []))
-            expected = str(tc.expected).replace('"', '\\"')
+            args_str   = ", ".join(str(v) for v in (tc.inputs or []))
+            # FIX-2: append a trailing ", " only when args exist so the call
+            # becomes run_tc_child(fd, p0, p1, "exp", ...) with args, or
+            # run_tc_child(fd, "exp", ...) without — never "fd, , "exp"".
+            args_comma = (args_str + ", ") if args_str else ""
+            expected   = str(tc.expected).replace('"', '\\"')
             lines.append(f"""    {{
         int _pfd{i}[2];
         if (pipe(_pfd{i}) == 0) {{
             pid_t _p = fork();
             if (_p == 0) {{
                 close(_pfd{i}[0]);
-                run_tc_child(_pfd{i}[1], {args_str}, "{expected}", {ps}, {mem_c});
+                run_tc_child(_pfd{i}[1], {args_comma}"{expected}", {ps}, {mem_c});
             }}
             close(_pfd{i}[1]);
             _pids[{i}] = _p;
@@ -292,15 +342,24 @@ class HarnessBuilder:
     }}""")
 
         # ── Print phase ────────────────────────────────────────────────
+        # FIX-4: escape all four fields through json_escape() before printf.
+        # The function is defined as a static helper in c_harness.c.
+        # Buffer sizes: got/expected escape buffers are 2×4096+1 = 8193 bytes
+        # (worst-case all chars need escaping), detail is 2×1024+1 = 2049.
         lines.append(f"""
     /* Phase 3: Print results in original TC order */
     for (int _i = 0; _i < {n}; _i++) {{
+        char _je_got[8193], _je_exp[8193], _je_det[2049], _je_st[33];
+        json_escape(_results[_i].status,   _je_st,  sizeof(_je_st));
+        json_escape(_results[_i].got,      _je_got, sizeof(_je_got));
+        json_escape(_results[_i].expected, _je_exp, sizeof(_je_exp));
+        json_escape(_results[_i].detail,   _je_det, sizeof(_je_det));
         printf("{d}START_%d\\n", _i + 1);
         printf("{{\\n");
-        printf("  \\"status\\": \\"%s\\",\\n",   _results[_i].status);
-        printf("  \\"got\\": \\"%s\\",\\n",      _results[_i].got);
-        printf("  \\"expected\\": \\"%s\\",\\n", _results[_i].expected);
-        printf("  \\"detail\\": \\"%s\\"\\n",    _results[_i].detail);
+        printf("  \\"status\\": \\"%s\\",\\n",   _je_st);
+        printf("  \\"got\\": \\"%s\\",\\n",      _je_got);
+        printf("  \\"expected\\": \\"%s\\",\\n", _je_exp);
+        printf("  \\"detail\\": \\"%s\\"\\n",    _je_det);
         printf("}}\\n");
         printf("{d}END_%d\\n", _i + 1);
         fflush(stdout);
@@ -317,10 +376,13 @@ class HarnessBuilder:
         params      = ", ".join(f"{t} p{i}" for i, t in enumerate(param_types))
         args        = ", ".join(f"p{i}" for i in range(len(param_types)))
 
+        # FIX-2: same trailing-comma logic as C (see _build_c)
+        tc_params_comma = (params + ", ") if params else ""
+
         return template.format(
             delim                  = self.delim,
             student_code           = self.cfg.student_code,
-            tc_params              = params,
+            tc_params_comma        = tc_params_comma,
             tc_args                = args,
             call_solve_and_capture = self._build_cpp_call(),
             tc_runner_body         = self._build_cpp_parallel_runner(),
@@ -330,8 +392,12 @@ class HarnessBuilder:
         fn   = self.cfg.function_name
         rt   = self.cfg.return_type
         args = ", ".join(f"p{i}" for i in range(len(self.cfg.param_types or [])))
-        if rt in ("void", "auto"):
+        if rt == "void":
+            # void functions: rely on oss capturing any cout output
             return f"{fn}({args});"
+        # FIX (cpp void-only skip): `auto` used to fall through to the no-capture
+        # branch, silently discarding non-void return values.  Now only `void`
+        # skips capture; everything else (including `auto`) uses `oss << ret`.
         return f"""
         auto ret = {fn}({args});
         oss << ret;
@@ -342,7 +408,8 @@ class HarnessBuilder:
         n     = len(self.cfg.test_cases)
         ps    = self.cfg.per_tc_limit_s
         mem   = self.cfg.memory_limit_mb
-        mem_c = mem // n if mem else 0
+        # FIX-1/FIX-17: full limit per child, no ÷N (see C runner comment).
+        mem_c = mem if mem else 0
         d     = self.delim
 
         lines = []
@@ -361,15 +428,17 @@ class HarnessBuilder:
 
         lines.append("    /* Phase 1: Fork all children simultaneously */")
         for i, tc in enumerate(self.cfg.test_cases):
-            args_str = ", ".join(str(v) for v in (tc.inputs or []))
-            expected = str(tc.expected).replace('"', '\\"')
+            args_str   = ", ".join(str(v) for v in (tc.inputs or []))
+            # FIX-2: trailing comma only when args exist (same as C runner)
+            args_comma = (args_str + ", ") if args_str else ""
+            expected   = str(tc.expected).replace('"', '\\"')
             lines.append(f"""    {{
         int _pfd{i}[2];
         if (pipe(_pfd{i}) == 0) {{
             pid_t _p = fork();
             if (_p == 0) {{
                 close(_pfd{i}[0]);
-                run_tc_child(_pfd{i}[1], {args_str}, "{expected}", {ps}, {mem_c});
+                run_tc_child(_pfd{i}[1], {args_comma}"{expected}", {ps}, {mem_c});
             }}
             close(_pfd{i}[1]);
             _pids[{i}] = _p;
@@ -436,15 +505,21 @@ class HarnessBuilder:
         alarm(0);
     }}""")
 
+        # FIX-4: escape through json_escape() (defined in cpp_harness.cpp).
         lines.append(f"""
     /* Phase 3: Print results in order */
     for (int _i = 0; _i < {n}; _i++) {{
+        char _je_got[8193], _je_exp[8193], _je_det[2049], _je_st[33];
+        json_escape(_results[_i].status,   _je_st,  sizeof(_je_st));
+        json_escape(_results[_i].got,      _je_got, sizeof(_je_got));
+        json_escape(_results[_i].expected, _je_exp, sizeof(_je_exp));
+        json_escape(_results[_i].detail,   _je_det, sizeof(_je_det));
         std::cout << "{d}START_" << (_i+1) << std::endl;
         std::cout << "{{" << std::endl;
-        std::cout << "  \\"status\\": \\"" << _results[_i].status << "\\"," << std::endl;
-        std::cout << "  \\"got\\": \\"" << _results[_i].got << "\\"," << std::endl;
-        std::cout << "  \\"expected\\": \\"" << _results[_i].expected << "\\"," << std::endl;
-        std::cout << "  \\"detail\\": \\"" << _results[_i].detail << "\\"" << std::endl;
+        std::cout << "  \\"status\\": \\"" << _je_st  << "\\"," << std::endl;
+        std::cout << "  \\"got\\": \\"" << _je_got << "\\"," << std::endl;
+        std::cout << "  \\"expected\\": \\"" << _je_exp << "\\"," << std::endl;
+        std::cout << "  \\"detail\\": \\"" << _je_det << "\\"" << std::endl;
         std::cout << "}}" << std::endl;
         std::cout << "{d}END_" << (_i+1) << std::endl;
         std::cout.flush();
@@ -544,13 +619,25 @@ class HarnessBuilder:
 
         # Join all with shared deadline
         lines.append(f"""
-        /* Phase 3: Join all threads with shared deadline */
-        long _deadline = System.currentTimeMillis() + {pms} + 500; /* +500ms grace */
+        /* Phase 3: Join all threads with shared deadline
+         *
+         * FIX-3: the old code used "if (_remaining > 0) join(_remaining)".
+         * When TC[0] was a TLE (used the full deadline), _remaining became 0
+         * for TC[1]..TC[N-1].  Those threads may have already finished, but
+         * with _remaining<=0 we skipped join() and went straight to isAlive()
+         * before the thread had a chance to mark its result — so correct
+         * completions were killed and reported TLE.
+         *
+         * Fix: always call join(Math.max(1, _remaining)).
+         *   join(0) in Java means "wait forever" — never use it here.
+         *   join(1) is a 1ms poll: if the thread already finished it returns
+         *   immediately; if it is still alive we kill it.  Threads that
+         *   completed while waiting for TC[0] are correctly reported PASS/FAIL.
+         */
+        long _deadline = System.currentTimeMillis() + {pms} + 500;
         for (int _i = 0; _i < {n}; _i++) {{
             long _remaining = _deadline - System.currentTimeMillis();
-            if (_remaining > 0) {{
-                try {{ _threads[_i].join(_remaining); }} catch (InterruptedException ignored) {{}}
-            }}
+            try {{ _threads[_i].join(Math.max(1L, _remaining)); }} catch (InterruptedException ignored) {{}}
             if (_threads[_i].isAlive()) {{
                 boolean _dead = killThread(_threads[_i]);
                 if (_resultRefs[_i].get() == null) {{

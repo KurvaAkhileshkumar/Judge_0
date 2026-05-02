@@ -70,6 +70,12 @@ class _PythonASTChecker(ast.NodeVisitor):
         "pty", "tty", "termios", "fcntl", "select",
         "mmap", "resource", "pwd", "grp", "syslog",
         "posix", "posixpath", "nt",
+        # FIX-13a: io.open / io.FileIO bypass builtins.open monkey-patch.
+        # The harness imports `io` before student code; blocking the student
+        # from re-importing it closes the bypass without touching the harness.
+        "io",
+        # FIX-13b: pathlib.Path.read_text() / .write_text() bypass open().
+        "pathlib",
     }
 
     BLOCKED_BUILTINS = {
@@ -201,6 +207,9 @@ _C_BLOCKED: List[Tuple[str, str]] = [
     (r"\bmmap\s*\(",                 "mmap() not allowed"),
     (r"\bsignal\s*\(\s*SIGALRM",     "SIGALRM override not allowed"),
     (r"\bsetitimer\s*\(",            "setitimer() not allowed"),
+    # FIX-15: inline assembly can invoke arbitrary syscalls, bypassing all
+    # regex pattern checks above. Block all GCC/Clang/MSVC asm syntax.
+    (r"\b(?:asm|__asm__|__asm)\b",   "inline assembly not allowed"),
 ]
 
 # ── JAVA REGEX CHECKS ───────────────────────────────────────────────────

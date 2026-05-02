@@ -169,7 +169,8 @@ public class Harness {
                 String printed  = baos.toString().trim();
                 String returned = (retVal != null) ? retVal.toString().trim() : "null";
                 result.got      = printed.isEmpty() ? returned : printed;
-                result.status   = result.got.equals(expected.trim()) ? "PASS" : "FAIL";
+                // FIX-10: use float-tolerant comparator
+                result.status   = compareResults(result.got, expected.trim()) ? "PASS" : "FAIL";
 
             } catch (OutOfMemoryError e) {
                 result.status = "MLE";
@@ -220,7 +221,8 @@ public class Harness {
                 m.invoke(null, (Object) new String[]{});
 
                 result.got    = baos.toString().trim();
-                result.status = result.got.equals(expected.trim()) ? "PASS" : "FAIL";
+                // FIX-10: use float-tolerant comparator
+                result.status = compareResults(result.got, expected.trim()) ? "PASS" : "FAIL";
 
             } catch (OutOfMemoryError e) {
                 result.status = "MLE";
@@ -272,7 +274,33 @@ public class Harness {
     }
 
     static String escape(String s) {
-        return s == null ? "" : s.replace("\\", "\\\\").replace("\"", "\\\"");
+        // FIX-4: also escape \n, \r, \t so JSON output stays valid when
+        // the student's result contains embedded newlines or tabs.
+        // The old version only escaped backslash and double-quote, leaving
+        // newline/tab literals in the JSON string which breaks the parser.
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
+    }
+
+    // FIX-10: float-tolerant comparison — identical semantics to Python's
+    // _num_equal().  Strict .equals() fails for 0.1+0.2 → "0.30000000000000004".
+    // Only activates when both strings parse fully as finite doubles.
+    static boolean compareResults(String got, String expected) {
+        if (got.equals(expected)) return true;
+        try {
+            double dg = Double.parseDouble(got);
+            double de = Double.parseDouble(expected);
+            if (Double.isNaN(dg) || Double.isNaN(de)) return false;
+            double diff = Math.abs(dg - de);
+            double tol  = Math.max(1e-9, Math.abs(de) * 1e-6);
+            return diff <= tol;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     /* printResult always uses ORIGINAL_OUT — never goes through dispatch */

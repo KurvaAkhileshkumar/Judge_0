@@ -42,6 +42,7 @@ import json
 import time
 import base64
 import threading
+import socketserver
 import requests
 from dataclasses import dataclass, field
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -119,7 +120,14 @@ class CallbackServer:
             def log_message(self, *_):
                 pass  # silence HTTP server logs
 
-        self._httpd  = HTTPServer((host, port), _Handler)
+        # FIX-21: use a threaded server so that concurrent webhook callbacks
+        # from Judge0 are handled in parallel.  The old single-threaded HTTPServer
+        # serialised all incoming requests; under high concurrency callbacks queued
+        # up and could time out at the Judge0 side before being processed.
+        class _ThreadedHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
+            daemon_threads = True  # server threads exit when main thread exits
+
+        self._httpd  = _ThreadedHTTPServer((host, port), _Handler)
         self._thread = threading.Thread(
             target=self._httpd.serve_forever,
             daemon=True,
@@ -243,11 +251,15 @@ class Judge0Client:
                 self.callback_host, self.callback_port
             )
 
+        # FIX (submit timeout): with Puma's 25-thread pool and 1000 concurrent
+        # users the submission POST can queue for >10 s before being handled.
+        # The project memory note ("HTTP submit timeout: 120 s minimum") is
+        # what this 120 s value comes from.
         resp = requests.post(
             f"{self.cfg.base_url}/submissions?base64_encoded=true&wait=false",
             json=payload,
             headers=self.headers,
-            timeout=10,
+            timeout=120,
         )
         resp.raise_for_status()
         token = resp.json()["token"]
@@ -295,33 +307,56 @@ class Judge0Client:
             memory_kb      = data.get("memory"),
         )
 
-    # ── Polling path (unchanged from v3) ─────────────────────────────────
+    # ── Polling path ──────────────────────────────────────────────────────
+
+    def _get_with_retry(self, url: str, max_retries: int = 3) -> requests.Response:
+        """
+        FIX-22: the old _poll() used requests.get(..., timeout=10) with no
+        retry.  A single transient 5xx or network hiccup raised an exception
+        and lost the student's result permanently.
+
+        Strategy: exponential back-off (0.5 s, 1 s, 2 s) on Timeout,
+        ConnectionError, or 5xx responses.  4xx are not retried (client error).
+        Poll timeout raised to 30 s to survive a loaded Judge0 under callback
+        traffic (individual polls are rare but should not time out spuriously).
+        """
+        last_exc = None
+        for attempt in range(max_retries):
+            try:
+                resp = requests.get(url, headers=self.headers, timeout=30)
+                if resp.status_code < 500:
+                    resp.raise_for_status()
+                    return resp
+                # 5xx — Judge0 overloaded; retry after back-off
+                last_exc = requests.HTTPError(
+                    f"HTTP {resp.status_code}", response=resp
+                )
+            except (requests.Timeout, requests.ConnectionError) as e:
+                last_exc = e
+            if attempt < max_retries - 1:
+                time.sleep(0.5 * (2 ** attempt))   # 0.5 s, 1 s, 2 s
+        raise last_exc  # type: ignore[misc]
 
     def _poll(self, token: str) -> Judge0Result:
+        # FIX-7: check BEFORE sleeping so a sub-500ms job is not forced to
+        # wait poll_interval_s.  The old code always slept first.
         for _ in range(self.cfg.max_polls):
-            time.sleep(self.cfg.poll_interval_s)
-
-            resp = requests.get(
-                f"{self.cfg.base_url}/submissions/{token}?base64_encoded=true",
-                headers=self.headers,
-                timeout=10,
+            resp = self._get_with_retry(
+                f"{self.cfg.base_url}/submissions/{token}?base64_encoded=true"
             )
-            resp.raise_for_status()
-            data = resp.json()
-
+            data      = resp.json()
             status_id = data["status"]["id"]
-            if status_id <= 2:
-                continue
-
-            return Judge0Result(
-                stdout         = self._decode(data.get("stdout")),
-                stderr         = self._decode(data.get("stderr")),
-                status_str     = JUDGE0_STATUS.get(status_id, "Unknown"),
-                status_id      = status_id,
-                compile_output = self._decode(data.get("compile_output")),
-                time_taken_s   = _parse_time(data.get("time")),
-                memory_kb      = data.get("memory"),
-            )
+            if status_id > 2:
+                return Judge0Result(
+                    stdout         = self._decode(data.get("stdout")),
+                    stderr         = self._decode(data.get("stderr")),
+                    status_str     = JUDGE0_STATUS.get(status_id, "Unknown"),
+                    status_id      = status_id,
+                    compile_output = self._decode(data.get("compile_output")),
+                    time_taken_s   = _parse_time(data.get("time")),
+                    memory_kb      = data.get("memory"),
+                )
+            time.sleep(self.cfg.poll_interval_s)
 
         raise TimeoutError(f"Judge0 did not respond after {self.cfg.max_polls} polls")
 
