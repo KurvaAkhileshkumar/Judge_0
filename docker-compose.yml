@@ -194,7 +194,7 @@ services:
         "redis-server",
         "--appendonly", "yes",
         "--maxmemory",        "4gb",
-        "--maxmemory-policy", "noeviction",
+        "--maxmemory-policy", "allkeys-lru",
         # ${REDIS_PASSWORD} is substituted from the .env file by Docker Compose.
         "--requirepass",      "${REDIS_PASSWORD}"
       ]

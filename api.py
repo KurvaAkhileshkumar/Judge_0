@@ -83,7 +83,7 @@ def _read_secret(env_name: str) -> str | None:
 MAX_QUEUE_DEPTH  = int(os.getenv("MAX_QUEUE_DEPTH",  5000))
 SSE_TIMEOUT_S    = int(os.getenv("SSE_TIMEOUT_S",    1800))
 IDEM_PREFIX      = "judge0:idem:"
-IDEM_TTL_S       = 86400   # 24 hours
+IDEM_TTL_S       = 7200    # 2 hours
 HEALTH_TOKEN: str | None = os.getenv("HEALTH_TOKEN") or None
 
 

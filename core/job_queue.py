@@ -37,7 +37,7 @@ from typing import Optional, Any
 RETRY_QUEUE   = "judge0:jobs:retry"
 NORMAL_QUEUE  = "judge0:jobs:normal"
 RESULT_PREFIX = "judge0:result:"
-RESULT_TTL_S  = 86400   # Fix 1.4: was 3600 (1 h); raised to 86400 (24 h)
+RESULT_TTL_S  = 7200    # 2 hours (sufficient for exam window; saves Redis memory)
                           # Covers 21-min drain + 23-h student review window.
 
 # Fix 2.1: In-flight tracking.  After BLPOP, the job is atomically pushed
