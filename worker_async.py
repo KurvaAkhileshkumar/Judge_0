@@ -24,14 +24,15 @@ Environment variables:
     JUDGE0_API_KEY        (default: none)
     MAX_RETRY_COUNT       (default: 3)
     WORKER_CONCURRENCY    (default: 48)
-    CALLBACK_PORT         (unset → polling mode)
-    CALLBACK_HOST         (default: host.docker.internal)
+    CALLBACK_PORT         (default: 0 → OS picks a free port)
+    CALLBACK_HOST         (default: auto-detected container IP)
 """
 
 import asyncio
 import json
 import os
 import signal
+import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
@@ -47,6 +48,17 @@ from worker               import job_to_submission, result_to_dict, MAX_RETRY_CO
 
 log = get_logger(__name__)
 MAX_CONCURRENCY = int(os.getenv("WORKER_CONCURRENCY", 48))
+
+
+def _own_ip() -> str:
+    """Return this container's IP on the Docker bridge network."""
+    override = os.getenv("CALLBACK_HOST")
+    if override:
+        return override
+    try:
+        return socket.gethostbyname(socket.gethostname())
+    except OSError:
+        return "127.0.0.1"
 
 
 def _read_secret(env_name: str) -> str | None:
@@ -200,24 +212,26 @@ if __name__ == "__main__":
 
     queue = PriorityJobQueue(r)
 
-    callback_port_env = os.getenv("CALLBACK_PORT")
-    callback_host     = os.getenv("CALLBACK_HOST", "host.docker.internal")
+    # Callback mode is always active — polling has been removed.
+    cb_port       = int(os.getenv("CALLBACK_PORT", "0"))
+    callback_host = _own_ip()
     cfg = Judge0Config(
         base_url = os.getenv("JUDGE0_URL", "http://localhost:2358"),
         api_key  = os.getenv("JUDGE0_API_KEY") or None,
     )
 
-    cb_server: CallbackServer | None = None
-    if callback_port_env is not None:
-        cb_port   = int(callback_port_env or "0")
-        cb_server = CallbackServer(port=cb_port)
-        cb_server.start()
-        log.info("callback_server_started", port=cb_server.port)
+    cb_server = CallbackServer()
+    try:
+        cb_server.start(port=cb_port)
+        log.info("callback_server_started", url=cb_server.url(callback_host))
+    except OSError as exc:
+        log.error("callback_server_failed", error=str(exc))
+        sys.exit(1)
 
     grader = Autograder(
         cfg,
         callback_server = cb_server,
-        callback_host   = callback_host if cb_server else "host.docker.internal",
+        callback_host   = callback_host,
     )
 
     # Use a thread pool large enough for MAX_CONCURRENCY + housekeeping threads
@@ -230,6 +244,5 @@ if __name__ == "__main__":
         loop.run_until_complete(run_worker_async(queue, grader))
     finally:
         executor.shutdown(wait=False)
-        if cb_server:
-            cb_server.stop()
+        cb_server.stop()
         loop.close()

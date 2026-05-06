@@ -24,11 +24,12 @@ package main
  *   - RateLimited:   429 responses from /submit (admission control triggered)
  *   - DuplicateCount: idempotent 200 responses (same code re-submitted within 24 h)
  *   - SystemErrors:  system_error results (infra failure, not student code)
- *   - MaxQueueDepth: highest queue_depth observed from /status pending responses
+ *   - MaxQueueDepth: no longer populated (/status removed; results via SSE only)
  *   - globalLimitS:  now ceil(TCs/200)*per_tc+5 (correct for batched harness)
  */
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -225,7 +226,7 @@ type Metrics struct {
 
 	InFlight      int64 // atomic
 	MaxInFlight   int64 // atomic
-	MaxQueueDepth int64 // max queue_depth seen from /status pending responses (atomic)
+	MaxQueueDepth int64 // max queue_depth seen (no longer populated — kept for JSON compat)
 
 	StartTime time.Time
 	EndTime   time.Time
@@ -346,7 +347,7 @@ func (m *Metrics) Print(cfg Config) {
 	fmt.Printf("  %-32s %.1fx\n", "Queue reduction factor:", float64(batchEquivalent)/float64(max64(m.TotalSubmissions, 1)))
 	fmt.Printf("  %-32s %d\n", "Peak in-flight jobs:", m.MaxInFlight)
 	if cfg.FlaskAPIURL != "" {
-		fmt.Printf("  %-32s %d\n", "Max queue depth (from /status):", atomic.LoadInt64(&m.MaxQueueDepth))
+		fmt.Printf("  %-32s %s\n", "Result delivery:", "SSE (/results/stream)")
 	}
 	fmt.Println()
 
@@ -507,7 +508,7 @@ func runPipelinedBatches(
 		resultMode = fmt.Sprintf("Callback → %s", cs.URL(cfg.CallbackHost, cfg.CallbackPort))
 	}
 	if cfg.FlaskAPIURL != "" {
-		resultMode = "Flask /status polling"
+		resultMode = "Flask /results/stream (SSE)"
 	}
 
 	fmt.Printf("\n  ═══════════════════════════════════════════════════════════\n")
@@ -1020,32 +1021,46 @@ func (f *FlaskClient) Submit(req FlaskSubmitRequest) (string, string, error) {
 	return result.TicketID, result.Status, nil
 }
 
-// PollStatus polls GET /status/{ticketID} until done or timeout.
-// Returns the status response and the maximum queue_depth observed.
-func (f *FlaskClient) PollStatus(ticketID string, metrics *Metrics) (*FlaskStatusResponse, error) {
-	deadline := time.Now().Add(time.Duration(f.MaxPollSecs) * time.Second)
-	// Small initial sleep to let the worker pick up the job before first poll.
-	time.Sleep(500 * time.Millisecond)
-	for time.Now().Before(deadline) {
-		resp, err := f.HTTPClient.Get(f.BaseURL + "/status/" + ticketID)
-		if err != nil {
-			return nil, fmt.Errorf("status: %w", err)
-		}
-		var status FlaskStatusResponse
-		err = json.NewDecoder(resp.Body).Decode(&status)
-		resp.Body.Close()
-		if err != nil {
-			return nil, err
-		}
-		// Track max queue depth across all polling goroutines atomically.
-		metrics.UpdateMaxQueueDepth(status.QueueDepth)
-
-		if status.Status == "done" {
-			return &status, nil
-		}
-		time.Sleep(f.PollInterval)
+// StreamResult connects to GET /results/stream/{ticketID} (SSE) and waits
+// for the single "result" event.  Returns the parsed FlaskStatusResponse
+// with Status="done" and the result populated.
+func (f *FlaskClient) StreamResult(ticketID string) (*FlaskStatusResponse, error) {
+	timeout := time.Duration(f.MaxPollSecs) * time.Second
+	req, err := http.NewRequest("GET", f.BaseURL+"/results/stream/"+ticketID, nil)
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("poll timeout after %ds", f.MaxPollSecs)
+	req.Header.Set("Accept", "text/event-stream")
+
+	client := &http.Client{Timeout: timeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("stream: %w", err)
+	}
+	defer resp.Body.Close()
+
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		data := strings.TrimPrefix(line, "data:")
+		data = strings.TrimSpace(data)
+
+		var result FlaskResult
+		if err := json.Unmarshal([]byte(data), &result); err != nil {
+			return nil, fmt.Errorf("stream decode: %w", err)
+		}
+		return &FlaskStatusResponse{
+			Status: "done",
+			Result: &result,
+		}, nil
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("stream read: %w", err)
+	}
+	return nil, fmt.Errorf("stream closed without result event after %s", timeout)
 }
 
 // HealthCheck calls /health and returns an error if the system is not "ok".
@@ -1422,8 +1437,8 @@ func runUserFlask(
 		// Still poll for the result — it already exists.
 	}
 
-	// Poll /status until done.
-	statusResp, err := fc.PollStatus(ticketID, metrics)
+	// Stream /results/stream until done.
+	statusResp, err := fc.StreamResult(ticketID)
 	if err != nil {
 		result.HarnessStatus = "JUDGE0_ERROR"
 		result.Error = "poll: " + err.Error()
@@ -1509,10 +1524,9 @@ func printProgress(metrics *Metrics, cfg Config, done chan struct{}) {
 			total := int64(cfg.Users)
 			inFlight := atomic.LoadInt64(&metrics.InFlight)
 			pct := float64(completed) / float64(total) * 100
-			qd := atomic.LoadInt64(&metrics.MaxQueueDepth)
 			if cfg.FlaskAPIURL != "" {
-				fmt.Printf("\r  Progress: %d/%d (%.0f%%) | In-flight: %d | Max queue depth: %d | Elapsed: %.0fs",
-					completed, total, pct, inFlight, qd,
+				fmt.Printf("\r  Progress: %d/%d (%.0f%%) | In-flight: %d | Elapsed: %.0fs (SSE)",
+					completed, total, pct, inFlight,
 					time.Since(metrics.StartTime).Seconds())
 			} else {
 				fmt.Printf("\r  Progress: %d/%d (%.0f%%) | In-flight: %d | Elapsed: %.0fs",
@@ -1613,7 +1627,6 @@ func writeJSONReport(metrics *Metrics, cfg Config, outputFile string, batchResul
 			"latency_p95_ms":      percentile(sortedLats, 95),
 			"latency_p99_ms":      percentile(sortedLats, 99),
 			"peak_in_flight_jobs": metrics.MaxInFlight,
-			"max_queue_depth":     atomic.LoadInt64(&metrics.MaxQueueDepth),
 		},
 		"status_counts":      metrics.StatusCounts,
 		"problem_counts":     metrics.ProblemCounts,

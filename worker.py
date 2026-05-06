@@ -38,14 +38,15 @@ Environment variables:
     JUDGE0_URL         (default: http://localhost:2358)
     JUDGE0_API_KEY     (default: none)
     MAX_RETRY_COUNT    (default: 3)
-    CALLBACK_PORT      (unset → polling mode;  0 → OS-assigned port;  N → fixed port N)
-    CALLBACK_HOST      (default: host.docker.internal — Mac/Windows Docker Desktop)
-                       (set to Docker bridge IP, e.g. 172.17.0.1, on Linux hosts)
+    CALLBACK_PORT      (default: 0 → OS picks a free port)
+    CALLBACK_HOST      (default: auto-detected container IP)
+                       Override on Linux if auto-detect gives wrong interface.
 """
 
 import json
 import os
 import signal
+import socket
 import sys
 import time
 
@@ -60,6 +61,20 @@ from autograder         import Autograder, Submission
 
 log = get_logger(__name__)
 MAX_RETRY_COUNT = int(os.getenv("MAX_RETRY_COUNT", 3))
+
+
+def _own_ip() -> str:
+    """Return this container's IP on the Docker bridge network.
+    Used as the callback_host so Judge0 can POST results back to us.
+    Reads CALLBACK_HOST env var first; falls back to auto-detection.
+    """
+    override = os.getenv("CALLBACK_HOST")
+    if override:
+        return override
+    try:
+        return socket.gethostbyname(socket.gethostname())
+    except OSError:
+        return "127.0.0.1"
 
 
 def _read_secret(env_name: str) -> str | None:
@@ -232,29 +247,22 @@ if __name__ == "__main__":
         api_key  = os.getenv("JUDGE0_API_KEY") or None,
     )
 
-    # ── Callback mode (opt-in) ────────────────────────────────────────────
-    # Set CALLBACK_PORT to activate.  CALLBACK_PORT=0 lets the OS pick a free
-    # port automatically — safest for multi-worker deployments since each
-    # process gets a unique port with no configuration.
-    # Judge0 (Docker) must be able to reach this process at CALLBACK_HOST.
-    #   Mac/Windows Docker Desktop: CALLBACK_HOST=host.docker.internal (default)
-    #   Linux Docker:               CALLBACK_HOST=172.17.0.1  (bridge IP)
-    _cb_port_env    = os.getenv("CALLBACK_PORT")
-    callback_host   = os.getenv("CALLBACK_HOST", "host.docker.internal")
-    callback_server = None
-
-    if _cb_port_env is not None:
-        cb_port = int(_cb_port_env or "0")
-        callback_server = CallbackServer()
-        try:
-            callback_server.start(port=cb_port)
-            log.info(
-                "callback_server_started",
-                url=f"http://{callback_host}:{callback_server.actual_port}/result",
-            )
-        except OSError as exc:
-            log.warning("callback_server_failed", error=str(exc), fallback="polling")
-            callback_server = None
+    # Callback mode is always active — polling has been removed.
+    # CALLBACK_PORT=0 lets the OS pick a free port automatically;
+    # each replica gets a unique port with no configuration.
+    # Judge0 POSTs results back to this worker via the Docker internal network.
+    cb_port         = int(os.getenv("CALLBACK_PORT", "0"))
+    callback_host   = _own_ip()
+    callback_server = CallbackServer()
+    try:
+        callback_server.start(port=cb_port)
+        log.info(
+            "callback_server_started",
+            url=callback_server.url(callback_host),
+        )
+    except OSError as exc:
+        log.error("callback_server_failed", error=str(exc))
+        sys.exit(1)
 
     queue  = PriorityJobQueue(r)
     grader = Autograder(
@@ -266,5 +274,4 @@ if __name__ == "__main__":
     try:
         run_worker(queue, grader)
     finally:
-        if callback_server:
-            callback_server.stop()
+        callback_server.stop()

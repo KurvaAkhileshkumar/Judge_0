@@ -1,33 +1,21 @@
 """
-judge0_client.py — v4
+judge0_client.py — v5
 ──────────────────────
-Adds callback (webhook) mode alongside polling.
+Callback-only Judge0 client (polling removed).
 
-  Polling  (default): client polls GET /submissions/:token every N ms.
-                       Each in-flight submission holds one RAILS_MAX_THREADS slot
-                       for the duration of the job.
+  Each worker embeds a tiny HTTP server and passes its URL in the submission
+  payload as `callback_url`.  Judge0 fires a PUT to that URL the instant the
+  job finishes.  The worker blocks on a threading.Event — zero polling traffic.
 
-  Callback (opt-in):  client embeds a tiny HTTP server, passes its URL in the
-                       submission payload as `callback_url`.  Judge0 fires a PUT
-                       to that URL the instant the job finishes.  The client
-                       blocks on a threading.Event instead of polling — zero
-                       HTTP traffic between submit and result.
+                  Puma pressure = 2 calls per submission (submit + webhook).
 
-                       RAILS_MAX_THREADS pressure drops to 2 calls per submission
-                       (submit + the single incoming webhook) vs. 1 + N polls.
-
-Usage — polling (no change from v3):
-    client = Judge0Client(config)
-    result = client.submit_and_wait(...)
-
-Usage — callback:
+Usage:
     cb = CallbackServer()
     cb.start(port=8080, host="0.0.0.0")
-    # Judge0 must reach this machine; set callback_host accordingly.
     client = Judge0Client(config, callback_server=cb,
-                          callback_host="host.docker.internal", callback_port=8080)
+                          callback_host="<worker-ip>", callback_port=8080)
     result = client.submit_and_wait(...)
-    cb.stop()    # when done
+    cb.stop()
 
 Race condition safety
 ─────────────────────
@@ -39,7 +27,6 @@ already there.
 """
 
 import json
-import math
 import time
 import base64
 import threading
@@ -250,10 +237,8 @@ class CallbackServer:
 
 @dataclass
 class Judge0Config:
-    base_url:        str
-    api_key:         Optional[str] = None
-    poll_interval_s: float = 0.5
-    max_polls:       int   = 60
+    base_url: str
+    api_key:  Optional[str] = None
 
 
 @dataclass
@@ -274,8 +259,8 @@ class Judge0Client:
     def __init__(
         self,
         config:          Judge0Config,
-        callback_server: Optional[CallbackServer] = None,
-        callback_host:   str = "host.docker.internal",
+        callback_server: CallbackServer,
+        callback_host:   str,
         callback_port:   int = 0,
     ):
         self.cfg             = config
@@ -378,69 +363,6 @@ class Judge0Client:
         _judge0_breaker.record_failure()
         raise last_exc  # type: ignore[misc]
 
-    def submit_only(
-        self,
-        source_code:     str,
-        language:        str,
-        per_tc_limit_s:  int,
-        tc_count:        int,
-        memory_limit_mb: int = 256,
-        overhead_s:      int = 5,
-    ) -> str:
-        """
-        Submit to Judge0 without waiting for the result.
-        Returns the Judge0 token string for later retrieval via wait_for_token().
-
-        Dead-letter-queue pattern:
-            token = client.submit_only(...)  # returns immediately
-            db.save(ticket_id, token)        # persist BEFORE waiting
-            result = client.wait_for_token(token, timeout=300)
-
-        If wait_for_token() times out or the process crashes, the token is
-        already in the DB.  A background reconciler can call wait_for_token()
-        again later to retrieve the result once Judge0 finishes.
-        No callback_url is attached — polling is always used so that retrieval
-        is safe across process restarts.
-        """
-        payload, _ = self._build_payload(
-            source_code, language, per_tc_limit_s, tc_count, memory_limit_mb, overhead_s
-        )
-        data = self._post_with_retry(
-            "/submissions?base64_encoded=true&wait=false", payload, timeout=120
-        )
-        return data["token"]
-
-    def wait_for_token(self, token: str, timeout: int = 300) -> Judge0Result:
-        """
-        Poll Judge0 for a previously submitted token until a terminal status
-        is returned or *timeout* seconds elapse.
-
-        Always uses polling (not the callback server) so it is safe to call
-        after a process restart — the callback server's in-memory event map
-        would not survive a restart.
-        """
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            resp = self._get_with_retry(
-                f"{self.cfg.base_url}/submissions/{token}?base64_encoded=true"
-            )
-            data      = resp.json()
-            status_id = data["status"]["id"]
-            if status_id > 2:
-                return Judge0Result(
-                    stdout         = self._decode(data.get("stdout")),
-                    stderr         = self._decode(data.get("stderr")),
-                    status_str     = JUDGE0_STATUS.get(status_id, "Unknown"),
-                    status_id      = status_id,
-                    compile_output = self._decode(data.get("compile_output")),
-                    time_taken_s   = _parse_time(data.get("time")),
-                    memory_kb      = data.get("memory"),
-                )
-            time.sleep(self.cfg.poll_interval_s)
-        raise TimeoutError(
-            f"Judge0 token {token!r} did not reach a terminal status within {timeout}s"
-        )
-
     def submit_and_wait(
         self,
         source_code:     str,
@@ -455,35 +377,17 @@ class Judge0Client:
             source_code, language, per_tc_limit_s, tc_count, memory_limit_mb, overhead_s
         )
 
-        # Attach callback URL if a started server is provided.
-        # Uses actual_port (OS-assigned) not the requested port — fixes the
-        # silent polling fallback when start(port=0) was used.
-        use_callback = bool(self.callback_server and self.callback_server.actual_port)
-        if use_callback:
-            payload["callback_url"] = self.callback_server.url(self.callback_host)
+        # Always callback — attach the worker's webhook URL.
+        payload["callback_url"] = self.callback_server.url(self.callback_host)
 
-        # FIX (submit timeout): with Puma's 25-thread pool and 1000 concurrent
+        # Timeout 120 s: with Puma's 25-thread pool and 1000 concurrent
         # users the submission POST can queue for >10 s before being handled.
-        # The project memory note ("HTTP submit timeout: 120 s minimum") is
-        # what this 120 s value comes from.
         data  = self._post_with_retry(
             "/submissions?base64_encoded=true&wait=false", payload, timeout=120
         )
         token = data["token"]
 
-        if use_callback:
-            return self._wait_callback(token, global_limit_s)
-
-        # Fix 1.1: compute a safe poll budget from the actual global_limit_s
-        # rather than the static max_polls=60 (30 s) default.
-        # Budget = execution time + 60 s burst-queue margin + 5 s network buffer.
-        # At poll_interval_s=0.5 this gives ceil((15+65)/0.5) = 160 polls for
-        # a 1000-TC job, safely above the 30-s static cap that timed out under
-        # burst load.
-        safe_polls = math.ceil(
-            (global_limit_s + 65) / max(self.cfg.poll_interval_s, 0.1)
-        )
-        return self._poll(token, max_polls=safe_polls)
+        return self._wait_callback(token, global_limit_s)
 
     # ── Callback path ─────────────────────────────────────────────────────
 
@@ -523,62 +427,6 @@ class Judge0Client:
             time_taken_s   = _parse_time(data.get("time")),
             memory_kb      = data.get("memory"),
         )
-
-    # ── Polling path ──────────────────────────────────────────────────────
-
-    def _get_with_retry(self, url: str, max_retries: int = 3) -> requests.Response:
-        """
-        FIX-22: the old _poll() used requests.get(..., timeout=10) with no
-        retry.  A single transient 5xx or network hiccup raised an exception
-        and lost the student's result permanently.
-
-        Strategy: exponential back-off (0.5 s, 1 s, 2 s) on Timeout,
-        ConnectionError, or 5xx responses.  4xx are not retried (client error).
-        Poll timeout raised to 30 s to survive a loaded Judge0 under callback
-        traffic (individual polls are rare but should not time out spuriously).
-        """
-        last_exc = None
-        for attempt in range(max_retries):
-            try:
-                resp = requests.get(url, headers=self.headers, timeout=30)
-                if resp.status_code < 500:
-                    resp.raise_for_status()
-                    return resp
-                # 5xx — Judge0 overloaded; retry after back-off
-                last_exc = requests.HTTPError(
-                    f"HTTP {resp.status_code}", response=resp
-                )
-            except (requests.Timeout, requests.ConnectionError) as e:
-                last_exc = e
-            if attempt < max_retries - 1:
-                time.sleep(0.5 * (2 ** attempt))   # 0.5 s, 1 s, 2 s
-        raise last_exc  # type: ignore[misc]
-
-    def _poll(self, token: str, max_polls: int = None) -> Judge0Result:
-        # Fix 1.1: accept dynamic max_polls; fall back to config default.
-        polls_remaining = max_polls if max_polls is not None else self.cfg.max_polls
-        # FIX-7: check BEFORE sleeping so a sub-500ms job is not forced to
-        # wait poll_interval_s.  The old code always slept first.
-        for _ in range(polls_remaining):
-            resp = self._get_with_retry(
-                f"{self.cfg.base_url}/submissions/{token}?base64_encoded=true"
-            )
-            data      = resp.json()
-            status_id = data["status"]["id"]
-            if status_id > 2:
-                _judge0_breaker.record_success()
-                return Judge0Result(
-                    stdout         = self._decode(data.get("stdout")),
-                    stderr         = self._decode(data.get("stderr")),
-                    status_str     = JUDGE0_STATUS.get(status_id, "Unknown"),
-                    status_id      = status_id,
-                    compile_output = self._decode(data.get("compile_output")),
-                    time_taken_s   = _parse_time(data.get("time")),
-                    memory_kb      = data.get("memory"),
-                )
-            time.sleep(self.cfg.poll_interval_s)
-
-        raise TimeoutError(f"Judge0 did not respond after {self.cfg.max_polls} polls")
 
     # ── Helpers ───────────────────────────────────────────────────────────
 

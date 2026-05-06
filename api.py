@@ -5,7 +5,6 @@ Flask REST API for the grading platform.
 
 Endpoints:
   POST  /submit                      — enqueue a new submission
-  GET   /status/<ticket_id>          — poll result (202 pending / 200 done)
   GET   /results/stream/<ticket_id>  — SSE stream; pushes result when ready
   GET   /health                      — liveness + queue depths
 
@@ -208,36 +207,6 @@ def submit():
     return jsonify({"ticket_id": ticket_id, "status": "queued"}), 202
 
 
-@app.get("/status/<ticket_id>")
-def status(ticket_id: str):
-    """
-    Poll for a grading result.
-
-    Returns:
-      202  { "status": "pending", "queue_depth": N, "estimated_wait_s": N }
-      200  { "status": "done", "result": { ... } }
-    """
-    r = _get_redis()
-    raw = r.get(f"{RESULT_PREFIX}{ticket_id}")
-    if raw is None:
-        depths = _get_queue().depths()
-        queue_depth = depths["retry"] + depths["normal"]
-        # 15 s is the typical wall time for a 1000-TC harness job at standard scale.
-        # This gives a rough ETA; the frontend should display it as "up to N seconds".
-        return jsonify({
-            "status":           "pending",
-            "queue_depth":      queue_depth,
-            "estimated_wait_s": queue_depth * 15,
-        }), 202
-
-    try:
-        result = json.loads(raw)
-    except json.JSONDecodeError:
-        return jsonify({"status": "done", "result": {}}), 200
-
-    return jsonify({"status": "done", "result": result}), 200
-
-
 @app.get("/results/stream/<ticket_id>")
 def results_stream(ticket_id: str):
     """
@@ -283,7 +252,7 @@ def results_stream(ticket_id: str):
 
             # Timeout — send a system_error
             timeout_payload = json.dumps({
-                "system_error": "Result stream timed out. Use /status to poll."
+                "system_error": "Result stream timed out after 30 minutes. Please resubmit."
             })
             yield f"event: result\ndata: {timeout_payload}\n\n"
         finally:

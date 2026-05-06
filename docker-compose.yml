@@ -129,29 +129,24 @@ services:
   # Scale with: docker compose up --scale grading_worker=N
   # Each process runs MAX_CONCURRENCY=48 concurrent grading coroutines.
   #
-  # Callback mode (recommended for production):
-  #   Judge0 POSTs the result back instead of workers polling every 0.5s.
-  #   Reduces Puma pressure from ~160 polls/job to 2 calls/job.
-  #   To enable: set CALLBACK_PORT to a fixed port and expose it.
-  #   Each replica needs a unique port — use separate service definitions
-  #   or run workers outside Docker with CALLBACK_HOST=<server_ip>.
-  #
-  # Polling mode (default below — simpler for multi-replica docker-compose):
-  #   No port mapping needed; works automatically with any replica count.
+  # Callback mode (always active — polling has been removed):
+  #   Judge0 POSTs the result back the instant a job finishes.
+  #   Only 2 Puma HTTP calls per job (submit + webhook) vs. ~31 with polling.
+  #   CALLBACK_PORT=0 → OS picks a free port per replica automatically.
+  #   Each worker auto-detects its own container IP (via gethostbyname)
+  #   and embeds it in the callback_url sent to Judge0.
+  #   No host-port mapping needed — server→grading_worker is Docker-internal.
   grading_worker:
     build: .
     command: ["python", "worker_async.py"]
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      # Sourced from .env; see api service comment for production secrets upgrade.
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - JUDGE0_URL=http://server:2358
       - WORKER_CONCURRENCY=48
       - MAX_RETRY_COUNT=3
-      # CALLBACK_PORT and CALLBACK_HOST not set → polling mode
-      # To enable callback mode per worker, override here with a fixed port
-      # and add the matching "ports:" mapping.
+      - CALLBACK_PORT=0
     depends_on:
       - redis
       - server
