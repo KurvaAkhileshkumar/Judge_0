@@ -4,7 +4,7 @@
  *
  * Architecture change from v2:
  *   v2:  fork child → wait → next child   (sequential, time = sum)
- *   v3:  fork ALL children → select() all → collect  (parallel, time = max)
+ *   v3:  fork ALL children → poll() all → collect  (parallel, time = max)
  *
  * Key design decisions:
  *
@@ -15,10 +15,12 @@
  *     writes a TLE result to the pipe and calls _exit(). Children
  *     are guaranteed to terminate within per_tc_limit_s + epsilon.
  *
- *  2. SELECT() FOR PARALLEL COLLECTION
- *     The parent tracks all (pid, read_fd) pairs and uses select()
+ *  2. POLL() FOR PARALLEL COLLECTION
+ *     The parent tracks all (pid, read_fd) pairs and uses poll()
  *     to wait on all pipes simultaneously. Results arrive as children
  *     finish — fastest child first. Total wall time = max(TC_times).
+ *     poll() has no FD_SETSIZE limit (select() hard-caps at 1024 fds)
+ *     and requires no fd_set rebuild on each iteration.
  *
  *  3. GLOBAL SAFETY ALARM
  *     A single alarm(per_tc_limit_s + 2) is set in the parent before
@@ -30,7 +32,7 @@
  *  4. CRASH DETECTION VIA PIPE EOF
  *     If a child crashes (SIGSEGV, SIGFPE) before writing to the pipe,
  *     the write end of the pipe is automatically closed by the OS when
- *     the process exits. select() returns the fd as readable, read()
+ *     the process exits. poll() returns POLLHUP on the fd, read()
  *     returns 0 (EOF), and we inspect WIFSIGNALED() to determine the
  *     crash type.
  *
@@ -46,7 +48,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
-#include <sys/select.h>
+#include <poll.h>
 #include <sys/resource.h>
 #include <sys/time.h>
 #include <errno.h>

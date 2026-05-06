@@ -245,7 +245,8 @@ def _can_fork_n(n):
 def _run_all_parallel(test_cases, per_tc_limit_s, memory_limit_mb):
     """
     Forks one child per TC simultaneously.
-    Uses select() to collect results as children finish.
+    Uses select.poll() to collect results as children finish.
+    select.poll() has no FD_SETSIZE=1024 limit unlike select.select().
     Total job time = max(TC_times)  not  sum(TC_times).
     """
     _real_stdout = sys.stdout
@@ -291,16 +292,22 @@ def _run_all_parallel(test_cases, per_tc_limit_s, memory_limit_mb):
             os.close(w_fd)
             jobs.append((pid, r_fd, i))
 
-    # ── COLLECT PHASE: gather results using select() ─────────────────────
+    # ── COLLECT PHASE: gather results using select.poll() ───────────────
     # Deadline = per_tc_limit_s + 1.5s grace for process/OS overhead.
     # Children handle their own TLE internally via SIGALRM, so they will
     # always write a result within per_tc_limit_s.  The 1.5s is a safety net
     # for the unlikely case where a child's alarm handler itself stalls.
+    # select.poll() has no FD_SETSIZE=1024 limit unlike select.select().
     deadline      = time.monotonic() + per_tc_limit_s + 1.5
     results       = {{}}                    # tc_index -> result dict
     chunks        = {{i: [] for _, _, i in jobs}}  # tc_index -> list of bytes
     fd_to_job     = {{r_fd: (pid, i) for pid, r_fd, i in jobs}}
     pending_fds   = set(fd_to_job.keys())
+
+    # Build poller once — register all read fds.  Unregister on EOF/kill.
+    poller = select.poll()
+    for r_fd in pending_fds:
+        poller.register(r_fd, select.POLLIN)
 
     while pending_fds:
         remaining = deadline - time.monotonic()
@@ -308,6 +315,10 @@ def _run_all_parallel(test_cases, per_tc_limit_s, memory_limit_mb):
             # Global deadline passed — kill everything still running
             for r_fd in list(pending_fds):
                 pid, idx = fd_to_job[r_fd]
+                try:
+                    poller.unregister(r_fd)
+                except Exception:
+                    pass
                 try:
                     os.kill(pid, signal.SIGKILL)
                     os.waitpid(pid, 0)
@@ -323,14 +334,19 @@ def _run_all_parallel(test_cases, per_tc_limit_s, memory_limit_mb):
             break
 
         try:
-            readable, _, _ = select.select(list(pending_fds), [], [], remaining)
+            # poll() timeout is milliseconds; max(1,...) avoids poll(0) = instant return
+            ready = poller.poll(max(1, int(remaining * 1000)))
         except Exception:
             break
 
-        if not readable:
-            # Timeout from select() — no child made progress within remaining time
+        if not ready:
+            # Timeout from poll() — no child made progress within remaining time
             for r_fd in list(pending_fds):
                 pid, idx = fd_to_job[r_fd]
+                try:
+                    poller.unregister(r_fd)
+                except Exception:
+                    pass
                 try:
                     os.kill(pid, signal.SIGKILL)
                     os.waitpid(pid, 0)
@@ -345,7 +361,7 @@ def _run_all_parallel(test_cases, per_tc_limit_s, memory_limit_mb):
             pending_fds.clear()
             break
 
-        for r_fd in readable:
+        for r_fd, event in ready:
             pid, idx = fd_to_job[r_fd]
             try:
                 chunk = os.read(r_fd, 65536)
@@ -356,6 +372,10 @@ def _run_all_parallel(test_cases, per_tc_limit_s, memory_limit_mb):
                 chunks[idx].append(chunk)
             else:
                 # EOF — child closed its write end (finished or crashed)
+                try:
+                    poller.unregister(r_fd)
+                except Exception:
+                    pass
                 pending_fds.discard(r_fd)
                 try:
                     os.close(r_fd)

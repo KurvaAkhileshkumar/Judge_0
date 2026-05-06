@@ -4,8 +4,8 @@ harness_builder.py — v3
 Generates filled harness code for each language.
 
 v3 changes:
-  - C/C++ tc_runner_body: generates parallel fork + select() code
-    (fork all → select() → collect → print)
+  - C/C++ tc_runner_body: generates parallel fork + poll() code
+    (fork all → poll() → collect → print)
   - Java tc_runner_body: launches all threads simultaneously,
     joins them with a shared deadline
   - Python: parallel logic is inside the harness template itself
@@ -219,7 +219,8 @@ class HarnessBuilder:
         """
         Generates inline C code that:
           1. Forks all N children simultaneously (each with its own alarm)
-          2. Uses select() to collect results as children complete
+          2. Uses poll() to collect results as children complete
+             — no FD_SETSIZE limit, no fd_set rebuild on each iteration
           3. Kills remaining children on global deadline
           4. Prints all results in TC order
         """
@@ -278,40 +279,56 @@ class HarnessBuilder:
         }}
     }}""")
 
-        # ── Collect phase via select() ─────────────────────────────────
+        # ── Collect phase via poll() ───────────────────────────────────
         # Global safety alarm: per_tc_limit_s + 2s grace.
         # Primary enforcement is inside each child via alarm().
         lines.append(f"""
-    /* Phase 2: Collect results using select() — fastest child first */
+    /* Phase 2: Collect results using poll() — no FD_SETSIZE limit, no fd_set rebuild */
     alarm({ps} + 2);  /* parent safety alarm */
     {{
-        int _pending = {n};
-        while (_pending > 0 && !_global_tle) {{
-            fd_set _rfds;
-            FD_ZERO(&_rfds);
-            int _maxfd = -1;
-            for (int _i = 0; _i < {n}; _i++) {{
-                if (!_done[_i] && _pids[_i] > 0) {{
-                    FD_SET(_fds[_i], &_rfds);
-                    if (_fds[_i] > _maxfd) _maxfd = _fds[_i];
-                }}
+        /* Build pollfd array once before the loop.
+         * fd=-1 tells poll() to skip that slot — used for TCs whose pipe() failed. */
+        struct pollfd _pfds[{n}];
+        int _pending = 0;
+        for (int _i = 0; _i < {n}; _i++) {{
+            if (!_done[_i]) {{
+                _pfds[_i].fd     = _fds[_i];
+                _pfds[_i].events = POLLIN;
+                _pending++;
+            }} else {{
+                _pfds[_i].fd     = -1;
+                _pfds[_i].events = 0;
             }}
-            if (_maxfd < 0) break;
+            _pfds[_i].revents = 0;
+        }}
 
-            struct timeval _tv = {{ {ps} + 2, 0 }};
-            int _sel = select(_maxfd + 1, &_rfds, NULL, NULL, &_tv);
+        while (_pending > 0 && !_global_tle) {{
+            int _ret;
+            /* Issue-1 fix: retry poll() on EINTR caused by signals other than
+             * SIGALRM (e.g. SIGCHLD from a dying child).  SIGALRM sets
+             * _global_tle=1 which the while condition above catches. */
+            do {{
+                _ret = poll(_pfds, {n}, ({ps} + 2) * 1000);
+            }} while (_ret == -1 && errno == EINTR && !_global_tle);
 
-            if (_sel <= 0) break;  /* timeout or error */
+            if (_ret <= 0) break;  /* 0=timeout, -1=error or _global_tle set */
 
             for (int _i = 0; _i < {n}; _i++) {{
-                if (!_done[_i] && _pids[_i] > 0 && FD_ISSET(_fds[_i], &_rfds)) {{
-                    ssize_t _n = read(_fds[_i], &_results[_i], sizeof(TCResult));
-                    close(_fds[_i]);
+                /* Issue-2 fix: check POLLHUP too — child may crash before writing,
+                 * closing the pipe write-end with no data (POLLHUP, no POLLIN). */
+                if (!_done[_i] && (_pfds[_i].revents & (POLLIN | POLLHUP))) {{
+                    ssize_t _n = read(_pfds[_i].fd, &_results[_i], sizeof(TCResult));
+
+                    /* Issue-3 fix: set fd=-1 so poll() skips this slot next
+                     * iteration.  Leaving a closed fd causes POLLNVAL every loop. */
+                    close(_pfds[_i].fd);
+                    _pfds[_i].fd = -1;
+
                     int _st; waitpid(_pids[_i], &_st, 0);
                     _done[_i] = 1;
                     _pending--;
 
-                    if (_n != sizeof(TCResult)) {{
+                    if (_n != (ssize_t)sizeof(TCResult)) {{
                         if (WIFSIGNALED(_st)) {{
                             int _sig = WTERMSIG(_st);
                             if      (_sig == SIGSEGV) {{ strcpy(_results[_i].status, "SEGV"); strcpy(_results[_i].detail, "Segmentation fault"); }}
@@ -327,12 +344,12 @@ class HarnessBuilder:
             }}
         }}
 
-        /* Kill any still-running children (safety alarm fired or select timeout) */
+        /* Kill any still-running children (safety alarm fired or poll timeout) */
         for (int _i = 0; _i < {n}; _i++) {{
             if (!_done[_i] && _pids[_i] > 0) {{
                 kill(_pids[_i], SIGKILL);
                 waitpid(_pids[_i], NULL, 0);
-                close(_fds[_i]);
+                if (_pfds[_i].fd != -1) {{ close(_pfds[_i].fd); _pfds[_i].fd = -1; }}
                 strcpy(_results[_i].status, "TLE");
                 snprintf(_results[_i].detail, sizeof(_results[_i].detail),
                          "Exceeded {ps}s");
@@ -404,7 +421,7 @@ class HarnessBuilder:
 """
 
     def _build_cpp_parallel_runner(self) -> str:
-        """Same structure as C parallel runner but uses std::cout."""
+        """Same structure as C parallel runner (poll-based) but uses std::cout."""
         n     = len(self.cfg.test_cases)
         ps    = self.cfg.per_tc_limit_s
         mem   = self.cfg.memory_limit_mb
@@ -452,29 +469,46 @@ class HarnessBuilder:
     }}""")
 
         lines.append(f"""
-    /* Phase 2: Collect via select() */
+    /* Phase 2: Collect via poll() — no FD_SETSIZE limit, no fd_set rebuild */
     alarm({ps} + 2);
     {{
-        int _pending = {n};
-        while (_pending > 0 && !_global_tle) {{
-            fd_set _rfds;
-            FD_ZERO(&_rfds);
-            int _maxfd = -1;
-            for (int _i = 0; _i < {n}; _i++) {{
-                if (!_done[_i] && _pids[_i] > 0) {{
-                    FD_SET(_fds[_i], &_rfds);
-                    if (_fds[_i] > _maxfd) _maxfd = _fds[_i];
-                }}
+        /* Build pollfd array once before the loop.
+         * fd=-1 tells poll() to skip that slot — used for TCs whose pipe() failed. */
+        struct pollfd _pfds[{n}];
+        int _pending = 0;
+        for (int _i = 0; _i < {n}; _i++) {{
+            if (!_done[_i]) {{
+                _pfds[_i].fd     = _fds[_i];
+                _pfds[_i].events = POLLIN;
+                _pending++;
+            }} else {{
+                _pfds[_i].fd     = -1;
+                _pfds[_i].events = 0;
             }}
-            if (_maxfd < 0) break;
-            struct timeval _tv = {{ {ps} + 2, 0 }};
-            int _sel = select(_maxfd + 1, &_rfds, NULL, NULL, &_tv);
-            if (_sel <= 0) break;
+            _pfds[_i].revents = 0;
+        }}
+
+        while (_pending > 0 && !_global_tle) {{
+            int _ret;
+            /* Issue-1 fix: retry on EINTR from signals other than SIGALRM.
+             * SIGALRM sets _global_tle=1 which the while condition catches. */
+            do {{
+                _ret = poll(_pfds, {n}, ({ps} + 2) * 1000);
+            }} while (_ret == -1 && errno == EINTR && !_global_tle);
+
+            if (_ret <= 0) break;
 
             for (int _i = 0; _i < {n}; _i++) {{
-                if (!_done[_i] && _pids[_i] > 0 && FD_ISSET(_fds[_i], &_rfds)) {{
-                    ssize_t _n = read(_fds[_i], &_results[_i], sizeof(TCResult));
-                    close(_fds[_i]);
+                /* Issue-2 fix: check POLLHUP too — child may crash before
+                 * writing (SIGSEGV etc.), closing pipe with no data. */
+                if (!_done[_i] && (_pfds[_i].revents & (POLLIN | POLLHUP))) {{
+                    ssize_t _n = read(_pfds[_i].fd, &_results[_i], sizeof(TCResult));
+
+                    /* Issue-3 fix: set fd=-1 so poll() skips this slot next
+                     * iteration. Leaving a closed fd causes POLLNVAL every loop. */
+                    close(_pfds[_i].fd);
+                    _pfds[_i].fd = -1;
+
                     int _st; waitpid(_pids[_i], &_st, 0);
                     _done[_i] = 1;
                     _pending--;
@@ -497,7 +531,7 @@ class HarnessBuilder:
             if (!_done[_i] && _pids[_i] > 0) {{
                 kill(_pids[_i], SIGKILL);
                 waitpid(_pids[_i], NULL, 0);
-                close(_fds[_i]);
+                if (_pfds[_i].fd != -1) {{ close(_pfds[_i].fd); _pfds[_i].fd = -1; }}
                 strcpy(_results[_i].status, "TLE");
                 snprintf(_results[_i].detail, sizeof(_results[_i].detail), "Exceeded {ps}s");
             }}

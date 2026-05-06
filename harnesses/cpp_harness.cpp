@@ -5,7 +5,7 @@
  * Identical parallel strategy to the C harness (v3):
  *   - Each child sets its own alarm(per_tc_limit_s)
  *   - All children fork simultaneously
- *   - Parent collects via select() — fastest child first
+ *   - Parent collects via poll() — fastest child first, no FD_SETSIZE limit
  *   - Total wall time = max(TC_times) not sum(TC_times)
  *
  * C++ specific additions over C harness:
@@ -26,7 +26,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
-#include <sys/select.h>
+#include <poll.h>
 #include <sys/resource.h>
 #include <sys/time.h>
 #include <errno.h>
