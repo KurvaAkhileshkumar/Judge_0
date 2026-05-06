@@ -30,3 +30,6 @@ mnt/
 secrets/redis_password
 secrets/postgres_password
 secrets/rails_secret_key
+
+# judge0.conf holds injected secrets locally; use judge0.conf.example as template
+judge0.conf

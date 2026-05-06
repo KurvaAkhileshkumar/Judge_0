@@ -61,12 +61,30 @@ from core.log import get_logger
 log = get_logger(__name__)
 
 
+# ── Secrets helper ────────────────────────────────────────────────────────────
+
+def _read_secret(env_name: str) -> str | None:
+    """Read a secret from an env var, falling back to a Docker secrets file."""
+    val = os.getenv(env_name)
+    if val:
+        return val
+    file_path = os.getenv(f"{env_name}_FILE")
+    if file_path:
+        try:
+            with open(file_path) as fh:
+                return fh.read().strip() or None
+        except OSError:
+            pass
+    return None
+
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 MAX_QUEUE_DEPTH  = int(os.getenv("MAX_QUEUE_DEPTH",  5000))
 SSE_TIMEOUT_S    = int(os.getenv("SSE_TIMEOUT_S",    1800))
 IDEM_PREFIX      = "judge0:idem:"
 IDEM_TTL_S       = 86400   # 24 hours
+HEALTH_TOKEN: str | None = os.getenv("HEALTH_TOKEN") or None
 
 
 # ── App & Redis setup ─────────────────────────────────────────────────────────
@@ -104,6 +122,62 @@ def _idem_key(student_id: str, assessment_id: str, source_code: str) -> str:
     code_hash = hashlib.sha256(source_code.encode()).hexdigest()
     raw = f"{student_id}:{assessment_id}:{code_hash}"
     return IDEM_PREFIX + hashlib.sha256(raw.encode()).hexdigest()
+
+
+# ── Pydantic request models ───────────────────────────────────────────────────
+
+class _TestCaseModel(BaseModel):
+    expected:   Any
+    inputs:     list[Any] | None = None
+    stdin_text: str | None       = None
+
+    @model_validator(mode="after")
+    def _require_one(self) -> "_TestCaseModel":
+        if self.inputs is None and self.stdin_text is None:
+            raise ValueError("each test_case must have 'inputs' or 'stdin_text'")
+        return self
+
+
+class _SubmitRequest(BaseModel):
+    student_id:      str
+    assessment_id:   str
+    language:        str
+    student_code:    str
+    test_cases:      list[_TestCaseModel]
+    mode:            str  = "function"
+    function_name:   str  = "solve"
+    per_tc_limit_s:  int  = 2
+    memory_limit_mb: int  = 256
+    param_types:     list[str] | None = None
+    return_type:     str  = "auto"
+
+    @field_validator("language")
+    @classmethod
+    def _check_language(cls, v: str) -> str:
+        if v not in ("python", "c", "cpp", "java"):
+            raise ValueError("language must be one of: python, c, cpp, java")
+        return v
+
+    @field_validator("mode")
+    @classmethod
+    def _check_mode(cls, v: str) -> str:
+        if v not in ("function", "stdio"):
+            raise ValueError("mode must be 'function' or 'stdio'")
+        return v
+
+    @field_validator("per_tc_limit_s")
+    @classmethod
+    def _check_tc_limit(cls, v: int) -> int:
+        if not (1 <= v <= 30):
+            raise ValueError("per_tc_limit_s must be 1–30")
+        return v
+
+    @field_validator("memory_limit_mb")
+    @classmethod
+    def _check_memory(cls, v: int) -> int:
+        if not (16 <= v <= 3500):
+            raise ValueError("memory_limit_mb must be 16–3500")
+        return v
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────

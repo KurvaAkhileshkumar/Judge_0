@@ -151,6 +151,8 @@ def result_to_dict(result) -> dict:
 def run_worker(queue: PriorityJobQueue, grader: Autograder) -> None:
     log.info("worker_started", queues=["retry", "normal"])
 
+    running = True
+
     def _handle_stop(sig, frame):
         nonlocal running
         running = False
