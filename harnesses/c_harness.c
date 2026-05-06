@@ -75,15 +75,14 @@ typedef struct {{
 
 /* ── Per-child TLE globals (set inside child before alarm()) ────────── */
 static int   _child_pipe_fd   = -1;
-/* FIX-6: match enlarged expected buffer */
-static char  _child_expected[4096];
+/* Fix 4.1: _child_expected removed — TLE handler no longer needs it */
 
 static void _child_tle_handler(int sig) {{
     (void)sig;
     TCResult r;
     memset(&r, 0, sizeof(r));
     strcpy(r.status, "TLE");
-    strncpy(r.expected, _child_expected, sizeof(r.expected) - 1);
+    /* Fix 4.1: expected field not populated; OutputParser fetches from Redis */
     write(_child_pipe_fd, &r, sizeof(r));
     _exit(0);
 }}
@@ -139,12 +138,13 @@ static int compare_result(const char *got, const char *expected) {{
  * writes exactly one TCResult to pipe_fd, then exits.
  * Any crash/segfault terminates the child; the parent detects pipe EOF.
  *
+ * Fix 4.1: `expected` parameter removed. Child writes got + status="OUTPUT".
+ *          Comparison moved to OutputParser (outside the sandbox).
  * FIX-2: signature uses {tc_params_comma} (trailing comma present only
- * when params exist) so zero-arg functions don't produce "int pipe_fd, ,"
+ * when params exist) so zero-arg functions don’t produce "int pipe_fd, ,"
  * which is a C syntax error.
  */
-static void run_tc_child(int pipe_fd, {tc_params_comma}const char* expected,
-                          int per_tc_limit_s, int memory_limit_mb) {{
+static void run_tc_child(int pipe_fd, {tc_params_comma}int per_tc_limit_s, int memory_limit_mb) {{
 
     /* Apply per-child memory limit */
     if (memory_limit_mb > 0) {{
@@ -162,13 +162,12 @@ static void run_tc_child(int pipe_fd, {tc_params_comma}const char* expected,
 
     /* Set up per-child TLE alarm */
     _child_pipe_fd = pipe_fd;
-    strncpy(_child_expected, expected, sizeof(_child_expected) - 1);
+    /* Fix 4.1: no _child_expected needed; TLE result needs no expected value */
     signal(SIGALRM, _child_tle_handler);
     alarm((unsigned int)per_tc_limit_s);
 
     TCResult result;
     memset(&result, 0, sizeof(result));
-    strncpy(result.expected, expected, sizeof(result.expected) - 1);
 
     /* Call student function and capture output */
     {call_solve_and_capture}
@@ -176,12 +175,8 @@ static void run_tc_child(int pipe_fd, {tc_params_comma}const char* expected,
     /* Cancel alarm — we finished in time */
     alarm(0);
 
-    /* FIX-8/10: use float-tolerant comparator instead of raw strcmp */
-    if (compare_result(result.got, expected)) {{
-        strncpy(result.status, "PASS", sizeof(result.status) - 1);
-    }} else {{
-        strncpy(result.status, "FAIL", sizeof(result.status) - 1);
-    }}
+    /* Fix 4.1: set status=OUTPUT; OutputParser does comparison externally */
+    strncpy(result.status, "OUTPUT", sizeof(result.status) - 1);
 
     write(pipe_fd, &result, sizeof(TCResult));
     close(pipe_fd);

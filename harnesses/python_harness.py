@@ -184,41 +184,61 @@ def _child_run(tc, write_fd, per_tc_limit_s, mem_limit_mb):
 
 def _child_run_function(tc):
     """
-    Runs solve(*inputs) and compares return value to expected.
-    solve() is inherited from parent via fork — no re-exec needed.
+    Runs solve(*inputs) and returns the actual output.
+    Fix 4.1: No expected comparison inside sandbox — OutputParser does it.
     """
-    actual   = solve(*tc["input"])
-    got_s    = str(actual).strip()
-    exp_s    = str(tc["expected"]).strip()
-    # FIX-10: try numeric tolerance before strict equality
-    passed   = (got_s == exp_s) or _num_equal(got_s, exp_s)
+    actual = solve(*tc["input"])
+    got_s  = str(actual).strip()
     return {{
-        "status":   "PASS" if passed else "FAIL",
-        "got":      got_s,
-        "expected": exp_s,
+        "status": "OUTPUT",
+        "got":    got_s,
     }}
 
 
 def _child_run_stdio(tc):
     """
     Re-executes the student source in a fresh namespace per TC.
-    Replaces sys.stdin/stdout in the child — safe because it's a forked process.
+    Fix 1.6: __builtins__ is restricted to an explicit whitelist so
+    exec() cannot access blocked builtins via ns["__builtins__"].__dict__.
+    Fix 4.1: returns raw output; OutputParser does comparison.
     """
+    # Fix 1.6: whitelist of safe builtins for exec() namespace
+    _safe_builtins = {{
+        k: v for k, v in __builtins__.__dict__.items()
+        if k in {{
+            'print', 'input', 'range', 'len', 'int', 'float', 'str', 'bool',
+            'list', 'dict', 'set', 'tuple', 'frozenset', 'bytes', 'bytearray',
+            'enumerate', 'zip', 'map', 'filter', 'sorted', 'reversed',
+            'sum', 'min', 'max', 'abs', 'round', 'divmod', 'pow',
+            'isinstance', 'issubclass', 'type', 'repr', 'chr', 'ord',
+            'hex', 'bin', 'oct', 'id', 'hash', 'iter', 'next', 'any', 'all',
+            'StopIteration', 'ValueError', 'TypeError', 'IndexError',
+            'KeyError', 'AttributeError', 'NameError', 'RuntimeError',
+            'OverflowError', 'ZeroDivisionError', 'RecursionError',
+            'MemoryError', 'Exception', 'BaseException',
+            'True', 'False', 'None', 'NotImplemented', 'Ellipsis',
+            'object', 'super', 'property', 'staticmethod', 'classmethod',
+        }}
+    }}
     fake_stdin  = io.StringIO(tc.get("stdin_text", ""))
     fake_stdout = io.StringIO()
     sys.stdin   = fake_stdin
     sys.stdout  = fake_stdout
 
-    ns = {{"__name__": "__main__", "open": _safe_open, "exit": _safe_exit, "quit": _safe_exit}}
+    ns = {{
+        "__name__":     "__main__",
+        "__builtins__": _safe_builtins,  # Fix 1.6
+        "open":         _safe_open,
+        "exit":         _safe_exit,
+        "quit":         _safe_exit,
+    }}
     exec(compile(_STUDENT_SOURCE, "<student>", "exec"), ns)
 
-    got      = fake_stdout.getvalue().strip()
-    expected = str(tc["expected"]).strip()
-    passed   = (got == expected) or _num_equal(got, expected)
+    got = fake_stdout.getvalue().strip()
+    # Fix 4.1: return raw output; OutputParser does comparison externally
     return {{
-        "status":   "PASS" if passed else "FAIL",
-        "got":      got,
-        "expected": expected,
+        "status": "OUTPUT",
+        "got":    got,
     }}
 
 

@@ -40,18 +40,27 @@ services:
       - "2358:2358"
     privileged: true
     restart: always
+    # F-07 fix: raise OS TCP listen backlog so connections 129-1000 are not
+    # RST before Puma even sees them.  net.core.somaxconn is namespaced per
+    # network namespace and safe in all Docker versions.  tcp_max_syn_backlog
+    # requires privileged: true (already set above) on Linux kernels < 4.9;
+    # it is a no-op on newer kernels where the namespace limit applies.
+    sysctls:
+      net.core.somaxconn: 4096
+      net.ipv4.tcp_max_syn_backlog: 4096
     environment:
       # RAILS_MAX_THREADS = threads per Puma process (holds one DB connection each)
       # WEB_CONCURRENCY   = number of Puma processes
       # Total HTTP connections = WEB_CONCURRENCY × RAILS_MAX_THREADS
       #
       # Dev   (10 core / 16 GB):  WEB_CONCURRENCY=4  × RAILS_MAX_THREADS=20 =  80 connections
-      # Prod  ( 8 core / 32 GB):  WEB_CONCURRENCY=4  × RAILS_MAX_THREADS=20 =  80 connections
-      # Prod  (16 core / 64 GB):  WEB_CONCURRENCY=8  × RAILS_MAX_THREADS=20 = 160 connections
+      # Prod  ( 8 core / 32 GB):  WEB_CONCURRENCY=8  × RAILS_MAX_THREADS=25 = 200 connections  ← F-07
+      # Prod  (16 core / 64 GB):  WEB_CONCURRENCY=8  × RAILS_MAX_THREADS=25 = 200 connections
       #
       # Rule: never exceed (postgres max_connections - worker_connections - 20 headroom)
-      - RAILS_MAX_THREADS=20
-      - WEB_CONCURRENCY=4
+      # Current: (8 × 25) + (workers × 5) + 20 = 235 → max_connections=300 in db service
+      - RAILS_MAX_THREADS=25
+      - WEB_CONCURRENCY=8
     depends_on:
       db:
         condition: service_started
@@ -102,8 +111,9 @@ services:
     image: postgres:13
     env_file: judge0.conf
     # max_connections must cover: (WEB_CONCURRENCY × RAILS_MAX_THREADS) + (workers × 5) + 20 headroom
-    # Current:  (4 × 20) + (3 × 5) + 20 = 115  →  200 limit is safe
-    command: postgres -c max_connections=200
+    # F-07: (8 × 25) + (3 × 5) + 20 = 235  →  300 limit gives safe headroom
+    # If worker replica count is raised above 3, recalculate: each worker holds ~5 connections.
+    command: postgres -c max_connections=300
     volumes:
       - postgres-data:/var/lib/postgresql/data/
     restart: always

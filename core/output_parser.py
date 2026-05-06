@@ -17,7 +17,18 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
-VALID_STATUSES = {"PASS", "FAIL", "TLE", "MLE", "SEGV", "FPE", "ERROR"}
+VALID_STATUSES = {"PASS", "FAIL", "TLE", "MLE", "SEGV", "FPE", "ERROR", "OUTPUT"}
+
+
+def _num_equal(a_str: str, b_str: str) -> bool:
+    """Float-tolerant comparison: relative tolerance 1e-6, absolute 1e-9."""
+    try:
+        a, b = float(a_str), float(b_str)
+        if a != a or b != b:   # NaN check
+            return False
+        return abs(a - b) <= max(1e-9, abs(b) * 1e-6)
+    except (ValueError, TypeError):
+        return False
 
 
 @dataclass
@@ -41,10 +52,12 @@ class ParsedSubmission:
 
 class OutputParser:
 
-    def __init__(self, raw_output: str, session_id: str, total_tc_count: int):
+    def __init__(self, raw_output: str, session_id: str, total_tc_count: int,
+                 expected_values: list = None):
         self.raw             = raw_output
         self.delim           = f"@@TC_RESULT__{session_id}__"
         self.total_tc_count  = total_tc_count
+        self.expected_values = expected_values or []
 
     def parse(self) -> ParsedSubmission:
         result    = ParsedSubmission(tc_results=[], total=self.total_tc_count)
@@ -103,6 +116,26 @@ class OutputParser:
             if status not in VALID_STATUSES:
                 status = "ERROR"
 
+            # Fix 4.1: harnesses emit OUTPUT; comparison done here with expected_values
+            if status == "OUTPUT":
+                if self.expected_values:
+                    tc_idx       = tc_num - 1
+                    expected_str = str(self.expected_values[tc_idx]).strip() \
+                                   if tc_idx < len(self.expected_values) else ""
+                    got_str      = str(data.get("got", "")).strip()
+                    passed       = (got_str == expected_str) or _num_equal(got_str, expected_str)
+                    return TCResult(
+                        tc_num   = tc_num,
+                        status   = "PASS" if passed else "FAIL",
+                        got      = got_str,
+                        expected = expected_str,
+                        detail   = str(data.get("detail", "")),
+                        warning  = str(data.get("warning", "")),
+                    )
+                else:
+                    # No expected values provided — treat as configuration error
+                    status = "ERROR"
+
             return TCResult(
                 tc_num   = tc_num,
                 status   = status,
@@ -133,6 +166,7 @@ def parse_judge0_response(
     judge0_status:  str,   # Judge0's own status: "Accepted", "Time Limit Exceeded", etc.
     session_id:     str,
     total_tc_count: int,
+    expected_values: list = None,   # Fix 4.1: passed from autograder; harness emits OUTPUT
 ) -> ParsedSubmission:
     """
     Top-level parser.
@@ -166,5 +200,5 @@ def parse_judge0_response(
         return ParsedSubmission(tc_results=results, total=total_tc_count)
 
     # Normal case — parse harness output
-    parser = OutputParser(judge0_stdout or "", session_id, total_tc_count)
+    parser = OutputParser(judge0_stdout or "", session_id, total_tc_count, expected_values)
     return parser.parse()

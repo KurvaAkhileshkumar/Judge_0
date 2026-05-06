@@ -132,7 +132,6 @@ public class Harness {
      * ═══════════════════════════════════════════════════════════════════ */
     static Thread launchFunctionTC(
             final Object[]               inputs,
-            final String                 expected,
             final String[]               paramTypes,
             final String                 functionName,
             final int                    memoryLimitMb,
@@ -140,7 +139,7 @@ public class Harness {
 
         Thread t = new Thread(() -> {
             TCResult result = new TCResult();
-            result.expected = expected;
+            // Fix 4.1: result.expected not set; OutputParser fetches from Redis
 
             // Set up this thread's capture streams
             ByteArrayOutputStream baos    = new ByteArrayOutputStream();
@@ -169,8 +168,8 @@ public class Harness {
                 String printed  = baos.toString().trim();
                 String returned = (retVal != null) ? retVal.toString().trim() : "null";
                 result.got      = printed.isEmpty() ? returned : printed;
-                // FIX-10: use float-tolerant comparator
-                result.status   = compareResults(result.got, expected.trim()) ? "PASS" : "FAIL";
+                /* Fix 4.1: OUTPUT status; OutputParser does comparison */
+                result.status   = "OUTPUT";
 
             } catch (OutOfMemoryError e) {
                 result.status = "MLE";
@@ -203,12 +202,11 @@ public class Harness {
      * ═══════════════════════════════════════════════════════════════════ */
     static Thread launchStdioTC(
             final String                 stdinInput,
-            final String                 expected,
             final AtomicReference<TCResult> resultRef) {
 
         Thread t = new Thread(() -> {
             TCResult result = new TCResult();
-            result.expected = expected;
+            // Fix 4.1: result.expected not set; OutputParser fetches from Redis
 
             ByteArrayOutputStream baos    = new ByteArrayOutputStream();
             PrintStream           capture = new PrintStream(baos);
@@ -221,8 +219,8 @@ public class Harness {
                 m.invoke(null, (Object) new String[]{});
 
                 result.got    = baos.toString().trim();
-                // FIX-10: use float-tolerant comparator
-                result.status = compareResults(result.got, expected.trim()) ? "PASS" : "FAIL";
+                /* Fix 4.1: OUTPUT status; OutputParser does comparison */
+                result.status = "OUTPUT";
 
             } catch (OutOfMemoryError e) {
                 result.status = "MLE";

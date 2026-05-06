@@ -51,15 +51,14 @@ struct TCResult {{
 
 /* ── Per-child TLE globals (set inside child before alarm()) ────────── */
 static int  _child_pipe_fd = -1;
-/* FIX-6: match enlarged expected buffer */
-static char _child_expected[4096];
+/* Fix 4.1: _child_expected removed — TLE handler no longer needs it */
 
 static void _child_tle_handler(int sig) {{
     (void)sig;
     TCResult r;
     memset(&r, 0, sizeof(r));
     strcpy(r.status, "TLE");
-    strncpy(r.expected, _child_expected, sizeof(r.expected) - 1);
+    /* Fix 4.1: expected field not populated; OutputParser fetches externally */
     write(_child_pipe_fd, &r, sizeof(r));
     _exit(0);
 }}
@@ -111,12 +110,13 @@ static bool compare_result(const std::string &got, const char *expected) {{
 }}
 
 /* ── Child entry point ────────────────────────────────────────────────────
+ * Fix 4.1: `expected` parameter removed.  Child writes got + status="OUTPUT".
+ *          Comparison is done by OutputParser outside the sandbox.
  * FIX-2: signature uses {tc_params_comma} (trailing comma present only when
- * params exist), so zero-arg functions don't produce "int pipe_fd, , const"
+ * params exist), so zero-arg functions don’t produce "int pipe_fd, , const"
  * which is a C++ syntax error.
  */
-static void run_tc_child(int pipe_fd, {tc_params_comma}const char* expected,
-                          int per_tc_limit_s, int memory_limit_mb) {{
+static void run_tc_child(int pipe_fd, {tc_params_comma}int per_tc_limit_s, int memory_limit_mb) {{
 
     /* Memory limit */
     if (memory_limit_mb > 0) {{
@@ -130,15 +130,13 @@ static void run_tc_child(int pipe_fd, {tc_params_comma}const char* expected,
     struct rlimit nproc_rl {{ 1, 1 }};
     setrlimit(RLIMIT_NPROC, &nproc_rl);
 
-    /* Per-child TLE alarm */
+    /* Per-child TLE alarm (Fix 4.1: no _child_expected needed) */
     _child_pipe_fd = pipe_fd;
-    strncpy(_child_expected, expected, sizeof(_child_expected) - 1);
     signal(SIGALRM, _child_tle_handler);
     alarm((unsigned int)per_tc_limit_s);
 
     TCResult result;
     memset(&result, 0, sizeof(result));
-    strncpy(result.expected, expected, sizeof(result.expected) - 1);
 
     try {{
         /* Redirect cout to capture solve() output */
@@ -151,9 +149,7 @@ static void run_tc_child(int pipe_fd, {tc_params_comma}const char* expected,
         alarm(0);
 
         std::string got_str = oss.str();
-        /* FIX-14: strip ALL trailing whitespace/newlines, not just one '\n'.
-         * Python uses .strip(); the old C++ code stripped only the last char,
-         * causing cross-language inconsistency on multi-newline output. */
+        /* FIX-14: strip ALL trailing whitespace/newlines */
         while (!got_str.empty() &&
                (got_str.back() == '\n' || got_str.back() == '\r' ||
                 got_str.back() == ' '  || got_str.back() == '\t'))
@@ -161,12 +157,8 @@ static void run_tc_child(int pipe_fd, {tc_params_comma}const char* expected,
 
         strncpy(result.got, got_str.c_str(), sizeof(result.got) - 1);
 
-        /* FIX-8/10: float-tolerant comparison */
-        if (compare_result(got_str, expected)) {{
-            strncpy(result.status, "PASS", sizeof(result.status) - 1);
-        }} else {{
-            strncpy(result.status, "FAIL", sizeof(result.status) - 1);
-        }}
+        /* Fix 4.1: status=OUTPUT; OutputParser does comparison externally */
+        strncpy(result.status, "OUTPUT", sizeof(result.status) - 1);
 
     }} catch (const std::bad_alloc&) {{
         alarm(0);

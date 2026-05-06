@@ -33,6 +33,9 @@ _INFRA_ERROR_KEYWORDS = (
     "process slots",
     "ulimits",
     "EMFILE",
+    "Cannot allocate memory",   # kernel ENOMEM on fork/mmap
+    "out of memory",            # system-level OOM messages
+    "calloc failed",            # harness heap allocation failure (Fix 1.2)
 )
 
 
@@ -41,12 +44,15 @@ def _is_infrastructure_failure(parsed: ParsedSubmission) -> bool:
     Returns True when every TC error is caused by our resource limits,
     not by the student's code.
 
-    Criteria: all TC results are ERROR AND every detail string contains
-    one of our infra-specific keywords.  A mix of PASS/FAIL/TLE/ERROR
-    means the student's code ran — that is never an infra failure.
+    Criteria:
+      - Empty tc_results (harness produced no output at all — OOM/isolate crash)
+      - OR all TC results are ERROR AND every detail string contains one of
+        our infra-specific keywords.
+    A mix of PASS/FAIL/TLE/ERROR means the student's code ran — never infra.
     """
+    # Fix 1.3: empty output = sandbox/container died before harness could run
     if not parsed.tc_results:
-        return False
+        return True
     return all(
         r.status == "ERROR" and any(kw in r.detail for kw in _INFRA_ERROR_KEYWORDS)
         for r in parsed.tc_results
@@ -178,12 +184,34 @@ class Autograder:
             memory_limit_mb = submission.memory_limit_mb,
         )
 
+        # Fix 1.3: Judge0 status 12 (Internal Error) means isolate itself
+        # crashed (cgroup OOM, exec failure, sandbox setup error).  The
+        # student's code never ran — treat as infra failure and requeue.
+        if judge0_result.status_id == 12:
+            empty_sub = ParsedSubmission(
+                tc_results = [],
+                total      = len(submission.test_cases),
+                score      = 0,
+            )
+            return GradingResult(
+                student_id    = submission.student_id,
+                language      = submission.language,
+                submission    = empty_sub,
+                judge0_raw    = judge0_result,
+                harness_code  = harness_code,
+                needs_requeue = True,
+            )
+
         # ── 5. Parse output ──────────────────────────────────────────────
+        # Fix 4.1: pass expected values so OutputParser can do comparison
+        # outside the sandbox instead of relying on harness-embedded values.
+        expected_values = [str(tc.expected).strip() for tc in submission.test_cases]
         parsed = parse_judge0_response(
-            judge0_stdout  = judge0_result.stdout,
-            judge0_status  = judge0_result.status_str,
-            session_id     = builder.session_id,
-            total_tc_count = len(submission.test_cases),
+            judge0_stdout   = judge0_result.stdout,
+            judge0_status   = judge0_result.status_str,
+            session_id      = builder.session_id,
+            total_tc_count  = len(submission.test_cases),
+            expected_values = expected_values,
         )
 
         # ── 6. Infrastructure failure detection ──────────────────────────

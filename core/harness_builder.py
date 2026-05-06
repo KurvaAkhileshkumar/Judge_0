@@ -86,13 +86,15 @@ class HarnessBuilder:
         template = (_HARNESSES_DIR / "python_harness.py").read_text()
 
         if self.cfg.mode == "stdio":
+            # Fix 4.1: omit expected — OutputParser does comparison externally.
             tc_dicts = [
-                {"stdin_text": tc.stdin_text, "expected": tc.expected}
+                {"stdin_text": tc.stdin_text}
                 for tc in self.cfg.test_cases
             ]
         else:
+            # Fix 4.1: omit expected — OutputParser does comparison externally.
             tc_dicts = [
-                {"input": tc.inputs, "expected": tc.expected}
+                {"input": tc.inputs}
                 for tc in self.cfg.test_cases
             ]
 
@@ -260,9 +262,23 @@ class HarnessBuilder:
 
         # Global result array holds all N TC results across all batches.
         lines.append(f"""
-    /* Batched execution: {n} TCs in batches of up to {MAX_PARALLEL_TCS} */
-    TCResult  _results[{n}];
-    memset(_results, 0, sizeof(_results));
+    /* Fix 1.2: heap-allocate results — stack VLA for N={n} TCs is
+     * {n} x {'{n}232'} bytes = {n*9232//1024} KB, which overflows the default
+     * 8 MB RLIMIT_STACK and triggers a silent segfault.  calloc() puts it
+     * on the heap and returns NULL on failure so we can emit a clean error.
+     *
+     * Batched execution: {n} TCs in batches of up to {MAX_PARALLEL_TCS} */
+    TCResult *_results = (TCResult*)calloc({n}, sizeof(TCResult));
+    if (!_results) {{
+        for (int _ei = 1; _ei <= {n}; _ei++) {{
+            printf("%sSTART_%d\\n", DELIM, _ei);
+            printf("{{\\"status\\":\\"ERROR\\",\\"detail\\":\\"calloc failed: out of memory\\"}}\\n");
+            printf("%sEND_%d\\n", DELIM, _ei);
+        }}
+        printf("%sDONE\\n", DELIM);
+        fflush(stdout);
+        return 1;
+    }}
 """)
 
         batches = [
@@ -379,21 +395,20 @@ class HarnessBuilder:
         lines.append(f"""
     /* Phase 3: Print results in original TC order */
     for (int _i = 0; _i < {n}; _i++) {{
-        char _je_got[8193], _je_exp[8193], _je_det[2049], _je_st[33];
-        json_escape(_results[_i].status,   _je_st,  sizeof(_je_st));
-        json_escape(_results[_i].got,      _je_got, sizeof(_je_got));
-        json_escape(_results[_i].expected, _je_exp, sizeof(_je_exp));
-        json_escape(_results[_i].detail,   _je_det, sizeof(_je_det));
+        char _je_got[8193], _je_det[2049], _je_st[33];
+        json_escape(_results[_i].status, _je_st,  sizeof(_je_st));
+        json_escape(_results[_i].got,    _je_got, sizeof(_je_got));
+        json_escape(_results[_i].detail, _je_det, sizeof(_je_det));
         printf("{d}START_%d\\n", _i + 1);
         printf("{{\\n");
         printf("  \\"status\\": \\"%s\\",\\n",   _je_st);
         printf("  \\"got\\": \\"%s\\",\\n",      _je_got);
-        printf("  \\"expected\\": \\"%s\\",\\n", _je_exp);
         printf("  \\"detail\\": \\"%s\\"\\n",    _je_det);
         printf("}}\\n");
         printf("{d}END_%d\\n", _i + 1);
         fflush(stdout);
-    }}""")
+    }}
+    free(_results);""")  # Fix 1.2: free heap allocation
 
         return "\n".join(lines)
 
@@ -465,9 +480,19 @@ class HarnessBuilder:
 """)
 
         lines.append(f"""
-    /* Batched execution: {n} TCs in batches of up to {MAX_PARALLEL_TCS} */
-    TCResult  _results[{n}];
-    memset(_results, 0, sizeof(_results));
+    /* Fix 1.2: heap-allocate results — same rationale as C runner.
+     * Fix 4.1: no expected in result; OutputParser does comparison.
+     * Batched execution: {n} TCs in batches of up to {MAX_PARALLEL_TCS} */
+    TCResult *_results = (TCResult*)calloc({n}, sizeof(TCResult));
+    if (!_results) {{
+        for (int _ei = 1; _ei <= {n}; _ei++) {{
+            std::cout << DELIM << "START_" << _ei << "\\n";
+            std::cout << "{{\\"status\\":\\"ERROR\\",\\"detail\\":\\"calloc failed: out of memory\\"}}" << "\\n";
+            std::cout << DELIM << "END_" << _ei << "\\n";
+        }}
+        std::cout << DELIM << "DONE" << std::endl;
+        return 1;
+    }}
 """)
 
         batches = [
@@ -489,19 +514,18 @@ class HarnessBuilder:
         memset(_done, 0, sizeof(_done));
         _global_tle = 0;  /* reset from any previous batch alarm */""")
 
-            lines.append("        /* Phase 1: Fork batch children */")
+            lines.append("        /* Phase 1: Fork batch children (Fix 4.1: no expected arg) */")
             for b_i, tc in enumerate(batch):
                 g_i        = batch_start + b_i
                 args_str   = ", ".join(str(v) for v in (tc.inputs or []))
                 args_comma = (args_str + ", ") if args_str else ""
-                expected   = str(tc.expected).replace('"', '\\"')
                 lines.append(f"""        {{
             int _pfd[2];
             if (pipe(_pfd) == 0) {{
                 pid_t _p = fork();
                 if (_p == 0) {{
                     close(_pfd[0]);
-                    run_tc_child(_pfd[1], {args_comma}"{expected}", {ps}, {mem_c});
+                    run_tc_child(_pfd[1], {args_comma}{ps}, {mem_c});
                 }}
                 close(_pfd[1]);
                 _pids[{b_i}] = _p;
@@ -582,23 +606,22 @@ class HarnessBuilder:
 """)
 
         lines.append(f"""
-    /* Phase 3: Print results in order */
+    /* Phase 3: Print results (Fix 4.1: no expected field) */
     for (int _i = 0; _i < {n}; _i++) {{
-        char _je_got[8193], _je_exp[8193], _je_det[2049], _je_st[33];
-        json_escape(_results[_i].status,   _je_st,  sizeof(_je_st));
-        json_escape(_results[_i].got,      _je_got, sizeof(_je_got));
-        json_escape(_results[_i].expected, _je_exp, sizeof(_je_exp));
-        json_escape(_results[_i].detail,   _je_det, sizeof(_je_det));
+        char _je_got[8193], _je_det[2049], _je_st[33];
+        json_escape(_results[_i].status, _je_st,  sizeof(_je_st));
+        json_escape(_results[_i].got,    _je_got, sizeof(_je_got));
+        json_escape(_results[_i].detail, _je_det, sizeof(_je_det));
         std::cout << "{d}START_" << (_i+1) << std::endl;
         std::cout << "{{" << std::endl;
         std::cout << "  \\"status\\": \\"" << _je_st  << "\\"," << std::endl;
         std::cout << "  \\"got\\": \\"" << _je_got << "\\"," << std::endl;
-        std::cout << "  \\"expected\\": \\"" << _je_exp << "\\"," << std::endl;
         std::cout << "  \\"detail\\": \\"" << _je_det << "\\"" << std::endl;
         std::cout << "}}" << std::endl;
         std::cout << "{d}END_" << (_i+1) << std::endl;
         std::cout.flush();
-    }}""")
+    }}
+    free(_results);  /* Fix 1.2: free heap allocation */""")
 
         return "\n".join(lines)
 
@@ -665,14 +688,13 @@ class HarnessBuilder:
         }}
 """)
 
-        # Build launch calls
+        # Build launch calls (Fix 4.1: expected removed; OutputParser does comparison)
         lines.append("        /* Phase 1: Create all threads (not started yet) */")
         for i, tc in enumerate(self.cfg.test_cases):
-            expected = str(tc.expected).replace('"', '\\"')
             if self.cfg.mode == "stdio":
                 stdin = (tc.stdin_text or "").replace('"', '\\"').replace("\n", "\\n")
                 lines.append(f"""
-        _threads[{i}] = launchStdioTC("{stdin}", "{expected}", _resultRefs[{i}]);""")
+        _threads[{i}] = launchStdioTC("{stdin}", _resultRefs[{i}]);""")
             else:
                 inputs_arr = ", ".join(
                     f'(Object)({v})' if isinstance(v, (int, float)) else f'"{v}"'
@@ -681,7 +703,7 @@ class HarnessBuilder:
                 lines.append(f"""
         {{
             Object[] _in{i} = {{ {inputs_arr} }};
-            _threads[{i}] = launchFunctionTC(_in{i}, "{expected}",
+            _threads[{i}] = launchFunctionTC(_in{i},
                 paramTypes, functionName, memoryLimitMb, _resultRefs[{i}]);
         }}""")
 

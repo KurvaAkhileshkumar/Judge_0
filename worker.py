@@ -164,6 +164,7 @@ def run_worker(queue: PriorityJobQueue, grader: Autograder) -> None:
                             "Your submission was not evaluated. Please resubmit."
                         )
                     })
+                    queue.ack(job)  # Fix 2.1: remove from PROCESSING_QUEUE
                 else:
                     # Push back to priority queue — will be picked up before
                     # any new submission because retry queue is checked first.
@@ -174,10 +175,12 @@ def run_worker(queue: PriorityJobQueue, grader: Autograder) -> None:
                         flush=True,
                     )
                     queue.requeue(job)
+                    queue.ack(job)  # Fix 2.1: remove from PROCESSING_QUEUE
 
             # ── Normal result — store for the student to poll ─────────────
             else:
                 queue.store_result(ticket_id, result_to_dict(result))
+                queue.ack(job)  # Fix 2.1: remove from PROCESSING_QUEUE
                 print(
                     f"[{ticket_id[:8]}] Done — "
                     f"score={result.submission.score}/{result.submission.total}",
@@ -190,6 +193,7 @@ def run_worker(queue: PriorityJobQueue, grader: Autograder) -> None:
             queue.store_result(ticket_id, {
                 "system_error": f"Internal grading error. Please resubmit. ({exc})"
             })
+            queue.ack(job)  # Fix 2.1: remove from PROCESSING_QUEUE
 
     print("Worker stopped.", flush=True)
 
