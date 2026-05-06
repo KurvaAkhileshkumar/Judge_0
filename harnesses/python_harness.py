@@ -17,7 +17,7 @@ Mechanism
 2. EXECUTE PHASE— each child runs its single TC with its own SIGALRM timer.
                   If child TLEs, its alarm handler writes TLE result and exits.
                   If child segfaults, pipe closes (EOF) and parent detects it.
-3. COLLECT PHASE— parent uses select() to wait on all pipes simultaneously.
+3. COLLECT PHASE— parent uses poll() to wait on all pipes simultaneously.
                   Results arrive as children finish (fastest first).
 4. EMIT PHASE   — results printed in original TC order using DELIM protocol.
 
@@ -227,17 +227,45 @@ def _child_run_stdio(tc):
 def _can_fork_n(n):
     """
     Check RLIMIT_NPROC to confirm we can safely fork n children.
-    Returns True if parallel is safe, False to fall back to sequential.
+
+    RLIMIT_NPROC is a per-UID kernel limit counted system-wide — not
+    per-process, not per-container.  All sandboxes sharing the same UID
+    compete for the same pool.  The old code only counted threads in THIS
+    process (/proc/self/task), so it returned True while other sandboxes
+    had already consumed most of the quota → fork() failed mid-launch.
+
+    Fix: scan /proc for ALL processes owned by this UID.  Inside an isolate
+    PID namespace this may undercount (other sandboxes are in separate
+    namespaces), so the primary guard is ulimits.nproc=65536 in
+    docker-compose.yml which raises the per-container ceiling high enough
+    that a single harness with 1,000 children never comes close to it.
     """
     try:
         soft, _ = resource.getrlimit(resource.RLIMIT_NPROC)
         if soft == resource.RLIM_INFINITY:
-            return True
-        # count current threads/processes in this process group
-        current = len(os.listdir('/proc/self/task'))
-        return (current + n + 2) <= soft  # +2 safety margin
+            return True, -1
+        uid = os.getuid()
+        current = 0
+        try:
+            for entry in os.listdir('/proc'):
+                if not entry.isdigit():
+                    continue
+                try:
+                    with open(f'/proc/{{entry}}/status') as f:
+                        for line in f:
+                            if line.startswith('Uid:'):
+                                if int(line.split()[1]) == uid:
+                                    current += 1
+                                break
+                except OSError:
+                    pass
+        except OSError:
+            # /proc listing blocked — fall back to this process's thread count
+            current = len(os.listdir('/proc/self/task'))
+        available = soft - current - 2  # -2 safety margin
+        return available >= n, available
     except Exception:
-        return True  # assume ok if we can't check
+        return True, -1  # assume ok if we can't check
 
 
 # ── PARALLEL RUNNER ────────────────────────────────────────────────────
@@ -257,159 +285,190 @@ def _run_all_parallel(test_cases, per_tc_limit_s, memory_limit_mb):
     # legitimate solutions to OOM. Judge0 enforces the limit per-process via
     # enable_per_process_and_thread_memory_limit, so each child is already
     # capped at memory_limit_mb independently by isolate.
-    mem_per_child = memory_limit_mb
+    mem_per_child    = memory_limit_mb
+    MAX_PARALLEL_TCS = 200  # caps peak RSS to MAX_PARALLEL_TCS x memory_limit_mb
 
-    # ── FORK PHASE: launch all children at t=0 ──────────────────────────
-    jobs = []   # (pid, read_fd, tc_index)
-
-    for i, tc in enumerate(test_cases):
-        r_fd, w_fd = os.pipe()
-        try:
-            pid = os.fork()
-        except OSError:
-            # RLIMIT_NPROC hit mid-fork — kill forked children and fall back
-            os.close(r_fd)
-            os.close(w_fd)
-            for p, rf, _ in jobs:
-                try:
-                    os.kill(p, signal.SIGKILL)
-                    os.waitpid(p, 0)
-                    os.close(rf)
-                except Exception:
-                    pass
-            _run_all_sequential(test_cases, per_tc_limit_s, memory_limit_mb,
-                                warning="fork() failed mid-launch (RLIMIT_NPROC). "
-                                        "Sequential fallback used.")
+    # Pre-flight: with batching, at most min(n, MAX_PARALLEL_TCS) pipes open at once.
+    # Runs before any fork: if the limit is too low, ALL TCs get ERROR before any child starts,
+    # so _is_infrastructure_failure() sees 100% ERROR and the worker requeues the job.
+    try:
+        _soft_fd, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
+        _need_fd = min(n, MAX_PARALLEL_TCS) * 2 + 64
+        if _soft_fd != resource.RLIM_INFINITY and _soft_fd < _need_fd:
+            _reason = f"EMFILE: open-file limit too low -- need {{_need_fd}} fds, have {{_soft_fd}}"
+            for _i in range(n):
+                _real_stdout.write(f"{{DELIM}}START_{{_i+1}}\n")
+                _real_stdout.write(json.dumps({{"status": "ERROR", "detail": _reason}}) + "\n")
+                _real_stdout.write(f"{{DELIM}}END_{{_i+1}}\n")
+                _real_stdout.flush()
+            _real_stdout.write(f"{{DELIM}}DONE\n")
+            _real_stdout.flush()
             return
+    except Exception:
+        pass
 
-        if pid == 0:
-            # CHILD: close read end, run TC, write result, exit
-            os.close(r_fd)
-            _child_run(tc, w_fd, per_tc_limit_s, mem_per_child)
-            os._exit(0)  # unreachable but defensive
-        else:
-            # PARENT: close write end, track this child
-            os.close(w_fd)
-            jobs.append((pid, r_fd, i))
+    # ── BATCHED FORK + COLLECT ────────────────────────────────────────────
+    # Each batch forks up to MAX_PARALLEL_TCS children simultaneously,
+    # collects their results, then moves to the next batch.
+    # This caps peak concurrent processes (and peak RSS) to MAX_PARALLEL_TCS.
+    results       = {{}}   # global tc_index -> result dict
+    pipe_failures = {{}}   # global tc_index -> error string
+    fork_aborted  = False
 
-    # ── COLLECT PHASE: gather results using select.poll() ───────────────
-    # Deadline = per_tc_limit_s + 1.5s grace for process/OS overhead.
-    # Children handle their own TLE internally via SIGALRM, so they will
-    # always write a result within per_tc_limit_s.  The 1.5s is a safety net
-    # for the unlikely case where a child's alarm handler itself stalls.
-    # select.poll() has no FD_SETSIZE=1024 limit unlike select.select().
-    deadline      = time.monotonic() + per_tc_limit_s + 1.5
-    results       = {{}}                    # tc_index -> result dict
-    chunks        = {{i: [] for _, _, i in jobs}}  # tc_index -> list of bytes
-    fd_to_job     = {{r_fd: (pid, i) for pid, r_fd, i in jobs}}
-    pending_fds   = set(fd_to_job.keys())
-
-    # Build poller once — register all read fds.  Unregister on EOF/kill.
-    poller = select.poll()
-    for r_fd in pending_fds:
-        poller.register(r_fd, select.POLLIN)
-
-    while pending_fds:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            # Global deadline passed — kill everything still running
-            for r_fd in list(pending_fds):
-                pid, idx = fd_to_job[r_fd]
-                try:
-                    poller.unregister(r_fd)
-                except Exception:
-                    pass
-                try:
-                    os.kill(pid, signal.SIGKILL)
-                    os.waitpid(pid, 0)
-                except Exception:
-                    pass
-                try:
-                    os.close(r_fd)
-                except Exception:
-                    pass
-                results[idx] = {{"status": "TLE",
-                                 "detail": f"Exceeded {{per_tc_limit_s}}s (global deadline)"}}
-            pending_fds.clear()
+    for batch_start in range(0, n, MAX_PARALLEL_TCS):
+        if fork_aborted:
             break
+        batch_end = min(batch_start + MAX_PARALLEL_TCS, n)
+        batch_tcs = test_cases[batch_start:batch_end]
 
-        try:
-            # poll() timeout is milliseconds; max(1,...) avoids poll(0) = instant return
-            ready = poller.poll(max(1, int(remaining * 1000)))
-        except Exception:
-            break
+        jobs   = []   # (pid, read_fd, global_tc_index)
+        chunks = {{}}  # global_tc_index -> list of bytes
 
-        if not ready:
-            # Timeout from poll() — no child made progress within remaining time
-            for r_fd in list(pending_fds):
-                pid, idx = fd_to_job[r_fd]
-                try:
-                    poller.unregister(r_fd)
-                except Exception:
-                    pass
-                try:
-                    os.kill(pid, signal.SIGKILL)
-                    os.waitpid(pid, 0)
-                except Exception:
-                    pass
-                try:
-                    os.close(r_fd)
-                except Exception:
-                    pass
-                results[idx] = {{"status": "TLE",
-                                 "detail": f"Exceeded {{per_tc_limit_s}}s"}}
-            pending_fds.clear()
-            break
-
-        for r_fd, event in ready:
-            pid, idx = fd_to_job[r_fd]
+        for b_i, tc in enumerate(batch_tcs):
+            g_i = batch_start + b_i
             try:
-                chunk = os.read(r_fd, 65536)
-            except Exception:
-                chunk = b""
+                r_fd, w_fd = os.pipe()
+            except OSError as e:
+                pipe_failures[g_i] = f"pipe() failed: {{e}}"
+                continue
+            try:
+                pid = os.fork()
+            except OSError as e:
+                os.close(r_fd)
+                os.close(w_fd)
+                reason = (
+                    f"fork() failed at TC{{g_i+1}} ({{e}}). "
+                    f"Process/memory limit exhausted — TCs {{g_i+1}}–{{n}} not executed. "
+                    f"Fix: set ulimits.nproc=65536 in docker-compose.yml"
+                )
+                for j in range(g_i, n):
+                    pipe_failures[j] = reason
+                fork_aborted = True
+                break
 
-            if chunk:
-                chunks[idx].append(chunk)
+            if pid == 0:
+                os.close(r_fd)
+                _child_run(tc, w_fd, per_tc_limit_s, mem_per_child)
+                os._exit(0)
             else:
-                # EOF — child closed its write end (finished or crashed)
-                try:
-                    poller.unregister(r_fd)
-                except Exception:
-                    pass
-                pending_fds.discard(r_fd)
-                try:
-                    os.close(r_fd)
-                except Exception:
-                    pass
-                try:
-                    _, exit_status = os.waitpid(pid, 0)
-                except Exception:
-                    exit_status = 0
+                os.close(w_fd)
+                jobs.append((pid, r_fd, g_i))
+                chunks[g_i] = []
 
-                raw = b"".join(chunks.get(idx, []))
-                if raw:
+        # ── COLLECT PHASE for this batch ──────────────────────────────────
+        deadline    = time.monotonic() + per_tc_limit_s + 1.5
+        fd_to_job   = {{r_fd: (pid, idx) for pid, r_fd, idx in jobs}}
+        pending_fds = set(fd_to_job.keys())
+
+        poller = select.poll()
+        for r_fd in pending_fds:
+            poller.register(r_fd, select.POLLIN)
+
+        while pending_fds:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                # Global deadline passed — kill everything still running
+                for r_fd in list(pending_fds):
+                    pid, idx = fd_to_job[r_fd]
                     try:
-                        results[idx] = json.loads(raw)
+                        poller.unregister(r_fd)
                     except Exception:
-                        results[idx] = {{"status": "ERROR",
-                                         "detail": f"Result parse failed: {{raw[:80]!r}}"}}
+                        pass
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                        os.waitpid(pid, 0)
+                    except Exception:
+                        pass
+                    try:
+                        os.close(r_fd)
+                    except Exception:
+                        pass
+                    results[idx] = {{"status": "TLE",
+                                     "detail": f"Exceeded {{per_tc_limit_s}}s (global deadline)"}}
+                pending_fds.clear()
+                break
+
+            try:
+                # poll() timeout is milliseconds; max(1,...) avoids poll(0) = instant return
+                ready = poller.poll(max(1, int(remaining * 1000)))
+            except Exception:
+                break
+
+            if not ready:
+                # Timeout from poll() — no child made progress within remaining time
+                for r_fd in list(pending_fds):
+                    pid, idx = fd_to_job[r_fd]
+                    try:
+                        poller.unregister(r_fd)
+                    except Exception:
+                        pass
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                        os.waitpid(pid, 0)
+                    except Exception:
+                        pass
+                    try:
+                        os.close(r_fd)
+                    except Exception:
+                        pass
+                    results[idx] = {{"status": "TLE",
+                                     "detail": f"Exceeded {{per_tc_limit_s}}s"}}
+                pending_fds.clear()
+                break
+
+            for r_fd, event in ready:
+                pid, idx = fd_to_job[r_fd]
+                try:
+                    chunk = os.read(r_fd, 65536)
+                except Exception:
+                    chunk = b""
+
+                if chunk:
+                    chunks[idx].append(chunk)
                 else:
-                    # Child wrote nothing — likely crashed before writing
-                    import os as _os
-                    if _os.WIFSIGNALED(exit_status):
-                        sig = _os.WTERMSIG(exit_status)
-                        status_map = {{
-                            signal.SIGSEGV: ("SEGV", "Segmentation fault"),
-                            signal.SIGFPE:  ("FPE",  "Floating point exception"),
-                            signal.SIGKILL: ("MLE",  "Memory limit exceeded (SIGKILL)"),
-                        }}
-                        st, detail = status_map.get(sig, ("ERROR", f"Killed by signal {{sig}}"))
-                        results[idx] = {{"status": st, "detail": detail}}
+                    # EOF — child closed its write end (finished or crashed)
+                    try:
+                        poller.unregister(r_fd)
+                    except Exception:
+                        pass
+                    pending_fds.discard(r_fd)
+                    try:
+                        os.close(r_fd)
+                    except Exception:
+                        pass
+                    try:
+                        _, exit_status = os.waitpid(pid, 0)
+                    except Exception:
+                        exit_status = 0
+
+                    raw = b"".join(chunks.get(idx, []))
+                    if raw:
+                        try:
+                            results[idx] = json.loads(raw)
+                        except Exception:
+                            results[idx] = {{"status": "ERROR",
+                                             "detail": f"Result parse failed: {{raw[:80]!r}}"}}
                     else:
-                        results[idx] = {{"status": "ERROR",
-                                         "detail": "Child exited without writing result"}}
+                        # Child wrote nothing — likely crashed before writing
+                        import os as _os
+                        if _os.WIFSIGNALED(exit_status):
+                            sig = _os.WTERMSIG(exit_status)
+                            status_map = {{
+                                signal.SIGSEGV: ("SEGV", "Segmentation fault"),
+                                signal.SIGFPE:  ("FPE",  "Floating point exception"),
+                                signal.SIGKILL: ("MLE",  "Memory limit exceeded (SIGKILL)"),
+                            }}
+                            st, detail = status_map.get(sig, ("ERROR", f"Killed by signal {{sig}}"))
+                            results[idx] = {{"status": st, "detail": detail}}
+                        else:
+                            results[idx] = {{"status": "ERROR",
+                                             "detail": "Child exited without writing result"}}
 
     # ── EMIT PHASE: print results in original TC order ────────────────────
+    # Merge in any TCs that failed at pipe()/fork() before the collect loop
+    for idx, err in pipe_failures.items():
+        results[idx] = {{"status": "ERROR", "detail": err}}
+
     for i in range(n):
         result = results.get(i, {{"status": "ERROR", "detail": "Result not collected"}})
         if _signal_override_attempted:
@@ -423,108 +482,45 @@ def _run_all_parallel(test_cases, per_tc_limit_s, memory_limit_mb):
     _real_stdout.flush()
 
 
-# ── SEQUENTIAL FALLBACK ────────────────────────────────────────────────
-# Used when RLIMIT_NPROC is too restrictive for parallel execution.
-
-def _run_all_sequential(test_cases, per_tc_limit_s, memory_limit_mb, warning=None):
-    """Original v2 sequential implementation used as fallback."""
-    _real_stdout = sys.stdout
-
-    for i, tc in enumerate(test_cases):
-        result = _run_tc_sequential(tc, per_tc_limit_s, memory_limit_mb)
-        if warning:
-            result["warning"] = warning
-        if _signal_override_attempted:
-            result["warning"] = result.get("warning", "") + " | signal_override_attempted"
-        _real_stdout.write(f"{{DELIM}}START_{{i+1}}\n")
-        _real_stdout.write(json.dumps(result) + "\n")
-        _real_stdout.write(f"{{DELIM}}END_{{i+1}}\n")
-        _real_stdout.flush()
-
-    _real_stdout.write(f"{{DELIM}}DONE\n")
-    _real_stdout.flush()
-
-
-def _run_tc_sequential(tc, per_tc_limit_s, memory_limit_mb):
-    """Single TC execution — sequential fallback mode."""
-    import resource as _res
-
-    mem_before = 0
-    try:
-        mem_before = _res.getrusage(_res.RUSAGE_SELF).ru_maxrss / 1024
-    except Exception:
-        pass
-
-    def _tle(s, f):
-        raise TimeoutError("TLE")
-
-    _real_signal(signal.SIGALRM, _tle)
-    signal.alarm(per_tc_limit_s)
-
-    try:
-        if MODE == "stdio":
-            fake_stdin  = io.StringIO(tc.get("stdin_text", ""))
-            fake_stdout = io.StringIO()
-            real_stdin  = sys.stdin
-            real_stdout = sys.stdout
-            sys.stdin   = fake_stdin
-            sys.stdout  = fake_stdout
-            ns = {{"__name__": "__main__", "open": _safe_open,
-                  "exit": _safe_exit, "quit": _safe_exit}}
-            exec(compile(_STUDENT_SOURCE, "<student>", "exec"), ns)
-            signal.alarm(0)
-            sys.stdin  = real_stdin
-            sys.stdout = real_stdout
-            got      = fake_stdout.getvalue().strip()
-            expected = str(tc["expected"]).strip()
-            passed   = (got == expected) or _num_equal(got, expected)
-            return {{"status": "PASS" if passed else "FAIL",
-                     "got": got, "expected": expected}}
-        else:
-            actual   = solve(*tc["input"])
-            signal.alarm(0)
-            mem_used = 0
-            try:
-                mem_after = _res.getrusage(_res.RUSAGE_SELF).ru_maxrss / 1024
-                mem_used  = mem_after - mem_before
-            except Exception:
-                pass
-            if memory_limit_mb and mem_used > memory_limit_mb:
-                return {{"status": "MLE",
-                         "detail": f"Used ~{{int(mem_used)}}MB, limit {{memory_limit_mb}}MB"}}
-            got_s  = str(actual).strip()
-            exp_s  = str(tc["expected"]).strip()
-            passed = (got_s == exp_s) or _num_equal(got_s, exp_s)
-            return {{"status": "PASS" if passed else "FAIL",
-                     "got": got_s, "expected": exp_s}}
-
-    except TimeoutError:
-        return {{"status": "TLE", "detail": f"Exceeded {{per_tc_limit_s}}s"}}
-    except MemoryError:
-        signal.alarm(0)
-        return {{"status": "MLE", "detail": "Memory limit exceeded"}}
-    except SystemExit as e:
-        signal.alarm(0)
-        msg = "Called sys.exit()" if "__HARNESS_BLOCKED__" in str(e) else "SystemExit"
-        return {{"status": "ERROR", "detail": msg}}
-    except Exception:
-        signal.alarm(0)
-        lines = traceback.format_exc().strip().splitlines()
-        return {{"status": "ERROR", "detail": " | ".join(lines[-2:])}}
+# Sequential fallback intentionally removed.
+# With N test cases sequential takes N × per_tc_limit_s which always
+# exceeds the Judge0 global time limit.  Resource exhaustion is now
+# reported immediately as ERROR for the affected TCs.
 
 
 # ── ENTRY POINT ────────────────────────────────────────────────────────
 
 def _run_all(test_cases, per_tc_limit_s, memory_limit_mb):
     """
-    Dispatcher: use parallel execution if RLIMIT_NPROC allows it,
-    otherwise fall back to sequential with a warning.
+    Dispatcher: use parallel execution if RLIMIT_NPROC allows it.
+
+    Sequential fallback is intentionally removed.  With N test cases,
+    sequential takes N × per_tc_limit_s seconds which always exceeds the
+    Judge0 global time limit (per_tc_limit_s + 5s overhead).  Falling back
+    to sequential would guarantee every TC beyond the first few hits TLE —
+    worse than reporting the root cause immediately.
+
+    If parallel is not possible, all TCs are marked ERROR with a clear
+    message pointing to the fix (ulimits.nproc in docker-compose.yml).
     """
-    if _can_fork_n(len(test_cases)):
+    can_fork, available = _can_fork_n(len(test_cases))
+    if can_fork:
         _run_all_parallel(test_cases, per_tc_limit_s, memory_limit_mb)
     else:
-        _run_all_sequential(test_cases, per_tc_limit_s, memory_limit_mb,
-                            warning="RLIMIT_NPROC too low for parallel — sequential fallback")
+        reason = (
+            f"RLIMIT_NPROC too low: need {{len(test_cases)}} slots, "
+            f"only {{available}} available. "
+            f"Fix: set ulimits.nproc=65536 in docker-compose.yml and "
+            f"MAX_PROCESSES_PER_WORKER=1100 in judge0.conf"
+        )
+        _real_stdout = sys.stdout
+        for i in range(len(test_cases)):
+            _real_stdout.write(f"{{DELIM}}START_{{i+1}}\n")
+            _real_stdout.write(json.dumps({{"status": "ERROR", "detail": reason}}) + "\n")
+            _real_stdout.write(f"{{DELIM}}END_{{i+1}}\n")
+            _real_stdout.flush()
+        _real_stdout.write(f"{{DELIM}}DONE\n")
+        _real_stdout.flush()
 
 
 _TEST_CASES      = {test_cases_json}

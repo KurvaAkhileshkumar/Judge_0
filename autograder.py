@@ -12,6 +12,7 @@ Usage:
 
 import sys
 import os
+import time
 sys.path.insert(0, os.path.dirname(__file__))
 
 from dataclasses import dataclass
@@ -21,6 +22,35 @@ from core.harness_builder import HarnessBuilder, HarnessConfig, TestCase
 from core.output_parser   import OutputParser, ParsedSubmission, parse_judge0_response
 from core.judge0_client   import Judge0Client, Judge0Config, Judge0Result, CallbackServer
 from security.security    import SecurityChecker, sanitize_for_injection
+
+
+# Keywords that appear in TC detail when the failure is our infrastructure,
+# not the student's code.  Used to decide whether to retry transparently.
+_INFRA_ERROR_KEYWORDS = (
+    "fork() failed",
+    "pipe() failed",
+    "RLIMIT_NPROC",
+    "process slots",
+    "ulimits",
+    "EMFILE",
+)
+
+
+def _is_infrastructure_failure(parsed: ParsedSubmission) -> bool:
+    """
+    Returns True when every TC error is caused by our resource limits,
+    not by the student's code.
+
+    Criteria: all TC results are ERROR AND every detail string contains
+    one of our infra-specific keywords.  A mix of PASS/FAIL/TLE/ERROR
+    means the student's code ran — that is never an infra failure.
+    """
+    if not parsed.tc_results:
+        return False
+    return all(
+        r.status == "ERROR" and any(kw in r.detail for kw in _INFRA_ERROR_KEYWORDS)
+        for r in parsed.tc_results
+    )
 
 
 @dataclass
@@ -45,11 +75,16 @@ class GradingResult:
     submission:     ParsedSubmission
     judge0_raw:     Judge0Result
     harness_code:   str              # for debugging
-    security_error: str = ""         # set if blocked before Judge0
+    security_error: str  = ""        # set if blocked before Judge0
+    system_error:   str  = ""        # set if infrastructure failed after all retries
+    needs_requeue:  bool = False     # set if infra failure — worker should requeue
 
     def summary(self) -> str:
         if self.security_error:
             return f"[BLOCKED] {self.security_error}"
+
+        if self.system_error:
+            return f"[SYSTEM ERROR] {self.system_error}"
 
         lines = [
             f"Student: {self.student_id}",
@@ -86,8 +121,12 @@ class Autograder:
         )
         self.security = SecurityChecker()
 
-    def grade(self, submission: Submission) -> GradingResult:
-
+    def grade(self, submission: Submission, retry_count: int = 0) -> GradingResult:
+        """
+        Grade one submission.  retry_count is passed by the worker so that
+        grade() can signal needs_requeue=True without knowing the max-retry
+        policy — that decision belongs to the worker / queue layer.
+        """
         # ── 1. Build harness (to get session_id / delim) ────────────────
         config = HarnessConfig(
             student_code    = submission.student_code,
@@ -146,6 +185,27 @@ class Autograder:
             session_id     = builder.session_id,
             total_tc_count = len(submission.test_cases),
         )
+
+        # ── 6. Infrastructure failure detection ──────────────────────────
+        # If ALL TCs are ERROR with our resource-limit keywords, the student's
+        # code never ran — this is our fault, not theirs.
+        # Set needs_requeue=True so the worker can push the job back into the
+        # Redis priority queue instead of reporting fake errors to the student.
+        # The worker owns the retry-count / give-up decision, not grade().
+        if _is_infrastructure_failure(parsed):
+            empty_sub = ParsedSubmission(
+                tc_results = [],
+                total      = len(submission.test_cases),
+                score      = 0,
+            )
+            return GradingResult(
+                student_id    = submission.student_id,
+                language      = submission.language,
+                submission    = empty_sub,
+                judge0_raw    = judge0_result,
+                harness_code  = harness_code,
+                needs_requeue = True,
+            )
 
         return GradingResult(
             student_id   = submission.student_id,

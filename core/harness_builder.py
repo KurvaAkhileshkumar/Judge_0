@@ -22,6 +22,11 @@ from typing import Any
 
 SUPPORTED_LANGUAGES = ["python", "c", "cpp", "java"]
 
+# Maximum TCs run in parallel within one batch.
+# Caps peak RSS to MAX_PARALLEL_TCS x memory_limit_mb (worst case).
+# Wall time for N TCs = ceil(N / MAX_PARALLEL_TCS) x per_tc_limit_s + overhead.
+MAX_PARALLEL_TCS = 200
+
 # Harness templates sit in harnesses/ next to the core/ package directory.
 # Path(__file__) makes this work whether the repo is cloned, on PYTHONPATH,
 # or installed via pip — no dependency on the current working directory.
@@ -218,151 +223,159 @@ class HarnessBuilder:
     def _build_c_parallel_runner(self) -> str:
         """
         Generates inline C code that:
-          1. Forks all N children simultaneously (each with its own alarm)
-          2. Uses poll() to collect results as children complete
-             — no FD_SETSIZE limit, no fd_set rebuild on each iteration
-          3. Kills remaining children on global deadline
-          4. Prints all results in TC order
+          1. Processes TCs in batches of MAX_PARALLEL_TCS (caps peak RSS)
+          2. Within each batch: forks all children simultaneously, then
+             uses poll() to collect results (no FD_SETSIZE limit)
+          3. Kills remaining children on per-batch deadline
+          4. Prints all results in TC order after all batches complete
         """
-        n      = len(self.cfg.test_cases)
-        ps     = self.cfg.per_tc_limit_s
-        mem    = self.cfg.memory_limit_mb
-        # FIX-1: pass the full per-TC limit to every child, not total÷N.
-        # Dividing (e.g. 256÷10=25MB) starved children and triggered the
-        # Rosetta 2 mmap_anonymous_rw error.  Judge0's per-process memory
-        # enforcement (enable_per_process_and_thread_memory_limit) already
-        # caps each child at memory_limit_mb independently via isolate.
-        # FIX-17: guard against n=0 (no test cases) which caused ZeroDivisionError.
-        mem_c  = mem if mem else 0
-        d      = self.delim
+        n     = len(self.cfg.test_cases)
+        ps    = self.cfg.per_tc_limit_s
+        mem_c = self.cfg.memory_limit_mb if self.cfg.memory_limit_mb else 0
+        d     = self.delim
 
         lines = []
 
-        # ── Data arrays ────────────────────────────────────────────────
+        # Pre-flight: with batching, at most min(n, MAX_PARALLEL_TCS) pipes open at once.
+        _need = min(n, MAX_PARALLEL_TCS) * 2 + 64
         lines.append(f"""
-    /* ── PARALLEL EXECUTION: {n} TCs simultaneously ─────────────────── */
-    pid_t     _pids[{n}];
-    int       _fds[{n}];
-    TCResult  _results[{n}];
-    int       _done[{n}];
-    memset(_pids,    0, sizeof(_pids));
-    memset(_fds,     0, sizeof(_fds));
-    memset(_results, 0, sizeof(_results));
-    memset(_done,    0, sizeof(_done));
+    /* Pre-flight: RLIMIT_NOFILE >= {_need} (max {min(n, MAX_PARALLEL_TCS)}x2 pipes + 64).
+     * Batching caps concurrent fds; emits all TCs as ERROR if limit is too low. */
+    {{
+        struct rlimit _fd_rl;
+        getrlimit(RLIMIT_NOFILE, &_fd_rl);
+        if (_fd_rl.rlim_cur != RLIM_INFINITY && _fd_rl.rlim_cur < {_need}UL) {{
+            for (int _i = 1; _i <= {n}; _i++) {{
+                printf("%sSTART_%d\\n", DELIM, _i);
+                printf("{{\\"status\\":\\"ERROR\\",\\"detail\\":\\"EMFILE: open-file limit too low -- need {_need} fds, have %lu\\"}}\\n",
+                       (unsigned long)_fd_rl.rlim_cur);
+                printf("%sEND_%d\\n", DELIM, _i);
+            }}
+            printf("%sDONE\\n", DELIM);
+            fflush(stdout);
+            return 1;
+        }}
+    }}
 """)
 
-        # ── Fork phase ─────────────────────────────────────────────────
-        lines.append("    /* Phase 1: Fork all children simultaneously */")
-        for i, tc in enumerate(self.cfg.test_cases):
-            args_str   = ", ".join(str(v) for v in (tc.inputs or []))
-            # FIX-2: append a trailing ", " only when args exist so the call
-            # becomes run_tc_child(fd, p0, p1, "exp", ...) with args, or
-            # run_tc_child(fd, "exp", ...) without — never "fd, , "exp"".
-            args_comma = (args_str + ", ") if args_str else ""
-            expected   = str(tc.expected).replace('"', '\\"')
-            lines.append(f"""    {{
-        int _pfd{i}[2];
-        if (pipe(_pfd{i}) == 0) {{
-            pid_t _p = fork();
-            if (_p == 0) {{
-                close(_pfd{i}[0]);
-                run_tc_child(_pfd{i}[1], {args_comma}"{expected}", {ps}, {mem_c});
-            }}
-            close(_pfd{i}[1]);
-            _pids[{i}] = _p;
-            _fds[{i}]  = _pfd{i}[0];
-        }} else {{
-            _pids[{i}] = -1;
-            strcpy(_results[{i}].status, "ERROR");
-            strcpy(_results[{i}].detail, "pipe() failed");
-            _done[{i}] = 1;
-        }}
-    }}""")
-
-        # ── Collect phase via poll() ───────────────────────────────────
-        # Global safety alarm: per_tc_limit_s + 2s grace.
-        # Primary enforcement is inside each child via alarm().
+        # Global result array holds all N TC results across all batches.
         lines.append(f"""
-    /* Phase 2: Collect results using poll() — no FD_SETSIZE limit, no fd_set rebuild */
-    alarm({ps} + 2);  /* parent safety alarm */
+    /* Batched execution: {n} TCs in batches of up to {MAX_PARALLEL_TCS} */
+    TCResult  _results[{n}];
+    memset(_results, 0, sizeof(_results));
+""")
+
+        batches = [
+            self.cfg.test_cases[i : i + MAX_PARALLEL_TCS]
+            for i in range(0, n, MAX_PARALLEL_TCS)
+        ]
+        for batch_idx, batch in enumerate(batches):
+            batch_start = batch_idx * MAX_PARALLEL_TCS
+            bsz         = len(batch)
+
+            lines.append(f"""
+    /* BATCH {batch_idx}: TCs {batch_start+1}..{batch_start+bsz} */
     {{
-        /* Build pollfd array once before the loop.
-         * fd=-1 tells poll() to skip that slot — used for TCs whose pipe() failed. */
-        struct pollfd _pfds[{n}];
-        int _pending = 0;
-        for (int _i = 0; _i < {n}; _i++) {{
-            if (!_done[_i]) {{
-                _pfds[_i].fd     = _fds[_i];
-                _pfds[_i].events = POLLIN;
-                _pending++;
+        pid_t _pids[{bsz}];
+        int   _fds[{bsz}];
+        int   _done[{bsz}];
+        memset(_pids, 0, sizeof(_pids));
+        memset(_fds,  0, sizeof(_fds));
+        memset(_done, 0, sizeof(_done));
+        _global_tle = 0;  /* reset from any previous batch alarm */""")
+
+            lines.append("        /* Phase 1: Fork batch children */")
+            for b_i, tc in enumerate(batch):
+                g_i        = batch_start + b_i
+                args_str   = ", ".join(str(v) for v in (tc.inputs or []))
+                args_comma = (args_str + ", ") if args_str else ""
+                expected   = str(tc.expected).replace('"', '\\"')
+                lines.append(f"""        {{
+            int _pfd[2];
+            if (pipe(_pfd) == 0) {{
+                pid_t _p = fork();
+                if (_p == 0) {{
+                    close(_pfd[0]);
+                    run_tc_child(_pfd[1], {args_comma}"{expected}", {ps}, {mem_c});
+                }}
+                close(_pfd[1]);
+                _pids[{b_i}] = _p;
+                _fds[{b_i}]  = _pfd[0];
             }} else {{
-                _pfds[_i].fd     = -1;
-                _pfds[_i].events = 0;
+                _pids[{b_i}] = -1;
+                strcpy(_results[{g_i}].status, "ERROR");
+                strcpy(_results[{g_i}].detail, "pipe() failed");
+                _done[{b_i}] = 1;
             }}
-            _pfds[_i].revents = 0;
-        }}
+        }}""")
 
-        while (_pending > 0 && !_global_tle) {{
-            int _ret;
-            /* Issue-1 fix: retry poll() on EINTR caused by signals other than
-             * SIGALRM (e.g. SIGCHLD from a dying child).  SIGALRM sets
-             * _global_tle=1 which the while condition above catches. */
-            do {{
-                _ret = poll(_pfds, {n}, ({ps} + 2) * 1000);
-            }} while (_ret == -1 && errno == EINTR && !_global_tle);
-
-            if (_ret <= 0) break;  /* 0=timeout, -1=error or _global_tle set */
-
-            for (int _i = 0; _i < {n}; _i++) {{
-                /* Issue-2 fix: check POLLHUP too — child may crash before writing,
-                 * closing the pipe write-end with no data (POLLHUP, no POLLIN). */
-                if (!_done[_i] && (_pfds[_i].revents & (POLLIN | POLLHUP))) {{
-                    ssize_t _n = read(_pfds[_i].fd, &_results[_i], sizeof(TCResult));
-
-                    /* Issue-3 fix: set fd=-1 so poll() skips this slot next
-                     * iteration.  Leaving a closed fd causes POLLNVAL every loop. */
-                    close(_pfds[_i].fd);
-                    _pfds[_i].fd = -1;
-
-                    int _st; waitpid(_pids[_i], &_st, 0);
-                    _done[_i] = 1;
-                    _pending--;
-
-                    if (_n != (ssize_t)sizeof(TCResult)) {{
-                        if (WIFSIGNALED(_st)) {{
-                            int _sig = WTERMSIG(_st);
-                            if      (_sig == SIGSEGV) {{ strcpy(_results[_i].status, "SEGV"); strcpy(_results[_i].detail, "Segmentation fault"); }}
-                            else if (_sig == SIGFPE)  {{ strcpy(_results[_i].status, "FPE");  strcpy(_results[_i].detail, "Division by zero"); }}
-                            else if (_sig == SIGKILL) {{ strcpy(_results[_i].status, "MLE");  strcpy(_results[_i].detail, "Memory limit exceeded"); }}
-                            else                      {{ snprintf(_results[_i].status, 16, "ERROR"); snprintf(_results[_i].detail, 200, "Signal %d", _sig); }}
+            lines.append(f"""
+        /* Phase 2: Collect via poll() */
+        alarm({ps} + 2);
+        {{
+            struct pollfd _pfds[{bsz}];
+            int _pending = 0;
+            for (int _i = 0; _i < {bsz}; _i++) {{
+                if (!_done[_i]) {{
+                    _pfds[_i].fd     = _fds[_i];
+                    _pfds[_i].events = POLLIN;
+                    _pending++;
+                }} else {{
+                    _pfds[_i].fd     = -1;
+                    _pfds[_i].events = 0;
+                }}
+                _pfds[_i].revents = 0;
+            }}
+            while (_pending > 0 && !_global_tle) {{
+                int _r;
+                do {{
+                    _r = poll(_pfds, {bsz}, ({ps} + 2) * 1000);
+                }} while (_r == -1 && errno == EINTR && !_global_tle);
+                if (_r <= 0) break;
+                for (int _i = 0; _i < {bsz}; _i++) {{
+                    int _gi = {batch_start} + _i;
+                    if (!_done[_i] && (_pfds[_i].revents & (POLLIN | POLLHUP))) {{
+                        ssize_t _nb = read(_pfds[_i].fd, &_results[_gi], sizeof(TCResult));
+                        close(_pfds[_i].fd);
+                        _pfds[_i].fd = -1;
+                        _done[_i] = 1;
+                        _pending--;
+                        if (_pids[_i] <= 0) {{
+                            strcpy(_results[_gi].status, "ERROR");
+                            strcpy(_results[_gi].detail, "fork() failed - no process slots");
                         }} else {{
-                            strcpy(_results[_i].status, "ERROR");
-                            strcpy(_results[_i].detail, "No output from child");
+                            int _st; waitpid(_pids[_i], &_st, 0);
+                            if (_nb != (ssize_t)sizeof(TCResult)) {{
+                                if (WIFSIGNALED(_st)) {{
+                                    int _sig = WTERMSIG(_st);
+                                    if      (_sig == SIGSEGV) {{ strcpy(_results[_gi].status, "SEGV"); strcpy(_results[_gi].detail, "Segmentation fault"); }}
+                                    else if (_sig == SIGFPE)  {{ strcpy(_results[_gi].status, "FPE");  strcpy(_results[_gi].detail, "Division by zero"); }}
+                                    else if (_sig == SIGKILL) {{ strcpy(_results[_gi].status, "MLE");  strcpy(_results[_gi].detail, "Memory limit exceeded"); }}
+                                    else                      {{ snprintf(_results[_gi].status, 16, "ERROR"); snprintf(_results[_gi].detail, 200, "Signal %d", _sig); }}
+                                }} else {{
+                                    strcpy(_results[_gi].status, "ERROR");
+                                    strcpy(_results[_gi].detail, "No output from child");
+                                }}
+                            }}
                         }}
                     }}
                 }}
             }}
-        }}
-
-        /* Kill any still-running children (safety alarm fired or poll timeout) */
-        for (int _i = 0; _i < {n}; _i++) {{
-            if (!_done[_i] && _pids[_i] > 0) {{
-                kill(_pids[_i], SIGKILL);
-                waitpid(_pids[_i], NULL, 0);
-                if (_pfds[_i].fd != -1) {{ close(_pfds[_i].fd); _pfds[_i].fd = -1; }}
-                strcpy(_results[_i].status, "TLE");
-                snprintf(_results[_i].detail, sizeof(_results[_i].detail),
-                         "Exceeded {ps}s");
+            for (int _i = 0; _i < {bsz}; _i++) {{
+                int _gi = {batch_start} + _i;
+                if (!_done[_i] && _pids[_i] > 0) {{
+                    kill(_pids[_i], SIGKILL);
+                    waitpid(_pids[_i], NULL, 0);
+                    if (_pfds[_i].fd != -1) {{ close(_pfds[_i].fd); _pfds[_i].fd = -1; }}
+                    strcpy(_results[_gi].status, "TLE");
+                    snprintf(_results[_gi].detail, sizeof(_results[_gi].detail), "Exceeded {ps}s");
+                }}
             }}
+            alarm(0);
         }}
-        alarm(0);  /* cancel safety alarm */
-    }}""")
+    }} /* end BATCH {batch_idx} */
+""")
 
-        # ── Print phase ────────────────────────────────────────────────
-        # FIX-4: escape all four fields through json_escape() before printf.
-        # The function is defined as a static helper in c_harness.c.
-        # Buffer sizes: got/expected escape buffers are 2×4096+1 = 8193 bytes
-        # (worst-case all chars need escaping), detail is 2×1024+1 = 2049.
         lines.append(f"""
     /* Phase 3: Print results in original TC order */
     for (int _i = 0; _i < {n}; _i++) {{
@@ -386,6 +399,7 @@ class HarnessBuilder:
 
     # ─────────────────────────────────────────────────────────────────
     # C++
+
     # ─────────────────────────────────────────────────────────────────
     def _build_cpp(self) -> str:
         template    = (_HARNESSES_DIR / "cpp_harness.cpp").read_text()
@@ -424,122 +438,149 @@ class HarnessBuilder:
         """Same structure as C parallel runner (poll-based) but uses std::cout."""
         n     = len(self.cfg.test_cases)
         ps    = self.cfg.per_tc_limit_s
-        mem   = self.cfg.memory_limit_mb
-        # FIX-1/FIX-17: full limit per child, no ÷N (see C runner comment).
-        mem_c = mem if mem else 0
+        mem_c = self.cfg.memory_limit_mb if self.cfg.memory_limit_mb else 0
         d     = self.delim
 
         lines = []
 
+        _need = min(n, MAX_PARALLEL_TCS) * 2 + 64
         lines.append(f"""
-    /* ── PARALLEL EXECUTION: {n} TCs simultaneously ─────────────────── */
-    pid_t    _pids[{n}];
-    int      _fds[{n}];
-    TCResult _results[{n}];
-    int      _done[{n}];
-    memset(_pids,    0, sizeof(_pids));
-    memset(_fds,     0, sizeof(_fds));
-    memset(_results, 0, sizeof(_results));
-    memset(_done,    0, sizeof(_done));
+    /* Pre-flight: RLIMIT_NOFILE >= {_need} (max {min(n, MAX_PARALLEL_TCS)}x2 pipes + 64).
+     * Batching caps concurrent fds; emits all TCs as ERROR if limit is too low. */
+    {{
+        struct rlimit _fd_rl;
+        getrlimit(RLIMIT_NOFILE, &_fd_rl);
+        if (_fd_rl.rlim_cur != RLIM_INFINITY && _fd_rl.rlim_cur < {_need}UL) {{
+            for (int _i = 1; _i <= {n}; _i++) {{
+                std::cout << DELIM << "START_" << _i << "\\n";
+                std::cout << "{{\\"status\\":\\"ERROR\\",\\"detail\\":\\"EMFILE: open-file limit too low -- need {_need} fds, have "
+                          << (unsigned long)_fd_rl.rlim_cur << "\\"}}" << "\\n";
+                std::cout << DELIM << "END_" << _i << "\\n";
+            }}
+            std::cout << DELIM << "DONE\\n";
+            std::cout.flush();
+            return 1;
+        }}
+    }}
 """)
 
-        lines.append("    /* Phase 1: Fork all children simultaneously */")
-        for i, tc in enumerate(self.cfg.test_cases):
-            args_str   = ", ".join(str(v) for v in (tc.inputs or []))
-            # FIX-2: trailing comma only when args exist (same as C runner)
-            args_comma = (args_str + ", ") if args_str else ""
-            expected   = str(tc.expected).replace('"', '\\"')
-            lines.append(f"""    {{
-        int _pfd{i}[2];
-        if (pipe(_pfd{i}) == 0) {{
-            pid_t _p = fork();
-            if (_p == 0) {{
-                close(_pfd{i}[0]);
-                run_tc_child(_pfd{i}[1], {args_comma}"{expected}", {ps}, {mem_c});
-            }}
-            close(_pfd{i}[1]);
-            _pids[{i}] = _p;
-            _fds[{i}]  = _pfd{i}[0];
-        }} else {{
-            _pids[{i}] = -1;
-            strcpy(_results[{i}].status, "ERROR");
-            strcpy(_results[{i}].detail, "pipe() failed");
-            _done[{i}] = 1;
-        }}
-    }}""")
-
         lines.append(f"""
-    /* Phase 2: Collect via poll() — no FD_SETSIZE limit, no fd_set rebuild */
-    alarm({ps} + 2);
+    /* Batched execution: {n} TCs in batches of up to {MAX_PARALLEL_TCS} */
+    TCResult  _results[{n}];
+    memset(_results, 0, sizeof(_results));
+""")
+
+        batches = [
+            self.cfg.test_cases[i : i + MAX_PARALLEL_TCS]
+            for i in range(0, n, MAX_PARALLEL_TCS)
+        ]
+        for batch_idx, batch in enumerate(batches):
+            batch_start = batch_idx * MAX_PARALLEL_TCS
+            bsz         = len(batch)
+
+            lines.append(f"""
+    /* BATCH {batch_idx}: TCs {batch_start+1}..{batch_start+bsz} */
     {{
-        /* Build pollfd array once before the loop.
-         * fd=-1 tells poll() to skip that slot — used for TCs whose pipe() failed. */
-        struct pollfd _pfds[{n}];
-        int _pending = 0;
-        for (int _i = 0; _i < {n}; _i++) {{
-            if (!_done[_i]) {{
-                _pfds[_i].fd     = _fds[_i];
-                _pfds[_i].events = POLLIN;
-                _pending++;
+        pid_t _pids[{bsz}];
+        int   _fds[{bsz}];
+        int   _done[{bsz}];
+        memset(_pids, 0, sizeof(_pids));
+        memset(_fds,  0, sizeof(_fds));
+        memset(_done, 0, sizeof(_done));
+        _global_tle = 0;  /* reset from any previous batch alarm */""")
+
+            lines.append("        /* Phase 1: Fork batch children */")
+            for b_i, tc in enumerate(batch):
+                g_i        = batch_start + b_i
+                args_str   = ", ".join(str(v) for v in (tc.inputs or []))
+                args_comma = (args_str + ", ") if args_str else ""
+                expected   = str(tc.expected).replace('"', '\\"')
+                lines.append(f"""        {{
+            int _pfd[2];
+            if (pipe(_pfd) == 0) {{
+                pid_t _p = fork();
+                if (_p == 0) {{
+                    close(_pfd[0]);
+                    run_tc_child(_pfd[1], {args_comma}"{expected}", {ps}, {mem_c});
+                }}
+                close(_pfd[1]);
+                _pids[{b_i}] = _p;
+                _fds[{b_i}]  = _pfd[0];
             }} else {{
-                _pfds[_i].fd     = -1;
-                _pfds[_i].events = 0;
+                _pids[{b_i}] = -1;
+                strcpy(_results[{g_i}].status, "ERROR");
+                strcpy(_results[{g_i}].detail, "pipe() failed");
+                _done[{b_i}] = 1;
             }}
-            _pfds[_i].revents = 0;
-        }}
+        }}""")
 
-        while (_pending > 0 && !_global_tle) {{
-            int _ret;
-            /* Issue-1 fix: retry on EINTR from signals other than SIGALRM.
-             * SIGALRM sets _global_tle=1 which the while condition catches. */
-            do {{
-                _ret = poll(_pfds, {n}, ({ps} + 2) * 1000);
-            }} while (_ret == -1 && errno == EINTR && !_global_tle);
-
-            if (_ret <= 0) break;
-
-            for (int _i = 0; _i < {n}; _i++) {{
-                /* Issue-2 fix: check POLLHUP too — child may crash before
-                 * writing (SIGSEGV etc.), closing pipe with no data. */
-                if (!_done[_i] && (_pfds[_i].revents & (POLLIN | POLLHUP))) {{
-                    ssize_t _n = read(_pfds[_i].fd, &_results[_i], sizeof(TCResult));
-
-                    /* Issue-3 fix: set fd=-1 so poll() skips this slot next
-                     * iteration. Leaving a closed fd causes POLLNVAL every loop. */
-                    close(_pfds[_i].fd);
-                    _pfds[_i].fd = -1;
-
-                    int _st; waitpid(_pids[_i], &_st, 0);
-                    _done[_i] = 1;
-                    _pending--;
-                    if (_n != (ssize_t)sizeof(TCResult)) {{
-                        if (WIFSIGNALED(_st)) {{
-                            int _sig = WTERMSIG(_st);
-                            if      (_sig == SIGSEGV) {{ strcpy(_results[_i].status, "SEGV"); strcpy(_results[_i].detail, "Segmentation fault"); }}
-                            else if (_sig == SIGFPE)  {{ strcpy(_results[_i].status, "FPE");  strcpy(_results[_i].detail, "Division by zero"); }}
-                            else if (_sig == SIGKILL) {{ strcpy(_results[_i].status, "MLE");  strcpy(_results[_i].detail, "Memory limit exceeded"); }}
-                            else                      {{ strcpy(_results[_i].status, "ERROR"); snprintf(_results[_i].detail, 255, "Signal %d", _sig); }}
+            lines.append(f"""
+        /* Phase 2: Collect via poll() */
+        alarm({ps} + 2);
+        {{
+            struct pollfd _pfds[{bsz}];
+            int _pending = 0;
+            for (int _i = 0; _i < {bsz}; _i++) {{
+                if (!_done[_i]) {{
+                    _pfds[_i].fd     = _fds[_i];
+                    _pfds[_i].events = POLLIN;
+                    _pending++;
+                }} else {{
+                    _pfds[_i].fd     = -1;
+                    _pfds[_i].events = 0;
+                }}
+                _pfds[_i].revents = 0;
+            }}
+            while (_pending > 0 && !_global_tle) {{
+                int _r;
+                do {{
+                    _r = poll(_pfds, {bsz}, ({ps} + 2) * 1000);
+                }} while (_r == -1 && errno == EINTR && !_global_tle);
+                if (_r <= 0) break;
+                for (int _i = 0; _i < {bsz}; _i++) {{
+                    int _gi = {batch_start} + _i;
+                    if (!_done[_i] && (_pfds[_i].revents & (POLLIN | POLLHUP))) {{
+                        ssize_t _nb = read(_pfds[_i].fd, &_results[_gi], sizeof(TCResult));
+                        close(_pfds[_i].fd);
+                        _pfds[_i].fd = -1;
+                        _done[_i] = 1;
+                        _pending--;
+                        if (_pids[_i] <= 0) {{
+                            strcpy(_results[_gi].status, "ERROR");
+                            strcpy(_results[_gi].detail, "fork() failed - no process slots");
                         }} else {{
-                            strcpy(_results[_i].status, "ERROR");
-                            strcpy(_results[_i].detail, "No output from child");
+                            int _st; waitpid(_pids[_i], &_st, 0);
+                            if (_nb != (ssize_t)sizeof(TCResult)) {{
+                                if (WIFSIGNALED(_st)) {{
+                                    int _sig = WTERMSIG(_st);
+                                    if      (_sig == SIGSEGV) {{ strcpy(_results[_gi].status, "SEGV"); strcpy(_results[_gi].detail, "Segmentation fault"); }}
+                                    else if (_sig == SIGFPE)  {{ strcpy(_results[_gi].status, "FPE");  strcpy(_results[_gi].detail, "Division by zero"); }}
+                                    else if (_sig == SIGKILL) {{ strcpy(_results[_gi].status, "MLE");  strcpy(_results[_gi].detail, "Memory limit exceeded"); }}
+                                    else                      {{ snprintf(_results[_gi].status, 16, "ERROR"); snprintf(_results[_gi].detail, 200, "Signal %d", _sig); }}
+                                }} else {{
+                                    strcpy(_results[_gi].status, "ERROR");
+                                    strcpy(_results[_gi].detail, "No output from child");
+                                }}
+                            }}
                         }}
                     }}
                 }}
             }}
-        }}
-        for (int _i = 0; _i < {n}; _i++) {{
-            if (!_done[_i] && _pids[_i] > 0) {{
-                kill(_pids[_i], SIGKILL);
-                waitpid(_pids[_i], NULL, 0);
-                if (_pfds[_i].fd != -1) {{ close(_pfds[_i].fd); _pfds[_i].fd = -1; }}
-                strcpy(_results[_i].status, "TLE");
-                snprintf(_results[_i].detail, sizeof(_results[_i].detail), "Exceeded {ps}s");
+            for (int _i = 0; _i < {bsz}; _i++) {{
+                int _gi = {batch_start} + _i;
+                if (!_done[_i] && _pids[_i] > 0) {{
+                    kill(_pids[_i], SIGKILL);
+                    waitpid(_pids[_i], NULL, 0);
+                    if (_pfds[_i].fd != -1) {{ close(_pfds[_i].fd); _pfds[_i].fd = -1; }}
+                    strcpy(_results[_gi].status, "TLE");
+                    snprintf(_results[_gi].detail, sizeof(_results[_gi].detail), "Exceeded {ps}s");
+                }}
             }}
+            alarm(0);
         }}
-        alarm(0);
-    }}""")
+    }} /* end BATCH {batch_idx} */
+""")
 
-        # FIX-4: escape through json_escape() (defined in cpp_harness.cpp).
         lines.append(f"""
     /* Phase 3: Print results in order */
     for (int _i = 0; _i < {n}; _i++) {{
@@ -563,6 +604,7 @@ class HarnessBuilder:
 
     # ─────────────────────────────────────────────────────────────────
     # JAVA
+
     # ─────────────────────────────────────────────────────────────────
     def _build_java(self) -> str:
         # Java has too many literal { } braces for Python .format() — use replace() instead.

@@ -39,15 +39,21 @@ already there.
 """
 
 import json
+import math
 import time
 import base64
 import threading
-import socketserver
+import concurrent.futures
 import requests
 from dataclasses import dataclass, field
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Optional
 
+
+# Maximum test cases run in parallel inside one harness process.
+# With batching, peak RSS = MAX_PARALLEL_TCS × memory_limit_mb (worst).
+# Wall time = ceil(N / MAX_PARALLEL_TCS) × per_tc_limit_s + overhead.
+MAX_PARALLEL_TCS = 200
 
 LANGUAGE_IDS = {
     "python": 71,
@@ -120,15 +126,38 @@ class CallbackServer:
             def log_message(self, *_):
                 pass  # silence HTTP server logs
 
-        # FIX-21: use a threaded server so that concurrent webhook callbacks
-        # from Judge0 are handled in parallel.  The old single-threaded HTTPServer
-        # serialised all incoming requests; under high concurrency callbacks queued
-        # up and could time out at the Judge0 side before being processed.
-        class _ThreadedHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
-            daemon_threads = True  # server threads exit when main thread exits
+        # F-09/F-10 fix: replace ThreadingMixIn (1 OS thread per connection) with
+        # a bounded ThreadPoolExecutor (32 threads max).
+        # Under 1000 concurrent webhooks, ThreadingMixIn spawned 1000 threads
+        # (~8 GB stack on Linux); 32 threads handle the same load since each
+        # webhook is a tiny JSON payload resolved in < 1 ms.
+        class _PooledHTTPServer(HTTPServer):
+            def __init__(self, server_address, RequestHandlerClass):
+                self._pool = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=32, thread_name_prefix="judge0-cb"
+                )
+                super().__init__(server_address, RequestHandlerClass)
 
-        self._httpd  = _ThreadedHTTPServer((host, port), _Handler)
-        self._thread = threading.Thread(
+            def process_request(self, request, client_address):
+                self._pool.submit(self._handle, request, client_address)
+
+            def _handle(self, request, client_address):
+                try:
+                    self.finish_request(request, client_address)
+                except Exception:
+                    self.handle_error(request, client_address)
+                finally:
+                    self.shutdown_request(request)
+
+            def server_close(self):
+                self._pool.shutdown(wait=False)
+                super().server_close()
+
+        self._httpd       = _PooledHTTPServer((host, port), _Handler)
+        # F-10 fix: store the OS-assigned port so url() and actual_port are correct
+        # when start(port=0) is used for automatic port selection.
+        self._actual_port = self._httpd.server_address[1]
+        self._thread      = threading.Thread(
             target=self._httpd.serve_forever,
             daemon=True,
             name="judge0-callback-server",
@@ -139,8 +168,14 @@ class CallbackServer:
         if self._httpd:
             self._httpd.shutdown()
 
-    def url(self, host: str, port: int) -> str:
-        return f"http://{host}:{port}/result"
+    @property
+    def actual_port(self) -> int:
+        """Actual bound port. Correct when start(port=0) lets the OS pick."""
+        return getattr(self, "_actual_port", 0)
+
+    def url(self, host: str) -> str:
+        """Callback URL using the actual OS-assigned port."""
+        return f"http://{host}:{self._actual_port}/result"
 
     def register(self, token: str) -> threading.Event:
         """
@@ -225,10 +260,11 @@ class Judge0Client:
         if not lang_id:
             raise ValueError(f"Unsupported language: {language}")
 
-        # v3: parallel execution — global limit = per_tc + overhead only.
-        # All TCs run simultaneously inside the harness.
-        # Comparison: v2 sequential: 2s×10 TCs+5s=25s  |  v3 parallel: 2s+5s=7s
-        global_limit_s = per_tc_limit_s + overhead_s
+        # Batched execution: at most MAX_PARALLEL_TCS TCs run simultaneously.
+        # global limit = ceil(N / MAX_PARALLEL_TCS) × per_tc + overhead
+        # Examples (per_tc=2s, overhead=5s):
+        #   N≤200 → 1×2+5=7s  |  N=500 → 3×2+5=11s  |  N=1000 → 5×2+5=15s
+        global_limit_s = math.ceil(max(tc_count, 1) / MAX_PARALLEL_TCS) * per_tc_limit_s + overhead_s
 
         payload = {
             "source_code":     self._b64(source_code),
@@ -244,12 +280,12 @@ class Judge0Client:
             "enable_per_process_and_thread_memory_limit": True,
         }
 
-        # Attach callback URL if a server is configured.
-        use_callback = bool(self.callback_server and self.callback_port)
+        # Attach callback URL if a started server is provided.
+        # Uses actual_port (OS-assigned) not the requested port — fixes the
+        # silent polling fallback when start(port=0) was used.
+        use_callback = bool(self.callback_server and self.callback_server.actual_port)
         if use_callback:
-            payload["callback_url"] = self.callback_server.url(
-                self.callback_host, self.callback_port
-            )
+            payload["callback_url"] = self.callback_server.url(self.callback_host)
 
         # FIX (submit timeout): with Puma's 25-thread pool and 1000 concurrent
         # users the submission POST can queue for >10 s before being handled.

@@ -67,6 +67,23 @@ services:
       - ./judge0.conf:/judge0.conf:ro
     privileged: true
     restart: always
+    # F-03 fix: raise per-container process and file-descriptor limits.
+    # Default nproc (1024–4096) is exhausted when a harness forks 1,000
+    # children — fork() fails mid-launch and the harness falls back to
+    # 33-minute sequential mode.  65536 gives each container headroom for
+    # 1,000 children × MAX_RUNNERS=2 sandboxes + OS overhead with room to spare.
+    # nofile is raised to match (each pipe() consumes 2 fds; 1000 TCs = 2000 fds).
+    # mem_limit scopes any OOM kill to this container — not the host.
+    # mem_reservation is a soft hint for the scheduler.
+    # With enable_per_process_and_thread_memory_limit=True the sandbox's
+    # cgroup ceiling is set here; without it the host was vulnerable to OOM.
+    mem_limit: 4g
+    mem_reservation: 2g
+    ulimits:
+      nproc: 65536
+      nofile:
+        soft: 65536
+        hard: 65536
     depends_on:
       db:
         condition: service_started
