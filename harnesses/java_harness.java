@@ -112,14 +112,25 @@ public class Harness {
         try { Thread.sleep(20); } catch (InterruptedException ignored) {}
     }
 
-    /* ── Thread kill (v2 escalating strategy) ────────────────────────── */
-    @SuppressWarnings("deprecation")
+    /* ── Thread kill (escalating strategy, Java 8–21+) ─────────────────
+     * Phase 1: interrupt()  — cooperative (works if student checks isInterrupted)
+     * Phase 2: stop()       — deprecated in Java 1.2, throws UnsupportedOperationException
+     *                          in Java 21+.  Caught below; the thread is a daemon
+     *                          (setDaemon(true)) so the JVM abandons it when main()
+     *                          returns — the TLE verdict was already written above.
+     */
+    @SuppressWarnings({"deprecation", "removal"})
     static boolean killThread(Thread t) {
         if (!t.isAlive()) return true;
         t.interrupt();
         try { t.join(300); } catch (InterruptedException ignored) {}
         if (!t.isAlive()) return true;
-        t.stop();   // deprecated but safe in throwaway JVM process
+        try {
+            t.stop();
+        } catch (UnsupportedOperationException ignored) {
+            // Java 21+: Thread.stop() removed.  The thread is a daemon so the
+            // JVM will not wait for it when main() returns.
+        }
         try { t.join(200); } catch (InterruptedException ignored) {}
         return !t.isAlive();
     }
@@ -319,13 +330,20 @@ public class Harness {
      * ═══════════════════════════════════════════════════════════════════ */
     public static void main(String[] args) throws Exception {
 
-        /* Block System.exit() from student code */
-        System.setSecurityManager(new SecurityManager() {
-            @Override public void checkExit(int status) {
-                throw new SecurityException("System.exit() blocked");
-            }
-            @Override public void checkPermission(java.security.Permission p) {}
-        });
+        /* Block System.exit() from student code (Java 8–17).
+         * SecurityManager was deprecated in Java 17 and removed in Java 21;
+         * the UnsupportedOperationException catch handles Java 21+.
+         * On Java 21+ the isolate wall-time limit is the backstop. */
+        try {
+            System.setSecurityManager(new SecurityManager() {
+                @Override public void checkExit(int status) {
+                    throw new SecurityException("System.exit() blocked");
+                }
+                @Override public void checkPermission(java.security.Permission p) {}
+            });
+        } catch (UnsupportedOperationException ignored) {
+            // Java 21+: SecurityManager removed.
+        }
 
         ORIGINAL_OUT = System.out;
 

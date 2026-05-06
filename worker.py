@@ -54,10 +54,27 @@ import redis
 from core.job_queue     import PriorityJobQueue, QueuedJob
 from core.judge0_client import Judge0Config, CallbackServer
 from core.harness_builder import TestCase
+from core.log           import get_logger
 from autograder         import Autograder, Submission
 
 
+log = get_logger(__name__)
 MAX_RETRY_COUNT = int(os.getenv("MAX_RETRY_COUNT", 3))
+
+
+def _read_secret(env_name: str) -> str | None:
+    """Read a secret from env var, falling back to a Docker secrets file."""
+    val = os.getenv(env_name)
+    if val:
+        return val
+    file_path = os.getenv(f"{env_name}_FILE")
+    if file_path:
+        try:
+            with open(file_path) as fh:
+                return fh.read().strip() or None
+        except OSError:
+            pass
+    return None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -117,14 +134,12 @@ def result_to_dict(result) -> dict:
 # ── Worker loop ───────────────────────────────────────────────────────────────
 
 def run_worker(queue: PriorityJobQueue, grader: Autograder) -> None:
-    print("Worker started. Listening on retry → normal queues.", flush=True)
-
-    running = True
+    log.info("worker_started", queues=["retry", "normal"])
 
     def _handle_stop(sig, frame):
         nonlocal running
         running = False
-        print(f"Worker stopping (signal {sig})...", flush=True)
+        log.info("worker_stopping", signal=sig)
 
     signal.signal(signal.SIGTERM, _handle_stop)
     signal.signal(signal.SIGINT,  _handle_stop)
@@ -137,11 +152,12 @@ def run_worker(queue: PriorityJobQueue, grader: Autograder) -> None:
 
         ticket_id = job.ticket_id
         depths    = queue.depths()
-        print(
-            f"[{ticket_id[:8]}] Picked up "
-            f"(retry_count={job.retry_count}, "
-            f"queue retry={depths['retry']} normal={depths['normal']})",
-            flush=True,
+        log.info(
+            "job_dequeued",
+            ticket_id=ticket_id[:8],
+            retry_count=job.retry_count,
+            queue_retry=depths["retry"],
+            queue_normal=depths["normal"],
         )
 
         try:
@@ -151,12 +167,10 @@ def run_worker(queue: PriorityJobQueue, grader: Autograder) -> None:
             # ── Infrastructure failure — requeue or give up ───────────────
             if result.needs_requeue:
                 if job.retry_count >= MAX_RETRY_COUNT:
-                    # Exhausted all retries — store a clean system error.
-                    # Student sees "please resubmit", not 1000 ERROR results.
-                    print(
-                        f"[{ticket_id[:8]}] All {MAX_RETRY_COUNT} retries exhausted "
-                        f"— storing system_error",
-                        flush=True,
+                    log.warning(
+                        "job_retries_exhausted",
+                        ticket_id=ticket_id[:8],
+                        max_retries=MAX_RETRY_COUNT,
                     )
                     queue.store_result(ticket_id, {
                         "system_error": (
@@ -164,48 +178,43 @@ def run_worker(queue: PriorityJobQueue, grader: Autograder) -> None:
                             "Your submission was not evaluated. Please resubmit."
                         )
                     }, idem_key=job.idem_key)
-                    queue.ack(job)  # Fix 2.1: remove from PROCESSING_QUEUE
+                    queue.ack(job)
                 else:
-                    # Push back to priority queue — will be picked up before
-                    # any new submission because retry queue is checked first.
-                    print(
-                        f"[{ticket_id[:8]}] Infra failure "
-                        f"(retry {job.retry_count + 1}/{MAX_RETRY_COUNT}) "
-                        f"— requeueing with priority",
-                        flush=True,
+                    log.info(
+                        "job_requeued",
+                        ticket_id=ticket_id[:8],
+                        attempt=job.retry_count + 1,
+                        max_retries=MAX_RETRY_COUNT,
                     )
                     queue.requeue(job)
-                    queue.ack(job)  # Fix 2.1: remove from PROCESSING_QUEUE
+                    queue.ack(job)
 
             # ── Normal result — store for the student to poll ─────────────
             else:
                 queue.store_result(ticket_id, result_to_dict(result), idem_key=job.idem_key)
-                queue.ack(job)  # Fix 2.1: remove from PROCESSING_QUEUE
-                print(
-                    f"[{ticket_id[:8]}] Done — "
-                    f"score={result.submission.score}/{result.submission.total}",
-                    flush=True,
+                queue.ack(job)
+                log.info(
+                    "job_done",
+                    ticket_id=ticket_id[:8],
+                    score=result.submission.score,
+                    total=result.submission.total,
                 )
 
         except Exception as exc:
-            # Unexpected crash inside grade() — never lose the job silently.
-            print(f"[{ticket_id[:8]}] Unexpected error: {exc}", flush=True)
+            log.error("job_unexpected_error", ticket_id=ticket_id[:8], error=str(exc), exc_info=True)
             try:
                 queue.store_result(ticket_id, {
                     "system_error": f"Internal grading error. Please resubmit. ({exc})"
                 }, idem_key=job.idem_key)
                 queue.ack(job)
             except Exception as store_exc:
-                # Redis is unavailable (OOM, crash). Do NOT ack — the job stays
-                # in PROCESSING_QUEUE and the reconciler requeues it after
-                # INFLIGHT_TTL_S (300 s) when the inflight key expires.
-                print(
-                    f"[{ticket_id[:8]}] CRITICAL: cannot write error result: {store_exc}. "
-                    f"Job will be requeued by reconciler.",
-                    flush=True,
+                log.error(
+                    "job_result_write_failed",
+                    ticket_id=ticket_id[:8],
+                    error=str(store_exc),
                 )
 
-    print("Worker stopped.", flush=True)
+    log.info("worker_stopped")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -214,7 +223,7 @@ if __name__ == "__main__":
     r = redis.Redis(
         host             = os.getenv("REDIS_HOST", "localhost"),
         port             = int(os.getenv("REDIS_PORT", 6379)),
-        password         = os.getenv("REDIS_PASSWORD") or None,
+        password         = _read_secret("REDIS_PASSWORD") or None,
         decode_responses = True,
     )
 
@@ -239,17 +248,12 @@ if __name__ == "__main__":
         callback_server = CallbackServer()
         try:
             callback_server.start(port=cb_port)
-            print(
-                f"Callback server started — Judge0 will POST to "
-                f"http://{callback_host}:{callback_server.actual_port}/result",
-                flush=True,
+            log.info(
+                "callback_server_started",
+                url=f"http://{callback_host}:{callback_server.actual_port}/result",
             )
         except OSError as exc:
-            print(
-                f"Warning: callback server failed to start ({exc}) "
-                f"— falling back to polling",
-                flush=True,
-            )
+            log.warning("callback_server_failed", error=str(exc), fallback="polling")
             callback_server = None
 
     queue  = PriorityJobQueue(r)

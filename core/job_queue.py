@@ -63,6 +63,26 @@ MAX_JOB_WAIT_S          = 7200  # 2 hours
 NOTIFY_PREFIX = "judge0:notify:"
 
 
+# ── Lua script for atomic ack() ────────────────────────────────────────────────
+# Replaces the previous GET + pipeline approach which had a TOCTOU race:
+# between GET(inflight_key) and LREM(processing_queue), the reconciler could
+# have already requeued the job and re-inserted the same raw bytes back into
+# PROCESSING_QUEUE — the subsequent LREM would then remove the re-enqueued
+# entry instead of the original one.
+# Running all three operations as an atomic Lua script eliminates the window.
+#
+# KEYS[1] = inflight_key        (judge0:inflight:{ticket_id})
+# KEYS[2] = processing_queue    (judge0:jobs:processing)
+_ACK_LUA = """
+local raw = redis.call('GET', KEYS[1])
+if raw then
+    redis.call('LREM', KEYS[2], 1, raw)
+    redis.call('DEL',  KEYS[1])
+end
+return raw
+"""
+
+
 @dataclass
 class QueuedJob:
     ticket_id:    str
@@ -105,6 +125,9 @@ class PriorityJobQueue:
 
     def __init__(self, redis_client):
         self.r = redis_client
+        # Pre-register the Lua ack script so Redis caches its SHA — only
+        # transmitted once regardless of how many ack() calls are made.
+        self._ack_script = self.r.register_script(_ACK_LUA)
 
     # ── Submission side ───────────────────────────────────────────────────
 
@@ -179,22 +202,20 @@ class PriorityJobQueue:
 
     def ack(self, job: QueuedJob) -> None:
         """
-        Fix 2.1: Acknowledge a successfully processed job.
-        Removes the job from PROCESSING_QUEUE and deletes the visibility key.
-        Must be called after store_result() (or after requeue() for retried jobs).
+        Atomically acknowledge a processed job via Lua script (Fix 2.1).
 
-        Uses the original raw payload stored in the INFLIGHT key for the lrem
-        lookup — this handles the case where requeue() incremented retry_count
-        after the job was registered in PROCESSING_QUEUE.
+        The script performs GET + LREM + DEL in a single round-trip with no
+        TOCTOU window: the old GET-then-pipeline approach could race with the
+        reconciler, which re-inserts the raw bytes into PROCESSING_QUEUE after
+        the inflight key expires.  A mid-race LREM would then remove the
+        reconciler’s freshly-requeued entry instead of the original.
         """
-        inflight_key = f"{INFLIGHT_PREFIX}{job.ticket_id}"
-        # Retrieve original raw (pre-increment) for the PROCESSING_QUEUE match
-        original_raw = self.r.get(inflight_key)
-        pipe = self.r.pipeline()
-        if original_raw:
-            pipe.lrem(PROCESSING_QUEUE, 1, original_raw)
-        pipe.delete(inflight_key)
-        pipe.execute()
+        self._ack_script(
+            keys=[
+                f"{INFLIGHT_PREFIX}{job.ticket_id}",
+                PROCESSING_QUEUE,
+            ]
+        )
 
     # ── Result side ───────────────────────────────────────────────────────
 

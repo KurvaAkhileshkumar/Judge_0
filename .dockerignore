@@ -1,0 +1,37 @@
+# Secrets / credentials (never commit actual values)
+.env
+secrets/redis_password
+secrets/postgres_password
+secrets/rails_secret_key
+
+# Go load-tester (not needed in image)
+main.go
+go.mod
+go.sum
+load_test_report.json
+question_bank.json
+
+# Documentation and chat logs
+full_conversation.txt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore

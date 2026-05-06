@@ -44,6 +44,12 @@ services:
       # Polling mode:  ~160 calls per job  → saturates at ~1 concurrent job
       - RAILS_MAX_THREADS=25
       - WEB_CONCURRENCY=8
+      # Inject real secrets from .env — these override the CHANGE_ME placeholders
+      # that are in the mounted judge0.conf.  Rails dotenv does not override
+      # existing env vars, so container environment takes precedence.
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - SECRET_KEY_BASE=${RAILS_SECRET_KEY_BASE}
     depends_on:
       db:
         condition: service_started
@@ -75,6 +81,11 @@ services:
       nofile:
         soft: 65536
         hard: 65536
+    environment:
+      # Same secret overrides as the server service (see comment above).
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - SECRET_KEY_BASE=${RAILS_SECRET_KEY_BASE}
     depends_on:
       db:
         condition: service_started
@@ -101,11 +112,14 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=judge0redis
+      # Sourced from .env; see api service comment for production secrets upgrade.
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - JUDGE0_URL=http://server:2358
       - MAX_QUEUE_DEPTH=5000
       - SSE_TIMEOUT_S=1800
       - PORT=5000
+      # Optional: protect /health with a bearer token (set HEALTH_TOKEN in .env).
+      - HEALTH_TOKEN=${HEALTH_TOKEN:-}
     depends_on:
       - redis
       - server
@@ -130,7 +144,8 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=judge0redis
+      # Sourced from .env; see api service comment for production secrets upgrade.
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - JUDGE0_URL=http://server:2358
       - WORKER_CONCURRENCY=48
       - MAX_RETRY_COUNT=3
@@ -150,7 +165,8 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=judge0redis
+      # Sourced from .env; see api service comment for production secrets upgrade.
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - RECONCILER_SCAN_INTERVAL_S=60
     depends_on:
       - redis
@@ -162,6 +178,10 @@ services:
   db:
     image: postgres:13
     env_file: judge0.conf
+    # POSTGRES_PASSWORD from .env overrides the CHANGE_ME placeholder in judge0.conf.
+    # Docker Compose env_file is loaded first; environment: entries take precedence.
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     command: postgres -c max_connections=500 -c shared_buffers=512MB
     volumes:
       - postgres-data:/var/lib/postgresql/data/
@@ -180,7 +200,8 @@ services:
         "--appendonly", "yes",
         "--maxmemory",        "4gb",
         "--maxmemory-policy", "noeviction",
-        "--requirepass",      "judge0redis"
+        # ${REDIS_PASSWORD} is substituted from the .env file by Docker Compose.
+        "--requirepass",      "${REDIS_PASSWORD}"
       ]
     volumes:
       - redis-data:/data
@@ -189,3 +210,21 @@ services:
 volumes:
   postgres-data:
   redis-data:
+
+# ── Docker secrets (production hardening) ───────────────────────────────────
+# To use Docker secrets instead of .env substitution for Python services:
+#   1. Create secrets/redis_password, secrets/postgres_password, secrets/rails_secret_key
+#      (see secrets/.gitignore for instructions)
+#   2. Uncomment the block below.
+#   3. In each Python service (api, grading_worker, reconciler), replace
+#      REDIS_PASSWORD=${REDIS_PASSWORD} with REDIS_PASSWORD_FILE=/run/secrets/redis_password
+#      and add `secrets: [redis_password]` to the service definition.
+#      The _read_secret() helper in each Python service supports both forms.
+#
+# secrets:
+#   redis_password:
+#     file: ./secrets/redis_password
+#   postgres_password:
+#     file: ./secrets/postgres_password
+#   rails_secret_key:
+#     file: ./secrets/rails_secret_key

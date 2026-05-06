@@ -42,9 +42,26 @@ from core.job_queue import (
     RETRY_QUEUE,
     NOTIFY_PREFIX,
 )
+from core.log import get_logger
 
 
+log = get_logger(__name__)
 SCAN_INTERVAL_S = int(os.getenv("RECONCILER_SCAN_INTERVAL_S", 60))
+
+
+def _read_secret(env_name: str) -> str | None:
+    """Read a secret from env var, falling back to a Docker secrets file."""
+    val = os.getenv(env_name)
+    if val:
+        return val
+    file_path = os.getenv(f"{env_name}_FILE")
+    if file_path:
+        try:
+            with open(file_path) as fh:
+                return fh.read().strip() or None
+        except OSError:
+            pass
+    return None
 
 # ── Keyspace-notification channel prefix for expired keys ─────────────────────
 # Pattern: __keyevent@0__:expired
@@ -58,7 +75,7 @@ def _requeue_raw(r: redis.Redis, raw: str) -> None:
         job_dict["retry_count"] = job_dict.get("retry_count", 0) + 1
         r.lpush(RETRY_QUEUE, json.dumps(job_dict))
     except (json.JSONDecodeError, Exception) as e:
-        print(f"[reconciler] Failed to requeue raw job: {e}", flush=True)
+        log.error("requeue_failed", error=str(e))
 
 
 def _write_expired_result(r: redis.Redis, ticket_id: str) -> None:
@@ -115,19 +132,12 @@ def scan_processing_queue(r: redis.Redis) -> None:
         if result_exists:
             # Worker stored result before dying — just clean up the stale entry
             r.lrem(PROCESSING_QUEUE, 1, raw)
-            print(
-                f"[reconciler] Cleaned stale PROCESSING entry for "
-                f"{ticket_id[:8]} (result already exists)",
-                flush=True,
-            )
+            log.info("stale_processing_entry_cleaned", ticket_id=ticket_id[:8])
         else:
             # Worker died without storing a result — requeue with retry++
             r.lrem(PROCESSING_QUEUE, 1, raw)
             _requeue_raw(r, raw_str)
-            print(
-                f"[reconciler] Requeued crashed job {ticket_id[:8]}",
-                flush=True,
-            )
+            log.info("crashed_job_requeued", ticket_id=ticket_id[:8])
 
 
 # ── Keyspace-notification listener (pending deadline enforcement) ─────────────
@@ -160,11 +170,7 @@ def handle_expired_message(r: redis.Redis, message: dict) -> None:
         result_key = f"{RESULT_PREFIX}{ticket_id}"
         if not r.exists(result_key):
             _write_expired_result(r, ticket_id)
-            print(
-                f"[reconciler] Deadline expired for {ticket_id[:8]} — "
-                f"wrote system_error",
-                flush=True,
-            )
+            log.warning("deadline_expired_system_error", ticket_id=ticket_id[:8])
 
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
@@ -175,11 +181,9 @@ def run_reconciler(r: redis.Redis) -> None:
     try:
         r.config_set("notify-keyspace-events", "Ex")
     except redis.ResponseError:
-        print(
-            "[reconciler] WARNING: Could not set notify-keyspace-events "
-            "(may lack CONFIG SET permissions). "
-            "Pending deadline enforcement will be disabled.",
-            flush=True,
+        log.warning(
+            "keyspace_notifications_disabled",
+            reason="CONFIG SET rejected (insufficient permissions)",
         )
 
     db = 0  # always using default db
@@ -190,15 +194,12 @@ def run_reconciler(r: redis.Redis) -> None:
     def _stop(sig, frame):
         nonlocal running
         running = False
-        print(f"[reconciler] Stopping (signal {sig})...", flush=True)
+        log.info("reconciler_stopping", signal=sig)
 
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT,  _stop)
 
-    print(
-        f"[reconciler] Started. Scan interval={SCAN_INTERVAL_S}s.",
-        flush=True,
-    )
+    log.info("reconciler_started", scan_interval_s=SCAN_INTERVAL_S)
 
     last_scan = 0.0
 
@@ -209,7 +210,7 @@ def run_reconciler(r: redis.Redis) -> None:
             if msg:
                 handle_expired_message(r, msg)
         except Exception as e:
-            print(f"[reconciler] pubsub error: {e}", flush=True)
+            log.error("pubsub_error", error=str(e))
 
         # Periodic full scan
         now = time.monotonic()
@@ -217,13 +218,13 @@ def run_reconciler(r: redis.Redis) -> None:
             try:
                 scan_processing_queue(r)
             except Exception as e:
-                print(f"[reconciler] scan error: {e}", flush=True)
+                log.error("scan_error", error=str(e))
             last_scan = now
 
         time.sleep(0.1)
 
     pubsub.close()
-    print("[reconciler] Stopped.", flush=True)
+    log.info("reconciler_stopped")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -232,13 +233,13 @@ if __name__ == "__main__":
     r = redis.Redis(
         host     = os.getenv("REDIS_HOST", "localhost"),
         port     = int(os.getenv("REDIS_PORT", 6379)),
-        password = os.getenv("REDIS_PASSWORD") or None,
+        password = _read_secret("REDIS_PASSWORD") or None,
         decode_responses = False,
     )
     try:
         r.ping()
     except redis.ConnectionError as e:
-        print(f"[reconciler] Cannot connect to Redis: {e}", file=sys.stderr)
+        log.error("redis_connection_failed", error=str(e))
         sys.exit(1)
 
     run_reconciler(r)

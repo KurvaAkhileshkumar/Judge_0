@@ -24,3 +24,9 @@ batch_reports/pipelined_100pct/latest.xlsx
 
 # Docker runtime mount
 mnt/
+
+# Local secrets — NEVER commit
+.env
+secrets/redis_password
+secrets/postgres_password
+secrets/rails_secret_key

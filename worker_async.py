@@ -40,11 +40,28 @@ import redis
 from core.job_queue       import PriorityJobQueue, QueuedJob
 from core.judge0_client   import Judge0Config, CallbackServer
 from core.harness_builder import TestCase
+from core.log             import get_logger
 from autograder           import Autograder, Submission
 from worker               import job_to_submission, result_to_dict, MAX_RETRY_COUNT
 
 
+log = get_logger(__name__)
 MAX_CONCURRENCY = int(os.getenv("WORKER_CONCURRENCY", 48))
+
+
+def _read_secret(env_name: str) -> str | None:
+    """Read a secret from env var, falling back to a Docker secrets file."""
+    val = os.getenv(env_name)
+    if val:
+        return val
+    file_path = os.getenv(f"{env_name}_FILE")
+    if file_path:
+        try:
+            with open(file_path) as fh:
+                return fh.read().strip() or None
+        except OSError:
+            pass
+    return None
 
 
 # ── Per-job task ──────────────────────────────────────────────────────────────
@@ -69,10 +86,10 @@ async def process_job(
 
             if result.needs_requeue:
                 if job.retry_count >= MAX_RETRY_COUNT:
-                    print(
-                        f"[{ticket_id[:8]}] All {MAX_RETRY_COUNT} retries exhausted "
-                        f"— storing system_error",
-                        flush=True,
+                    log.warning(
+                        "job_retries_exhausted",
+                        ticket_id=ticket_id[:8],
+                        max_retries=MAX_RETRY_COUNT,
                     )
                     await asyncio.to_thread(
                         queue.store_result,
@@ -87,11 +104,11 @@ async def process_job(
                     )
                     await asyncio.to_thread(queue.ack, job)
                 else:
-                    print(
-                        f"[{ticket_id[:8]}] Infra failure "
-                        f"(retry {job.retry_count + 1}/{MAX_RETRY_COUNT}) "
-                        f"— requeueing",
-                        flush=True,
+                    log.info(
+                        "job_requeued",
+                        ticket_id=ticket_id[:8],
+                        attempt=job.retry_count + 1,
+                        max_retries=MAX_RETRY_COUNT,
                     )
                     await asyncio.to_thread(queue.requeue, job)
                     await asyncio.to_thread(queue.ack, job)
@@ -101,14 +118,15 @@ async def process_job(
                     queue.store_result, ticket_id, result_to_dict(result), job.idem_key
                 )
                 await asyncio.to_thread(queue.ack, job)
-                print(
-                    f"[{ticket_id[:8]}] Done — "
-                    f"score={result.submission.score}/{result.submission.total}",
-                    flush=True,
+                log.info(
+                    "job_done",
+                    ticket_id=ticket_id[:8],
+                    score=result.submission.score,
+                    total=result.submission.total,
                 )
 
         except Exception as exc:
-            print(f"[{ticket_id[:8]}] Unexpected error: {exc}", flush=True)
+            log.error("job_unexpected_error", ticket_id=ticket_id[:8], error=str(exc), exc_info=True)
             try:
                 await asyncio.to_thread(
                     queue.store_result,
@@ -118,13 +136,10 @@ async def process_job(
                 )
                 await asyncio.to_thread(queue.ack, job)
             except Exception as store_exc:
-                # Redis is unavailable (OOM, crash). Do NOT ack — the job stays
-                # in PROCESSING_QUEUE and the reconciler requeues it after
-                # INFLIGHT_TTL_S (300 s) when the inflight key expires.
-                print(
-                    f"[{ticket_id[:8]}] CRITICAL: cannot write error result: {store_exc}. "
-                    f"Job will be requeued by reconciler.",
-                    flush=True,
+                log.error(
+                    "job_result_write_failed",
+                    ticket_id=ticket_id[:8],
+                    error=str(store_exc),
                 )
 
 
@@ -140,15 +155,12 @@ async def run_worker_async(queue: PriorityJobQueue, grader: Autograder) -> None:
     def _stop(sig):
         nonlocal running
         running = False
-        print(f"[async-worker] Stopping (signal {sig})...", flush=True)
+        log.info("worker_stopping", signal=sig)
 
     loop.add_signal_handler(signal.SIGTERM, _stop, signal.SIGTERM)
     loop.add_signal_handler(signal.SIGINT,  _stop, signal.SIGINT)
 
-    print(
-        f"[async-worker] Started. Concurrency={MAX_CONCURRENCY}.",
-        flush=True,
-    )
+    log.info("worker_started", concurrency=MAX_CONCURRENCY)
 
     while running:
         # Non-blocking dequeue: wait up to 5 s in a thread
@@ -165,13 +177,10 @@ async def run_worker_async(queue: PriorityJobQueue, grader: Autograder) -> None:
 
     # Graceful shutdown: wait for all in-flight tasks
     if tasks:
-        print(
-            f"[async-worker] Waiting for {len(tasks)} in-flight tasks...",
-            flush=True,
-        )
+        log.info("worker_draining", in_flight=len(tasks))
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    print("[async-worker] Stopped.", flush=True)
+    log.info("worker_stopped")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -180,13 +189,13 @@ if __name__ == "__main__":
     r = redis.Redis(
         host     = os.getenv("REDIS_HOST", "localhost"),
         port     = int(os.getenv("REDIS_PORT", 6379)),
-        password = os.getenv("REDIS_PASSWORD") or None,
+        password = _read_secret("REDIS_PASSWORD") or None,
         decode_responses = False,
     )
     try:
         r.ping()
     except redis.ConnectionError as e:
-        print(f"[async-worker] Cannot connect to Redis: {e}", file=sys.stderr)
+        log.error("redis_connection_failed", error=str(e))
         sys.exit(1)
 
     queue = PriorityJobQueue(r)
@@ -203,7 +212,7 @@ if __name__ == "__main__":
         cb_port   = int(callback_port_env or "0")
         cb_server = CallbackServer(port=cb_port)
         cb_server.start()
-        print(f"[async-worker] Callback server on port {cb_server.port}", flush=True)
+        log.info("callback_server_started", port=cb_server.port)
 
     grader = Autograder(
         cfg,

@@ -151,9 +151,19 @@ class HarnessBuilder:
         #   run_tc_child(int pipe_fd, int p0, const char* expected,...)← 1+ params
         tc_params_comma = (params + ", ") if params else ""
 
+        # Escape { and } in student code so Python's .format() does not
+        # misinterpret them as format placeholders.  All non-trivial C code
+        # contains braces (function bodies, if/for/struct literals) and would
+        # raise KeyError without this escaping step.
+        student_code_escaped = (
+            self.cfg.student_code
+                .replace("{", "{{")
+                .replace("}", "}}")
+        )
+
         return template.format(
             delim                  = self.delim,
-            student_code           = self.cfg.student_code,
+            student_code           = student_code_escaped,
             tc_params_comma        = tc_params_comma,
             tc_args                = args,
             call_solve_and_capture = self._build_c_call(return_type),
@@ -425,9 +435,17 @@ class HarnessBuilder:
         # FIX-2: same trailing-comma logic as C (see _build_c)
         tc_params_comma = (params + ", ") if params else ""
 
+        # Same brace-escaping as _build_c: C++ code is full of { } characters
+        # that would be misinterpreted by Python's .format() without escaping.
+        student_code_escaped = (
+            self.cfg.student_code
+                .replace("{", "{{")
+                .replace("}", "}}")
+        )
+
         return template.format(
             delim                  = self.delim,
-            student_code           = self.cfg.student_code,
+            student_code           = student_code_escaped,
             tc_params_comma        = tc_params_comma,
             tc_args                = args,
             call_solve_and_capture = self._build_cpp_call(),
@@ -647,14 +665,17 @@ class HarnessBuilder:
             param_types_array = "new String[]{}"
 
         replacements = {
-            "{delim}":                       self.delim,
-            "{mode}":                        self.cfg.mode,
+            "{delim}":             self.delim,
+            "{mode}":              self.cfg.mode,
+            "{per_tc_limit_ms}":   str(self.cfg.per_tc_limit_s * 1000),
+            "{memory_limit_mb}":   str(self.cfg.memory_limit_mb),
+            "{function_name}":     self.cfg.function_name,
+            "{param_types_array}": param_types_array,
+            "{tc_runner_body}":    self._build_java_parallel_runner(),
+            # Process student code LAST so none of the above replacements
+            # can match a placeholder string that happens to appear inside
+            # student code (e.g. a Java string literal "\{per_tc_limit_ms}").
             "{student_code_as_inner_class}": inner_class,
-            "{per_tc_limit_ms}":             str(self.cfg.per_tc_limit_s * 1000),
-            "{memory_limit_mb}":             str(self.cfg.memory_limit_mb),
-            "{function_name}":               self.cfg.function_name,
-            "{param_types_array}":           param_types_array,
-            "{tc_runner_body}":              self._build_java_parallel_runner(),
         }
 
         result = template

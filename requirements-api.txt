@@ -7,3 +7,5 @@ redis>=5.0
 gunicorn>=22.0
 gevent>=24.0
 requests>=2.28
+structlog>=24.0
+pydantic>=2.0

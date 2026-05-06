@@ -26,13 +26,17 @@ Run:
 Environment variables:
     REDIS_HOST          (default: localhost)
     REDIS_PORT          (default: 6379)
-    REDIS_PASSWORD      (default: none)
+    REDIS_PASSWORD      (default: none)  OR  REDIS_PASSWORD_FILE (Docker secrets path)
     MAX_QUEUE_DEPTH     (default: 5000)
     SSE_TIMEOUT_S       (default: 1800)
     PORT                (default: 5000)
+    HEALTH_TOKEN        (optional) — if set, GET /health requires
+                        "Authorization: Bearer <token>" or "X-Health-Token: <token>"
+    LOG_LEVEL           (default: INFO)
 """
 
 import hashlib
+import hmac
 import json
 import os
 import time
@@ -41,6 +45,8 @@ import uuid
 import redis
 import requests as http_requests
 from flask import Flask, Response, jsonify, request, stream_with_context
+from pydantic import BaseModel, ValidationError, field_validator, model_validator
+from typing import Any
 
 from core.job_queue import (
     PriorityJobQueue,
@@ -51,6 +57,9 @@ from core.job_queue import (
 )
 from core.harness_builder import TestCase
 from core.judge0_client import _judge0_breaker
+from core.log import get_logger
+
+log = get_logger(__name__)
 
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -76,7 +85,7 @@ def _get_redis() -> redis.Redis:
         _redis_client = redis.Redis(
             host     = os.getenv("REDIS_HOST", "localhost"),
             port     = int(os.getenv("REDIS_PORT", 6379)),
-            password = os.getenv("REDIS_PASSWORD") or None,
+            password = _read_secret("REDIS_PASSWORD") or None,
             decode_responses = False,
         )
     return _redis_client
@@ -134,19 +143,21 @@ def submit():
     if not body:
         return jsonify({"error": "Request body must be JSON"}), 400
 
-    # Required fields
-    for field_name in ("student_id", "assessment_id", "language", "student_code", "test_cases"):
-        if field_name not in body:
-            return jsonify({"error": f"Missing required field: {field_name}"}), 400
+    # ── Pydantic validation ──────────────────────────────────────────────────
+    try:
+        req = _SubmitRequest.model_validate(body)
+    except ValidationError as exc:
+        errors = [
+            f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}"
+            for e in exc.errors()
+        ]
+        log.warning("submit_validation_failed", errors=errors)
+        return jsonify({"error": "Validation failed", "details": errors}), 400
 
-    student_id    = str(body["student_id"])
-    assessment_id = str(body["assessment_id"])
-    language      = str(body["language"])
-    student_code  = str(body["student_code"])
-    test_cases    = body["test_cases"]
-
-    if not isinstance(test_cases, list) or not test_cases:
-        return jsonify({"error": "test_cases must be a non-empty list"}), 400
+    student_id    = req.student_id
+    assessment_id = req.assessment_id
+    language      = req.language
+    student_code  = req.student_code
 
     # Fix 2.3 — Idempotency check
     idem_key = _idem_key(student_id, assessment_id, student_code)
@@ -154,11 +165,13 @@ def submit():
     existing = r.get(idem_key)
     if existing:
         ticket_id = existing.decode() if isinstance(existing, bytes) else existing
+        log.info("submit_duplicate", ticket_id=ticket_id[:8], student_id=student_id)
         return jsonify({"ticket_id": ticket_id, "status": "duplicate"}), 200
 
     # Fix 2.3 — Admission control
     queue = _get_queue()
     if queue.is_at_capacity(MAX_QUEUE_DEPTH):
+        log.warning("submit_queue_full", max_depth=MAX_QUEUE_DEPTH)
         return jsonify({"error": "Queue at capacity. Try again later."}), 429
 
     # Build ticket + payload
@@ -166,13 +179,16 @@ def submit():
     payload = {
         "language":        language,
         "student_code":    student_code,
-        "test_cases":      test_cases,
-        "mode":            body.get("mode",            "function"),
-        "function_name":   body.get("function_name",   "solve"),
-        "per_tc_limit_s":  body.get("per_tc_limit_s",  2),
-        "memory_limit_mb": body.get("memory_limit_mb", 256),
-        "param_types":     body.get("param_types"),
-        "return_type":     body.get("return_type",     "auto"),
+        "test_cases":      [
+            {"expected": tc.expected, "inputs": tc.inputs, "stdin_text": tc.stdin_text}
+            for tc in req.test_cases
+        ],
+        "mode":            req.mode,
+        "function_name":   req.function_name,
+        "per_tc_limit_s":  req.per_tc_limit_s,
+        "memory_limit_mb": req.memory_limit_mb,
+        "param_types":     req.param_types,
+        "return_type":     req.return_type,
     }
 
     job = QueuedJob(
@@ -187,6 +203,8 @@ def submit():
     # Store idempotency key after successful enqueue
     r.setex(idem_key, IDEM_TTL_S, ticket_id)
 
+    log.info("submit_queued", ticket_id=ticket_id[:8], student_id=student_id,
+             language=language, tc_count=len(req.test_cases))
     return jsonify({"ticket_id": ticket_id, "status": "queued"}), 202
 
 
@@ -288,14 +306,29 @@ def health():
     """
     Liveness + readiness probe.
 
+    If HEALTH_TOKEN is set, the request must supply it as:
+      Authorization: Bearer <token>
+      or X-Health-Token: <token>
+
     Returns:
       200  { "status": "ok" | "degraded", "redis": {...}, "judge0": {...}, "circuit_breaker": {...} }
+      401  { "error": "Unauthorized" }   — when HEALTH_TOKEN is set and not matched
       503  { "status": "error", ... }   — only when Redis is unreachable (true outage)
 
     "degraded" means Judge0 is unreachable or the circuit breaker is open but
     Redis is fine — workers will keep retrying, nothing is permanently lost.
     "error" means Redis is down — the queue itself is unavailable.
     """
+    # ── Token auth (timing-safe comparison via hmac.compare_digest) ──────────
+    if HEALTH_TOKEN:
+        auth_header = request.headers.get("Authorization", "")
+        provided = (
+            auth_header.removeprefix("Bearer ").strip()
+            or request.headers.get("X-Health-Token", "")
+        )
+        if not hmac.compare_digest(provided, HEALTH_TOKEN):
+            return jsonify({"error": "Unauthorized"}), 401
+
     checks = {}
     redis_ok = True
 
@@ -336,6 +369,26 @@ def health():
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
+
+@app.before_request
+def _log_request():
+    log.info(
+        "http_request",
+        method=request.method,
+        path=request.path,
+        remote=request.remote_addr,
+    )
+
+
+@app.after_request
+def _log_response(response):
+    log.info(
+        "http_response",
+        method=request.method,
+        path=request.path,
+        status=response.status_code,
+    )
+    return response
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
