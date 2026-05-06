@@ -313,23 +313,24 @@ class Judge0Client:
         # Cap at 3,500 MB to stay within the 4 GB container mem_limit.
         # In --no-cg mode (Mac/dev) this value is set per-child via RLIMIT_AS
         # inside the harness, so oversetting here is harmless.
-        _HARNESS_OVERHEAD_MB = 256  # Python/JVM interpreter overhead
-        _batch_size   = min(tc_count, MAX_PARALLEL_TCS)
-        sandbox_mem   = min(
-            _batch_size * memory_limit_mb + _HARNESS_OVERHEAD_MB,
-            3500,   # cap: stay within 4 GB container mem_limit
-        )
-
+        # On Mac Docker Desktop (Rosetta 2 / cgroup v2 only):
+        # cgroup v1 is not available, so memory limits must use RLIMIT_AS
+        # (enable_per_process_and_thread_memory_limit=True).
+        # Rosetta 2's JIT cache requires gigabytes of virtual address space;
+        # setting RLIMIT_AS to 4 GB gives it enough room without cgroups.
+        # Physical memory is still bounded by the Docker container mem_limit=8g.
+        # Judge0 MAX_MEMORY_LIMIT must be set to 4194304 in judge0.conf.
+        _RLIMIT_AS_KB = 4194304  # 4 GB — enough for Rosetta 2 JIT + Python
         payload = {
             "source_code":     self._b64(source_code),
             "language_id":     lang_id,
             "cpu_time_limit":  global_limit_s,
             "wall_time_limit": global_limit_s + 2,
-            "memory_limit":    sandbox_mem * 1024,  # Judge0 expects KB
+            "memory_limit":    _RLIMIT_AS_KB,
             "stdin":           "",
             "base64_encoded":  True,
-            # Omits --cg from isolate so cgroup v1 dirs are not required.
-            # Required for Docker Desktop on Mac (cgroup v2 only).
+            # Uses RLIMIT_CPU (time) + RLIMIT_AS (memory) per process.
+            # Both avoid cgroup v1 which is not available on Mac Docker Desktop.
             "enable_per_process_and_thread_time_limit":   True,
             "enable_per_process_and_thread_memory_limit": True,
         }

@@ -1,0 +1,9 @@
+# API server + worker dependencies
+# Install: pip install -r requirements-api.txt
+
+setuptools>=68
+flask>=3.0
+redis>=5.0
+gunicorn>=22.0
+gevent>=24.0
+requests>=2.28

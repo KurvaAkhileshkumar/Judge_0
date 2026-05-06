@@ -128,19 +128,9 @@ def _num_equal(a_str, b_str):
 def _child_run(tc, write_fd, per_tc_limit_s, mem_limit_mb):
     """
     Entry point for every child process (both function and stdio mode).
-    Sets up:
-      - Per-child memory limit via RLIMIT_AS
-      - Per-child SIGALRM timeout via _real_signal (bypasses parent's monkey-patch)
-    Then runs the TC and writes exactly one JSON result to write_fd.
+    Sets up a per-child SIGALRM timeout via _real_signal, then runs the TC
+    and writes exactly one JSON result to write_fd.
     """
-
-    # Apply per-child memory limit
-    if mem_limit_mb > 0:
-        try:
-            rlim = mem_limit_mb * 1024 * 1024
-            resource.setrlimit(resource.RLIMIT_AS, (rlim, rlim))
-        except Exception:
-            pass
 
     # Per-child TLE: use _real_signal (parent replaced signal.signal with _safe_signal)
     def _tle(s, f):

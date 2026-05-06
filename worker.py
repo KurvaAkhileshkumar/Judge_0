@@ -163,7 +163,7 @@ def run_worker(queue: PriorityJobQueue, grader: Autograder) -> None:
                             "Grading server temporarily overloaded. "
                             "Your submission was not evaluated. Please resubmit."
                         )
-                    })
+                    }, idem_key=job.idem_key)
                     queue.ack(job)  # Fix 2.1: remove from PROCESSING_QUEUE
                 else:
                     # Push back to priority queue — will be picked up before
@@ -179,7 +179,7 @@ def run_worker(queue: PriorityJobQueue, grader: Autograder) -> None:
 
             # ── Normal result — store for the student to poll ─────────────
             else:
-                queue.store_result(ticket_id, result_to_dict(result))
+                queue.store_result(ticket_id, result_to_dict(result), idem_key=job.idem_key)
                 queue.ack(job)  # Fix 2.1: remove from PROCESSING_QUEUE
                 print(
                     f"[{ticket_id[:8]}] Done — "
@@ -190,10 +190,20 @@ def run_worker(queue: PriorityJobQueue, grader: Autograder) -> None:
         except Exception as exc:
             # Unexpected crash inside grade() — never lose the job silently.
             print(f"[{ticket_id[:8]}] Unexpected error: {exc}", flush=True)
-            queue.store_result(ticket_id, {
-                "system_error": f"Internal grading error. Please resubmit. ({exc})"
-            })
-            queue.ack(job)  # Fix 2.1: remove from PROCESSING_QUEUE
+            try:
+                queue.store_result(ticket_id, {
+                    "system_error": f"Internal grading error. Please resubmit. ({exc})"
+                }, idem_key=job.idem_key)
+                queue.ack(job)
+            except Exception as store_exc:
+                # Redis is unavailable (OOM, crash). Do NOT ack — the job stays
+                # in PROCESSING_QUEUE and the reconciler requeues it after
+                # INFLIGHT_TTL_S (300 s) when the inflight key expires.
+                print(
+                    f"[{ticket_id[:8]}] CRITICAL: cannot write error result: {store_exc}. "
+                    f"Job will be requeued by reconciler.",
+                    flush=True,
+                )
 
     print("Worker stopped.", flush=True)
 

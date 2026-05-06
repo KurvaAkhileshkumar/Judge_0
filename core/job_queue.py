@@ -51,7 +51,13 @@ INFLIGHT_TTL_S   = 300   # 5 min: max realistic job wall time
 # (via Redis TTL) and no result has been stored, the reconciler writes a
 # terminal system_error so the student sees failure instead of a spinner.
 PENDING_DEADLINE_PREFIX = "judge0:pending_deadline:"
-MAX_JOB_WAIT_S          = 1800  # 30 min: drain time + execution upper bound
+# Phase 0 fix: raised from 1800 (30 min) → 7200 (2 hours).
+# At the default scale (workers × MAX_RUNNERS=1 sandboxes, 15s/job):
+#   6 sandboxes → drain 1000 jobs in ~2500s (42 min) > old 1800s limit.
+# The old value caused the reconciler to write system_error for the tail
+# ~43% of a 1000-submission burst before those jobs were even evaluated.
+# 7200s covers drain time with 5× headroom at any realistic worker count.
+MAX_JOB_WAIT_S          = 7200  # 2 hours
 
 # SSE notification channel prefix (Fix 3.2)
 NOTIFY_PREFIX = "judge0:notify:"
@@ -64,6 +70,8 @@ class QueuedJob:
     submitted_at: float
     payload:      dict          # serialised Submission fields
     retry_count:  int = 0
+    idem_key:     str = ""      # full Redis key (judge0:idem:…); deleted on system_error
+                                # so the student can resubmit without changing their code
 
 
 class PriorityJobQueue:
@@ -190,12 +198,16 @@ class PriorityJobQueue:
 
     # ── Result side ───────────────────────────────────────────────────────
 
-    def store_result(self, ticket_id: str, result: dict) -> None:
+    def store_result(self, ticket_id: str, result: dict, idem_key: str = "") -> None:
         """Store grading result and publish for SSE delivery (Fix 3.2).
 
         The publish fires on the same Redis connection so SSE clients
         subscribed to judge0:notify:{ticket_id} receive the result
         immediately without polling.
+
+        If idem_key is provided and the result is a system_error, the
+        idempotency key is deleted so the student can resubmit the same
+        code without being handed the old failure for 24 hours.
         """
         result_json = json.dumps(result)
         pipe = self.r.pipeline()
@@ -206,6 +218,10 @@ class PriorityJobQueue:
         )
         # Fix 2.6: remove the pending-deadline key — job is done.
         pipe.delete(f"{PENDING_DEADLINE_PREFIX}{ticket_id}")
+        # Phase 1: on system_error, release the idempotency lock so the student
+        # can resubmit without being trapped behind a stale failure for 24 h.
+        if idem_key and "system_error" in result:
+            pipe.delete(idem_key)
         # Fix 3.2: notify any SSE subscriber waiting on this ticket.
         pipe.publish(f"{NOTIFY_PREFIX}{ticket_id}", result_json)
         pipe.execute()

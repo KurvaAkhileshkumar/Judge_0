@@ -3,24 +3,29 @@ package main
 /*
  * Judge0 Harness Load Tester
  * ──────────────────────────
- * Simulates 500 concurrent students submitting solutions from
- * question_bank.json using the harness approach (1 job per submission).
+ * Two modes:
+ *
+ *   Direct mode (default):
+ *     Submits harnesses straight to Judge0 /submissions — tests sandbox capacity.
+ *     Use: go run main.go -url http://localhost:2358 -users 500
+ *
+ *   Flask stack mode (-flask-url):
+ *     Submits raw student code to the Flask API /submit — tests the full pipeline
+ *     (admission control → Redis queue → Python worker → Judge0 → SSE/polling).
+ *     Use: go run main.go -flask-url http://localhost:5000 -users 500
  *
  * Each virtual user:
- *   1. Picks a random problem from the bank
+ *   1. Picks a random problem from question_bank.json
  *   2. Picks a random solution for that problem
- *   3. Builds a Python harness (stdio mode) wrapping the student code
- *   4. Submits to Judge0 as a single job
- *   5. Polls until result, records latency + outcome
+ *   3. Submits (either directly to Judge0 or via Flask API)
+ *   4. Waits for the result and records latency + outcome
  *
- * Metrics reported:
- *   - Total submissions / success / failure
- *   - Queue depth equivalent (jobs in flight)
- *   - Latency: p50, p95, p99, max
- *   - Throughput: submissions/sec
- *   - Per-status breakdown (PASS/FAIL/TLE/ERROR/BLOCKED)
- *   - Harness vs batch job count comparison
- *   - Per-problem breakdown
+ * New metrics vs. previous version:
+ *   - RateLimited:   429 responses from /submit (admission control triggered)
+ *   - DuplicateCount: idempotent 200 responses (same code re-submitted within 24 h)
+ *   - SystemErrors:  system_error results (infra failure, not student code)
+ *   - MaxQueueDepth: highest queue_depth observed from /status pending responses
+ *   - globalLimitS:  now ceil(TCs/200)*per_tc+5 (correct for batched harness)
  */
 
 import (
@@ -31,6 +36,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -45,19 +51,20 @@ import (
 // ── Config ────────────────────────────────────────────────────────────────
 
 type Config struct {
-	Judge0URL     string
-	APIKey        string
-	Users         int
-	RampUpSec     int
-	BatchSize     int  // >0 enables pipelined batch mode: all batches fire simultaneously
-	AcceptOnly    bool // only pick "accepted" solutions → 100% pass target
-	CallbackPort  int    // >0 enables callback mode: embedded HTTP server on this port
-	CallbackHost  string // hostname Judge0 uses to reach us (default: host.docker.internal)
-	QuestionBank  string
-	PollInterval  time.Duration
-	MaxPollSecs   int
-	DryRun        bool   // build harness but don't submit — for local testing
-	OutputFile    string // write JSON report here
+	Judge0URL    string
+	FlaskAPIURL  string // when set, use Flask stack mode instead of direct Judge0
+	APIKey       string
+	Users        int
+	RampUpSec    int
+	BatchSize    int
+	AcceptOnly   bool
+	CallbackPort int
+	CallbackHost string
+	QuestionBank string
+	PollInterval time.Duration
+	MaxPollSecs  int
+	DryRun       bool
+	OutputFile   string
 }
 
 // ── Question Bank Types ───────────────────────────────────────────────────
@@ -67,14 +74,14 @@ type QuestionBank struct {
 }
 
 type Problem struct {
-	ID             string     `json:"id"`
-	Title          string     `json:"title"`
-	Difficulty     string     `json:"difficulty"`
-	Language       string     `json:"language"`
-	PerTCLimitS    int        `json:"per_tc_limit_s"`
-	MemoryLimitMB  int        `json:"memory_limit_mb"`
-	TestCases      []TestCase `json:"test_cases"`
-	Solutions      []Solution `json:"solutions"`
+	ID            string     `json:"id"`
+	Title         string     `json:"title"`
+	Difficulty    string     `json:"difficulty"`
+	Language      string     `json:"language"`
+	PerTCLimitS   int        `json:"per_tc_limit_s"`
+	MemoryLimitMB int        `json:"memory_limit_mb"`
+	TestCases     []TestCase `json:"test_cases"`
+	Solutions     []Solution `json:"solutions"`
 }
 
 type TestCase struct {
@@ -85,11 +92,11 @@ type TestCase struct {
 }
 
 type Solution struct {
-	ID                     string   `json:"id"`
-	Type                   string   `json:"type"`
-	Description            string   `json:"description"`
+	ID                      string   `json:"id"`
+	Type                    string   `json:"type"`
+	Description             string   `json:"description"`
 	ExpectedHarnessStatuses []string `json:"expected_harness_statuses"`
-	SourceCode             string   `json:"source_code"`
+	SourceCode              string   `json:"source_code"`
 }
 
 // ── Per-TC Result ─────────────────────────────────────────────────────────
@@ -114,8 +121,7 @@ type Judge0SubmitRequest struct {
 	WallTimeLimit int    `json:"wall_time_limit"`
 	MemoryLimit   int    `json:"memory_limit"`
 	Base64Encoded bool   `json:"base64_encoded"`
-	// Both true → isolate_job.rb omits --cg from isolate command.
-	// Required for Docker Desktop on Mac (cgroup v2 only, no cgroup v1).
+	// Both true → isolate_job.rb omits --cg. Required for Docker Desktop Mac.
 	EnablePerProcessThreadTimeLimit   bool   `json:"enable_per_process_and_thread_time_limit"`
 	EnablePerProcessThreadMemoryLimit bool   `json:"enable_per_process_and_thread_memory_limit"`
 	CallbackURL                       string `json:"callback_url,omitempty"`
@@ -126,7 +132,7 @@ type Judge0SubmitResponse struct {
 }
 
 type Judge0StatusResponse struct {
-	Token  string `json:"token"` // populated in callback mode; empty in poll mode
+	Token  string `json:"token"`
 	Status struct {
 		ID          int    `json:"id"`
 		Description string `json:"description"`
@@ -138,6 +144,49 @@ type Judge0StatusResponse struct {
 	Memory        int    `json:"memory"`
 }
 
+// ── Flask API Types ───────────────────────────────────────────────────────
+
+type FlaskSubmitRequest struct {
+	StudentID     string              `json:"student_id"`
+	AssessmentID  string              `json:"assessment_id"`
+	Language      string              `json:"language"`
+	StudentCode   string              `json:"student_code"`
+	TestCases     []map[string]string `json:"test_cases"`
+	Mode          string              `json:"mode"`
+	PerTCLimitS   int                 `json:"per_tc_limit_s"`
+	MemoryLimitMB int                 `json:"memory_limit_mb"`
+}
+
+type FlaskSubmitResponse struct {
+	TicketID string `json:"ticket_id"`
+	Status   string `json:"status"` // "queued" | "duplicate"
+	Error    string `json:"error,omitempty"`
+}
+
+type FlaskStatusResponse struct {
+	Status         string      `json:"status"` // "pending" | "done"
+	QueueDepth     int64       `json:"queue_depth"`
+	EstimatedWaitS float64     `json:"estimated_wait_s"`
+	Result         *FlaskResult `json:"result,omitempty"`
+}
+
+type FlaskResult struct {
+	Score         int             `json:"score"`
+	Total         int             `json:"total"`
+	GlobalTLE     bool            `json:"global_tle"`
+	TCResults     []FlaskTCResult `json:"tc_results"`
+	SystemError   string          `json:"system_error"`
+	SecurityError string          `json:"security_error"`
+}
+
+type FlaskTCResult struct {
+	TCNum    int    `json:"tc_num"`
+	Status   string `json:"status"`
+	Got      string `json:"got"`
+	Expected string `json:"expected"`
+	Detail   string `json:"detail"`
+}
+
 // ── Result Types ──────────────────────────────────────────────────────────
 
 type SubmissionResult struct {
@@ -145,8 +194,8 @@ type SubmissionResult struct {
 	ProblemID     string
 	SolutionID    string
 	SolutionType  string
-	HarnessStatus string     // PASS/FAIL/TLE/ERROR/BLOCKED/JUDGE0_ERROR
-	TCDetails     []TCResult // per-TC full breakdown
+	HarnessStatus string // PASS/FAIL/TLE/ERROR/BLOCKED/JUDGE0_ERROR/SYSTEM_ERROR/RATE_LIMITED
+	TCDetails     []TCResult
 	LatencyMs     int64
 	Judge0Status  string
 	Error         string
@@ -160,20 +209,23 @@ type SubmissionResult struct {
 type Metrics struct {
 	mu sync.Mutex
 
-	TotalSubmissions  int64
-	Completed         int64
-	Errors            int64
-	Blocked           int64 // stopped by AST checker
+	TotalSubmissions int64
+	Completed        int64
+	Errors           int64
+	Blocked          int64
+	RateLimited      int64 // 429 from /submit — admission control triggered
+	DuplicateCount   int64 // 200 idempotent — same code resubmitted within 24 h
+	SystemErrors     int64 // system_error in result — infra failure, not student code
 
-	StatusCounts map[string]int64  // PASS/FAIL/TLE/ERROR/BLOCKED
+	StatusCounts  map[string]int64
 	ProblemCounts map[string]int64
-	TypeCounts   map[string]int64  // solution type breakdown
+	TypeCounts    map[string]int64
 
-	Latencies []int64 // ms
+	Latencies []int64
 
-	// Queue depth tracking
-	InFlight     int64  // atomic
-	MaxInFlight  int64  // atomic
+	InFlight      int64 // atomic
+	MaxInFlight   int64 // atomic
+	MaxQueueDepth int64 // max queue_depth seen from /status pending responses (atomic)
 
 	StartTime time.Time
 	EndTime   time.Time
@@ -197,8 +249,15 @@ func (m *Metrics) Record(r SubmissionResult) {
 	m.Completed++
 	m.Latencies = append(m.Latencies, r.LatencyMs)
 
-	if r.HarnessStatus == "JUDGE0_ERROR" {
+	switch r.HarnessStatus {
+	case "JUDGE0_ERROR":
 		m.Errors++
+	case "BLOCKED":
+		m.Blocked++
+	case "RATE_LIMITED":
+		m.RateLimited++
+	case "SYSTEM_ERROR":
+		m.SystemErrors++
 	}
 
 	status := r.HarnessStatus
@@ -208,23 +267,19 @@ func (m *Metrics) Record(r SubmissionResult) {
 	m.StatusCounts[status]++
 	m.ProblemCounts[r.ProblemID]++
 	m.TypeCounts[r.SolutionType]++
-
-	if r.HarnessStatus == "BLOCKED" {
-		m.Blocked++
-	}
-
 	m.Results = append(m.Results, r)
 }
 
-func (m *Metrics) Percentile(p float64) int64 {
-	if len(m.Latencies) == 0 {
-		return 0
+func (m *Metrics) UpdateMaxQueueDepth(d int64) {
+	for {
+		cur := atomic.LoadInt64(&m.MaxQueueDepth)
+		if d <= cur {
+			return
+		}
+		if atomic.CompareAndSwapInt64(&m.MaxQueueDepth, cur, d) {
+			return
+		}
 	}
-	sorted := make([]int64, len(m.Latencies))
-	copy(sorted, m.Latencies)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
-	idx := int(float64(len(sorted)-1) * p / 100.0)
-	return sorted[idx]
 }
 
 func (m *Metrics) Print(cfg Config) {
@@ -255,7 +310,12 @@ func (m *Metrics) Print(cfg Config) {
 		maxLatency = sorted[len(sorted)-1]
 	}
 
-	batchEquivalent := m.TotalSubmissions * 4 // avg 4 TCs per problem
+	batchEquivalent := m.TotalSubmissions * 4
+
+	mode := "Direct Judge0"
+	if cfg.FlaskAPIURL != "" {
+		mode = "Flask Stack (full pipeline)"
+	}
 
 	fmt.Println()
 	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
@@ -263,53 +323,65 @@ func (m *Metrics) Print(cfg Config) {
 	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
 	fmt.Println()
 
-	fmt.Printf("  %-30s %d\n", "Total Users:", cfg.Users)
-	fmt.Printf("  %-30s %.1fs\n", "Test Duration:", duration)
-	fmt.Printf("  %-30s %d\n", "Total Submissions:", m.TotalSubmissions)
-	fmt.Printf("  %-30s %d\n", "Completed:", m.Completed)
-	fmt.Printf("  %-30s %d\n", "Errors (network/poll):", m.Errors)
-	fmt.Printf("  %-30s %d\n", "Blocked by AST checker:", m.Blocked)
+	fmt.Printf("  %-32s %s\n", "Test Mode:", mode)
+	fmt.Printf("  %-32s %d\n", "Total Users:", cfg.Users)
+	fmt.Printf("  %-32s %.1fs\n", "Test Duration:", duration)
+	fmt.Printf("  %-32s %d\n", "Total Submissions:", m.TotalSubmissions)
+	fmt.Printf("  %-32s %d\n", "Completed:", m.Completed)
+	fmt.Println()
+
+	fmt.Println("  ── Submission Outcomes ────────────────────────────────────")
+	fmt.Printf("  %-32s %d\n", "Errors (network/Judge0):", m.Errors)
+	fmt.Printf("  %-32s %d\n", "Blocked by security checker:", m.Blocked)
+	if cfg.FlaskAPIURL != "" {
+		fmt.Printf("  %-32s %d\n", "Rate Limited (429):", m.RateLimited)
+		fmt.Printf("  %-32s %d\n", "Duplicate (idempotent):", m.DuplicateCount)
+		fmt.Printf("  %-32s %d\n", "System Errors (infra):", m.SystemErrors)
+	}
 	fmt.Println()
 
 	fmt.Println("  ── Queue Depth Comparison ─────────────────────────────────")
-	fmt.Printf("  %-30s %d\n", "Harness jobs (actual):", m.TotalSubmissions)
-	fmt.Printf("  %-30s %d\n", "Batch equivalent jobs:", batchEquivalent)
-	fmt.Printf("  %-30s %.1fx\n", "Queue reduction factor:", float64(batchEquivalent)/float64(max64(m.TotalSubmissions, 1)))
-	fmt.Printf("  %-30s %d\n", "Peak in-flight jobs:", m.MaxInFlight)
+	fmt.Printf("  %-32s %d\n", "Harness jobs (actual):", m.TotalSubmissions)
+	fmt.Printf("  %-32s %d\n", "Batch equivalent jobs:", batchEquivalent)
+	fmt.Printf("  %-32s %.1fx\n", "Queue reduction factor:", float64(batchEquivalent)/float64(max64(m.TotalSubmissions, 1)))
+	fmt.Printf("  %-32s %d\n", "Peak in-flight jobs:", m.MaxInFlight)
+	if cfg.FlaskAPIURL != "" {
+		fmt.Printf("  %-32s %d\n", "Max queue depth (from /status):", atomic.LoadInt64(&m.MaxQueueDepth))
+	}
 	fmt.Println()
 
 	fmt.Println("  ── Latency ────────────────────────────────────────────────")
-	fmt.Printf("  %-30s %.0fms\n", "Average:", avgLatency)
-	fmt.Printf("  %-30s %dms\n", "p50:", percentile(sorted, 50))
-	fmt.Printf("  %-30s %dms\n", "p95:", percentile(sorted, 95))
-	fmt.Printf("  %-30s %dms\n", "p99:", percentile(sorted, 99))
-	fmt.Printf("  %-30s %dms\n", "Max:", maxLatency)
+	fmt.Printf("  %-32s %.0fms\n", "Average:", avgLatency)
+	fmt.Printf("  %-32s %dms\n", "p50:", percentile(sorted, 50))
+	fmt.Printf("  %-32s %dms\n", "p95:", percentile(sorted, 95))
+	fmt.Printf("  %-32s %dms\n", "p99:", percentile(sorted, 99))
+	fmt.Printf("  %-32s %dms\n", "Max:", maxLatency)
 	fmt.Println()
 
 	fmt.Println("  ── Throughput ─────────────────────────────────────────────")
-	fmt.Printf("  %-30s %.2f/sec\n", "Submissions/sec:", throughput)
+	fmt.Printf("  %-32s %.2f/sec\n", "Submissions/sec:", throughput)
 	fmt.Println()
 
 	fmt.Println("  ── Result Status Breakdown ────────────────────────────────")
-	statuses := []string{"PASS", "FAIL", "TLE", "ERROR", "BLOCKED", "JUDGE0_ERROR", "UNKNOWN"}
+	statuses := []string{"PASS", "FAIL", "TLE", "ERROR", "BLOCKED", "SYSTEM_ERROR", "RATE_LIMITED", "JUDGE0_ERROR", "UNKNOWN"}
 	for _, s := range statuses {
 		count := m.StatusCounts[s]
 		if count > 0 {
 			pct := float64(count) / float64(m.Completed) * 100
-			fmt.Printf("  %-30s %d (%.1f%%)\n", s+":", count, pct)
+			fmt.Printf("  %-32s %d (%.1f%%)\n", s+":", count, pct)
 		}
 	}
 	fmt.Println()
 
 	fmt.Println("  ── Solution Type Breakdown ────────────────────────────────")
 	for stype, count := range m.TypeCounts {
-		fmt.Printf("  %-30s %d\n", stype+":", count)
+		fmt.Printf("  %-32s %d\n", stype+":", count)
 	}
 	fmt.Println()
 
 	fmt.Println("  ── Per-Problem Breakdown ──────────────────────────────────")
 	for pid, count := range m.ProblemCounts {
-		fmt.Printf("  %-30s %d submissions\n", pid+":", count)
+		fmt.Printf("  %-32s %d submissions\n", pid+":", count)
 	}
 	fmt.Println()
 }
@@ -371,12 +443,12 @@ func (b *BatchRecord) MaxLatencyMs() int64 {
 	return mx
 }
 
-// runBatch submits batchSize users concurrently and returns a BatchRecord.
 func runBatch(
 	batchID int,
 	userIDs []int,
 	bank QuestionBank,
 	client *Judge0Client,
+	flaskClient *FlaskClient,
 	metrics *Metrics,
 	cfg Config,
 	inFlight *int64,
@@ -394,13 +466,11 @@ func runBatch(
 			defer wg.Done()
 			var innerWG sync.WaitGroup
 			innerWG.Add(1)
-			// Intercept the result by wrapping metrics.Record
-			// We call runUser which appends to metrics; snapshot index before.
 			metrics.mu.Lock()
 			snapshotLen := len(metrics.Results)
 			metrics.mu.Unlock()
 
-			runUser(uid, bank, client, metrics, cfg, &innerWG, inFlight, maxInFlight, cs)
+			runUser(uid, bank, client, flaskClient, metrics, cfg, &innerWG, inFlight, maxInFlight, cs)
 			innerWG.Wait()
 
 			metrics.mu.Lock()
@@ -420,10 +490,10 @@ func runBatch(
 	return br
 }
 
-// runPipelinedBatches fires all batches simultaneously and collects per-batch results.
 func runPipelinedBatches(
 	bank QuestionBank,
 	client *Judge0Client,
+	flaskClient *FlaskClient,
 	metrics *Metrics,
 	cfg Config,
 	inFlight *int64,
@@ -436,6 +506,9 @@ func runPipelinedBatches(
 	if cs != nil {
 		resultMode = fmt.Sprintf("Callback → %s", cs.URL(cfg.CallbackHost, cfg.CallbackPort))
 	}
+	if cfg.FlaskAPIURL != "" {
+		resultMode = "Flask /status polling"
+	}
 
 	fmt.Printf("\n  ═══════════════════════════════════════════════════════════\n")
 	fmt.Printf("  JUDGE0 PIPELINED BATCH LOAD TEST\n")
@@ -447,7 +520,6 @@ func runPipelinedBatches(
 	fmt.Printf("  Result mode:   %s\n", resultMode)
 	fmt.Printf("  ═══════════════════════════════════════════════════════════\n\n")
 
-	// Build per-batch user ID slices
 	batchUserIDs := make([][]int, numBatches)
 	uid := 1
 	for b := 0; b < numBatches; b++ {
@@ -472,7 +544,7 @@ func runPipelinedBatches(
 			fmt.Printf("  [Batch %02d] FIRED  @ %s  (%d users)\n",
 				bIdx+1, time.Now().Format("15:04:05.000"), len(batchUserIDs[bIdx]))
 
-			br := runBatch(bIdx+1, batchUserIDs[bIdx], bank, client, metrics, cfg, inFlight, maxInFlight, cs)
+			br := runBatch(bIdx+1, batchUserIDs[bIdx], bank, client, flaskClient, metrics, cfg, inFlight, maxInFlight, cs)
 
 			mu.Lock()
 			batchResults[bIdx] = br
@@ -493,7 +565,7 @@ func runPipelinedBatches(
 	return batchResults
 }
 
-// ── Python Harness Builder ────────────────────────────────────────────────
+// ── Python Harness Builder (direct mode only) ─────────────────────────────
 
 const pythonHarnessTemplate = `import signal
 import sys
@@ -535,12 +607,9 @@ signal.signal = _safe_signal
 def _safe_exit(*a): raise SystemExit("__HARNESS_BLOCKED__")
 sys.exit = builtins.exit = builtins.quit = _safe_exit
 
-# stdio mode: student code runs only in child processes via exec(_STUDENT_SOURCE)
-
 _STUDENT_SOURCE = {{.StudentCodeRepr}}
 
 def _run_tc_child(tc, per_tc_limit_s, write_fd):
-    """Run one TC in a forked child, write JSON result to write_fd, then _exit."""
     class _TLE(Exception): pass
     def _tle(s, f): raise _TLE()
 
@@ -578,9 +647,8 @@ def _run_tc_child(tc, per_tc_limit_s, write_fd):
     os._exit(0)
 
 def _run_all(test_cases, per_tc_limit_s):
-    """Fork one child per TC so all TCs run in parallel (v3 harness)."""
     _real_out = sys.stdout
-    pids, fds = [], []  # fds: list of (tc_index, read_fd | None)
+    pids, fds = [], []
 
     for i, tc in enumerate(test_cases):
         try:
@@ -592,14 +660,13 @@ def _run_all(test_cases, per_tc_limit_s):
         except OSError:
             os.close(r); os.close(w)
             pids.append(None); fds.append((i, None)); continue
-        if pid == 0:            # child — run one TC then exit
+        if pid == 0:
             os.close(r)
             _run_tc_child(tc, per_tc_limit_s, w)
-        os.close(w)             # parent — track read end
+        os.close(w)
         pids.append(pid)
         fds.append((i, r))
 
-    # Collect results from all children simultaneously via select()
     results  = [None] * len(test_cases)
     open_fds = [r for _, r in fds if r is not None]
     fd_idx   = {r: i for i, r in fds if r is not None}
@@ -623,7 +690,7 @@ def _run_all(test_cases, per_tc_limit_s):
                 chunk = b""
             if chunk:
                 bufs[fd] += chunk
-            else:                           # EOF — child exited
+            else:
                 idx = fd_idx[fd]
                 try:
                     results[idx] = json.loads(bufs[fd].decode())
@@ -633,12 +700,12 @@ def _run_all(test_cases, per_tc_limit_s):
                 except OSError: pass
                 open_fds.remove(fd)
 
-    for pid in pids:                        # reap children
+    for pid in pids:
         if pid is not None:
             try: os.waitpid(pid, os.WNOHANG)
             except OSError: pass
 
-    for i in range(len(results)):           # fill any un-collected slots (crash / hard TLE)
+    for i in range(len(results)):
         if results[i] is None:
             results[i] = {"status": "TLE", "detail": f"Exceeded {per_tc_limit_s}s"}
 
@@ -658,7 +725,7 @@ _run_all(_TEST_CASES, _PER_TC_LIMIT_S)
 
 type HarnessParams struct {
 	SessionID       string
-	StudentCodeRepr string // base64-decoded at runtime — avoids input() at module level
+	StudentCodeRepr string
 	TestCasesJSON   string
 	PerTCLimitS     int
 }
@@ -676,7 +743,6 @@ func buildHarness(p Problem, sol Solution, sessionID string) (string, error) {
 		return "", err
 	}
 
-	// Python repr of student code: wrap in triple-quotes with escaping
 	studentCodeRepr := pythonRepr(sol.SourceCode)
 
 	tmpl, err := template.New("harness").Parse(pythonHarnessTemplate)
@@ -698,25 +764,30 @@ func buildHarness(p Problem, sol Solution, sessionID string) (string, error) {
 	return buf.String(), nil
 }
 
-// pythonRepr wraps a string safely for embedding as a Python string literal.
-// Uses base64 decode trick to avoid any escaping issues.
 func pythonRepr(code string) string {
 	encoded := base64.StdEncoding.EncodeToString([]byte(code))
 	return fmt.Sprintf(`__import__('base64').b64decode('%s').decode()`, encoded)
 }
 
-// ── AST Pre-Check (Go-side) ───────────────────────────────────────────────
-// Quick syntactic checks before sending to Judge0.
-// Full AST check happens in Python security.py in production;
-// here we just check for obvious SyntaxError indicators.
+// globalLimitS computes the Judge0 cpu_time_limit for a harness job.
+// The Python harness batches TCs in groups of MAX_PARALLEL_TCS=200, running
+// each batch in parallel.  Total wall time = ceil(N/200) * per_tc + overhead.
+// For the question_bank (4 TCs): ceil(4/200)*2+5 = 7s.
+// For a 1000-TC problem:         ceil(1000/200)*2+5 = 15s.
+func globalLimitS(tcCount, perTCLimitS int) int {
+	batches := int(math.Ceil(float64(tcCount) / 200.0))
+	if batches < 1 {
+		batches = 1
+	}
+	return batches*perTCLimitS + 5
+}
+
+// ── AST Pre-Check (Go-side, direct mode only) ─────────────────────────────
 
 func quickSyntaxCheck(code string) string {
-	// Check for common Python syntax errors that would cause SyntaxError
-	// This is a simplified check — production uses full AST via security.py
 	lines := strings.Split(code, "\n")
 	for _, line := range lines {
 		stripped := strings.TrimSpace(line)
-		// Detect def/if/for/while/class without colon
 		for _, kw := range []string{"def ", "if ", "for ", "while ", "class ", "elif ", "else", "try", "except", "with "} {
 			if strings.HasPrefix(stripped, kw) && !strings.Contains(stripped, ":") &&
 				!strings.HasSuffix(stripped, "\\") && stripped != "" {
@@ -727,7 +798,7 @@ func quickSyntaxCheck(code string) string {
 	return ""
 }
 
-// ── Judge0 Client ─────────────────────────────────────────────────────────
+// ── Judge0 Client (direct mode) ───────────────────────────────────────────
 
 type Judge0Client struct {
 	BaseURL      string
@@ -735,8 +806,8 @@ type Judge0Client struct {
 	HTTPClient   *http.Client
 	PollInterval time.Duration
 	MaxPollSecs  int
-	submitSem    chan struct{} // limits concurrent submit requests
-	pollSem      chan struct{} // limits concurrent poll requests
+	submitSem    chan struct{}
+	pollSem      chan struct{}
 }
 
 func NewJudge0Client(cfg Config) *Judge0Client {
@@ -748,10 +819,8 @@ func NewJudge0Client(cfg Config) *Judge0Client {
 		},
 		PollInterval: cfg.PollInterval,
 		MaxPollSecs:  cfg.MaxPollSecs,
-		// submitSem(15) + pollSem(15) = 30 concurrent requests.
-		// Polls are instant DB SELECTs; slightly overcommitting vs RAILS_MAX_THREADS=20 is fine.
-		submitSem: make(chan struct{}, 15),
-		pollSem:   make(chan struct{}, 15),
+		submitSem:    make(chan struct{}, 15),
+		pollSem:      make(chan struct{}, 15),
 	}
 }
 
@@ -760,11 +829,11 @@ func (c *Judge0Client) Submit(harness string, cpuLimitS int, memLimitMB int, cal
 
 	req := Judge0SubmitRequest{
 		SourceCode:    encoded,
-		LanguageID:    71, // Python 3
+		LanguageID:    71,
 		Stdin:         "",
 		CPUTimeLimit:  cpuLimitS,
 		WallTimeLimit: cpuLimitS + 2,
-		MemoryLimit:   memLimitMB * 1024, // KB
+		MemoryLimit:   memLimitMB * 1024,
 		Base64Encoded: true,
 		EnablePerProcessThreadTimeLimit:   true,
 		EnablePerProcessThreadMemoryLimit: true,
@@ -809,14 +878,9 @@ func (c *Judge0Client) Submit(harness string, cpuLimitS int, memLimitMB int, cal
 
 func (c *Judge0Client) Poll(token string) (*Judge0StatusResponse, error) {
 	deadline := time.Now().Add(time.Duration(c.MaxPollSecs) * time.Second)
-
-	// Wait for submission to be queued and a worker to pick it up before first poll.
 	time.Sleep(2 * time.Second)
 
 	for time.Now().Before(deadline) {
-		// Acquire semaphore before making the HTTP request.
-		// This caps concurrent poll requests at pollSem capacity (20),
-		// preventing 1000 goroutines from OOM-killing the Puma process.
 		c.pollSem <- struct{}{}
 		url := fmt.Sprintf("%s/submissions/%s?base64_encoded=true", c.BaseURL, token)
 		httpReq, err := http.NewRequest("GET", url, nil)
@@ -829,7 +893,7 @@ func (c *Judge0Client) Poll(token string) (*Judge0StatusResponse, error) {
 		}
 
 		resp, err := c.HTTPClient.Do(httpReq)
-		<-c.pollSem // release immediately after response
+		<-c.pollSem
 		if err != nil {
 			return nil, fmt.Errorf("poll HTTP error: %w", err)
 		}
@@ -844,25 +908,22 @@ func (c *Judge0Client) Poll(token string) (*Judge0StatusResponse, error) {
 		statusID := result.Status.ID
 		if statusID == 1 || statusID == 2 {
 			time.Sleep(c.PollInterval)
-			continue // queued or processing
+			continue
 		}
 		return &result, nil
 	}
 	return nil, fmt.Errorf("poll timeout after %ds", c.MaxPollSecs)
 }
 
-// ── Callback Server ───────────────────────────────────────────────────────
-// Judge0 PUTs the full result to /result when a job finishes (HTTParty.put in isolate_job.rb).
-// CallbackServer maps token → channel so each waiting goroutine unblocks instantly.
+// ── Callback Server (direct mode) ─────────────────────────────────────────
 
 type CallbackServer struct {
-	pending sync.Map   // token (string) → chan Judge0StatusResponse
+	pending sync.Map
 	server  *http.Server
 }
 
 func NewCallbackServer() *CallbackServer { return &CallbackServer{} }
 
-// Register adds token to the pending set; returns a channel that receives exactly one result.
 func (cs *CallbackServer) Register(token string) <-chan Judge0StatusResponse {
 	ch := make(chan Judge0StatusResponse, 1)
 	cs.pending.Store(token, ch)
@@ -880,7 +941,6 @@ func (cs *CallbackServer) handleResult(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	// Respond 200 immediately — Judge0 does not retry on non-2xx so we must be fast.
 	w.WriteHeader(http.StatusOK)
 	if v, ok := cs.pending.LoadAndDelete(payload.Token); ok {
 		v.(chan Judge0StatusResponse) <- payload
@@ -901,7 +961,7 @@ func (cs *CallbackServer) Start(port int) error {
 	case err := <-errCh:
 		return fmt.Errorf("callback server: %w", err)
 	case <-time.After(150 * time.Millisecond):
-		return nil // started successfully
+		return nil
 	}
 }
 
@@ -915,7 +975,98 @@ func (cs *CallbackServer) URL(host string, port int) string {
 	return fmt.Sprintf("http://%s:%d/result", host, port)
 }
 
-// ── Output Parser ─────────────────────────────────────────────────────────
+// ── Flask API Client (Flask stack mode) ──────────────────────────────────
+
+type FlaskClient struct {
+	BaseURL      string
+	HTTPClient   *http.Client
+	PollInterval time.Duration
+	MaxPollSecs  int
+}
+
+func NewFlaskClient(cfg Config) *FlaskClient {
+	return &FlaskClient{
+		BaseURL:      cfg.FlaskAPIURL,
+		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
+		PollInterval: cfg.PollInterval,
+		MaxPollSecs:  cfg.MaxPollSecs,
+	}
+}
+
+// Submit posts to /submit. Returns (ticketID, submitStatus, error).
+// submitStatus is one of: "queued", "duplicate", "rate_limited".
+func (f *FlaskClient) Submit(req FlaskSubmitRequest) (string, string, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return "", "", err
+	}
+	resp, err := f.HTTPClient.Post(f.BaseURL+"/submit", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return "", "", fmt.Errorf("submit: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 429 {
+		return "", "rate_limited", nil
+	}
+
+	var result FlaskSubmitResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", "", err
+	}
+	if result.Error != "" {
+		return "", "", fmt.Errorf("api error: %s", result.Error)
+	}
+	return result.TicketID, result.Status, nil
+}
+
+// PollStatus polls GET /status/{ticketID} until done or timeout.
+// Returns the status response and the maximum queue_depth observed.
+func (f *FlaskClient) PollStatus(ticketID string, metrics *Metrics) (*FlaskStatusResponse, error) {
+	deadline := time.Now().Add(time.Duration(f.MaxPollSecs) * time.Second)
+	// Small initial sleep to let the worker pick up the job before first poll.
+	time.Sleep(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		resp, err := f.HTTPClient.Get(f.BaseURL + "/status/" + ticketID)
+		if err != nil {
+			return nil, fmt.Errorf("status: %w", err)
+		}
+		var status FlaskStatusResponse
+		err = json.NewDecoder(resp.Body).Decode(&status)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		// Track max queue depth across all polling goroutines atomically.
+		metrics.UpdateMaxQueueDepth(status.QueueDepth)
+
+		if status.Status == "done" {
+			return &status, nil
+		}
+		time.Sleep(f.PollInterval)
+	}
+	return nil, fmt.Errorf("poll timeout after %ds", f.MaxPollSecs)
+}
+
+// HealthCheck calls /health and returns an error if the system is not "ok".
+func (f *FlaskClient) HealthCheck() (string, error) {
+	resp, err := f.HTTPClient.Get(f.BaseURL + "/health")
+	if err != nil {
+		return "", fmt.Errorf("health check: %w", err)
+	}
+	defer resp.Body.Close()
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	status, _ := result["status"].(string)
+	if resp.StatusCode == 503 {
+		return status, fmt.Errorf("system unavailable: status=%s", status)
+	}
+	return status, nil
+}
+
+// ── Output Parser (direct mode) ───────────────────────────────────────────
 
 type ParsedResult struct {
 	TCDetails []TCResult
@@ -936,7 +1087,6 @@ func parseHarnessOutput(stdout, sessionID string, testCases []TestCase) ParsedRe
 		GlobalTLE: globalTLE,
 	}
 
-	// Fill defaults
 	for i, tc := range testCases {
 		defaultStatus := "MISSING"
 		if globalTLE {
@@ -951,7 +1101,6 @@ func parseHarnessOutput(stdout, sessionID string, testCases []TestCase) ParsedRe
 		}
 	}
 
-	// Extract TC blocks
 	for i := 1; i <= totalTCs; i++ {
 		startMarker := fmt.Sprintf("%sSTART_%d\n", delim, i)
 		endMarker := fmt.Sprintf("%sEND_%d\n", delim, i)
@@ -986,7 +1135,6 @@ func parseHarnessOutput(stdout, sessionID string, testCases []TestCase) ParsedRe
 		if detail, ok := tcData["detail"].(string); ok {
 			result.TCDetails[i-1].Detail = detail
 		}
-		// Overwrite expected from harness output if present (authoritative)
 		if exp, ok := tcData["expected"].(string); ok && exp != "" {
 			result.TCDetails[i-1].Expected = exp
 		}
@@ -1004,21 +1152,20 @@ func runUser(
 	userID int,
 	bank QuestionBank,
 	client *Judge0Client,
+	flaskClient *FlaskClient, // non-nil → Flask stack mode
 	metrics *Metrics,
 	cfg Config,
 	wg *sync.WaitGroup,
 	inFlight *int64,
 	maxInFlight *int64,
-	cs *CallbackServer, // nil = polling mode; non-nil = callback mode
+	cs *CallbackServer,
 ) {
 	defer wg.Done()
 
 	rng := rand.New(rand.NewSource(time.Now().UnixNano() + int64(userID)))
 
-	// Pick random problem
 	prob := bank.Problems[rng.Intn(len(bank.Problems))]
 
-	// Pick solution — accepted-only mode filters to type=="accepted"
 	var candidates []Solution
 	if cfg.AcceptOnly {
 		for _, s := range prob.Solutions {
@@ -1032,8 +1179,6 @@ func runUser(
 	}
 	sol := candidates[rng.Intn(len(candidates))]
 
-	sessionID := fmt.Sprintf("%d_%d_%d", userID, time.Now().UnixNano(), rng.Int63())
-
 	atomic.AddInt64(&metrics.TotalSubmissions, 1)
 	start := time.Now()
 
@@ -1045,9 +1190,17 @@ func runUser(
 		TotalTCs:     len(prob.TestCases),
 	}
 
-	// ── Quick syntax check (simulates AST checker) ───────────────────
-	if syntaxErr := quickSyntaxCheck(sol.SourceCode); syntaxErr != "" ||
-		sol.Type == "syntax_error" {
+	// ── Flask stack mode ──────────────────────────────────────────────────
+	if flaskClient != nil {
+		runUserFlask(userID, prob, sol, flaskClient, metrics, cfg, &result, start, inFlight, maxInFlight)
+		return
+	}
+
+	// ── Direct Judge0 mode ────────────────────────────────────────────────
+
+	sessionID := fmt.Sprintf("%d_%d_%d", userID, time.Now().UnixNano(), rng.Int63())
+
+	if syntaxErr := quickSyntaxCheck(sol.SourceCode); syntaxErr != "" || sol.Type == "syntax_error" {
 		result.HarnessStatus = "BLOCKED"
 		result.Error = "AST check: " + syntaxErr
 		result.LatencyMs = time.Since(start).Milliseconds()
@@ -1055,7 +1208,6 @@ func runUser(
 		return
 	}
 
-	// ── Build harness ────────────────────────────────────────────────
 	harness, err := buildHarness(prob, sol, sessionID)
 	if err != nil {
 		result.HarnessStatus = "JUDGE0_ERROR"
@@ -1066,45 +1218,42 @@ func runUser(
 	}
 
 	if cfg.DryRun {
-		// Dry run: simulate result based on solution type
 		result.HarnessStatus = map[string]string{
-			"accepted":      "PASS",
-			"wrong_answer":  "FAIL",
+			"accepted":            "PASS",
+			"wrong_answer":        "FAIL",
 			"time_limit_exceeded": "TLE",
-			"runtime_error": "ERROR",
-			"syntax_error":  "BLOCKED",
+			"runtime_error":       "ERROR",
+			"syntax_error":        "BLOCKED",
 		}[sol.Type]
 		if result.HarnessStatus == "" {
 			result.HarnessStatus = "UNKNOWN"
 		}
-		// Simulate realistic latency
 		time.Sleep(time.Duration(500+rng.Intn(2000)) * time.Millisecond)
 		result.LatencyMs = time.Since(start).Milliseconds()
 		metrics.Record(result)
 		return
 	}
 
-	// ── Submit to Judge0 ─────────────────────────────────────────────
 	current := atomic.AddInt64(inFlight, 1)
 	for {
-		max := atomic.LoadInt64(maxInFlight)
-		if current <= max {
+		maxV := atomic.LoadInt64(maxInFlight)
+		if current <= maxV {
 			break
 		}
-		if atomic.CompareAndSwapInt64(maxInFlight, max, current) {
+		if atomic.CompareAndSwapInt64(maxInFlight, maxV, current) {
 			break
 		}
 	}
 
-	// v3 parallel harness: all TCs run at t=0, worst case = 1 TC limit + overhead
-	globalLimitS := prob.PerTCLimitS + 5
+	// Correct global limit: ceil(TCs/200) * per_tc + overhead
+	limit := globalLimitS(len(prob.TestCases), prob.PerTCLimitS)
 
 	var callbackURL string
 	if cs != nil {
 		callbackURL = cs.URL(cfg.CallbackHost, cfg.CallbackPort)
 	}
 
-	token, err := client.Submit(harness, globalLimitS, prob.MemoryLimitMB, callbackURL)
+	token, err := client.Submit(harness, limit, prob.MemoryLimitMB, callbackURL)
 	if err != nil {
 		atomic.AddInt64(inFlight, -1)
 		result.HarnessStatus = "JUDGE0_ERROR"
@@ -1114,10 +1263,8 @@ func runUser(
 		return
 	}
 
-	// ── Wait for result: callback (push) or polling (pull) ────────────
 	var j0result *Judge0StatusResponse
 	if cs != nil {
-		// Callback mode: register before submit returns; block until Judge0 fires PUT /result.
 		resultCh := cs.Register(token)
 		select {
 		case r := <-resultCh:
@@ -1125,7 +1272,7 @@ func runUser(
 		case <-time.After(time.Duration(cfg.MaxPollSecs) * time.Second):
 			atomic.AddInt64(inFlight, -1)
 			result.HarnessStatus = "JUDGE0_ERROR"
-			result.Error = fmt.Sprintf("callback timeout after %ds — job may still be queued", cfg.MaxPollSecs)
+			result.Error = fmt.Sprintf("callback timeout after %ds", cfg.MaxPollSecs)
 			result.LatencyMs = time.Since(start).Milliseconds()
 			metrics.Record(result)
 			return
@@ -1147,7 +1294,6 @@ func runUser(
 	result.Judge0Status = j0result.Status.Description
 	result.LatencyMs = time.Since(start).Milliseconds()
 
-	// Decode stdout
 	var stdout string
 	if j0result.Stdout != "" {
 		decoded, err := base64.StdEncoding.DecodeString(j0result.Stdout)
@@ -1158,29 +1304,21 @@ func runUser(
 		}
 	}
 
-	// ── Parse harness output ──────────────────────────────────────────
 	if j0result.Status.ID == 5 {
-		// Judge0 global TLE — all TCs marked TLE
 		result.HarnessStatus = "TLE"
 		result.GlobalTLE = true
 		result.TCDetails = make([]TCResult, len(prob.TestCases))
 		for i, tc := range prob.TestCases {
 			result.TCDetails[i] = TCResult{
-				TCID:        tc.ID,
-				Description: tc.Description,
-				Stdin:       tc.StdinText,
-				Expected:    tc.Expected,
-				Status:      "TLE",
-				Detail:      "Judge0 global TLE",
+				TCID: tc.ID, Description: tc.Description,
+				Stdin: tc.StdinText, Expected: tc.Expected,
+				Status: "TLE", Detail: "Judge0 global TLE",
 			}
 		}
 	} else if j0result.Status.ID == 6 {
-		// Compilation error (shouldn't happen for Python)
 		result.HarnessStatus = "ERROR"
 		result.Error = "Compilation error"
 	} else if j0result.Status.ID == 12 || j0result.Status.ID == 13 {
-		// Internal Error or Exec Format Error — sandbox/infrastructure failure
-		// (e.g. cgroup v1 missing on Docker Desktop Mac, isolate binary incompatible)
 		result.HarnessStatus = "JUDGE0_ERROR"
 		result.Error = fmt.Sprintf("Judge0 infrastructure error (status %d): %s", j0result.Status.ID, j0result.Status.Description)
 	} else {
@@ -1189,11 +1327,9 @@ func runUser(
 		result.Score = parsed.Score
 		result.GlobalTLE = parsed.GlobalTLE
 
-		// Determine overall harness status
 		if parsed.Score == parsed.Total {
 			result.HarnessStatus = "PASS"
 		} else {
-			// Find the dominant non-PASS status
 			statusCount := make(map[string]int)
 			for _, tc := range parsed.TCDetails {
 				statusCount[tc.Status]++
@@ -1212,6 +1348,153 @@ func runUser(
 	metrics.Record(result)
 }
 
+// runUserFlask handles a single virtual user in Flask stack mode.
+func runUserFlask(
+	userID int,
+	prob Problem,
+	sol Solution,
+	fc *FlaskClient,
+	metrics *Metrics,
+	cfg Config,
+	result *SubmissionResult,
+	start time.Time,
+	inFlight *int64,
+	maxInFlight *int64,
+) {
+	// Build test cases list for the Flask API.
+	tcs := make([]map[string]string, len(prob.TestCases))
+	for i, tc := range prob.TestCases {
+		tcs[i] = map[string]string{
+			"stdin_text": tc.StdinText,
+			"expected":   tc.Expected,
+		}
+	}
+
+	req := FlaskSubmitRequest{
+		StudentID:     fmt.Sprintf("user_%d", userID),
+		AssessmentID:  "load_test_session_1",
+		Language:      prob.Language,
+		StudentCode:   sol.SourceCode,
+		TestCases:     tcs,
+		Mode:          "stdio",
+		PerTCLimitS:   prob.PerTCLimitS,
+		MemoryLimitMB: prob.MemoryLimitMB,
+	}
+
+	// Track in-flight
+	current := atomic.AddInt64(inFlight, 1)
+	for {
+		maxV := atomic.LoadInt64(maxInFlight)
+		if current <= maxV {
+			break
+		}
+		if atomic.CompareAndSwapInt64(maxInFlight, maxV, current) {
+			break
+		}
+	}
+	defer atomic.AddInt64(inFlight, -1)
+
+	ticketID, submitStatus, err := fc.Submit(req)
+	if err != nil {
+		result.HarnessStatus = "JUDGE0_ERROR"
+		result.Error = "submit: " + err.Error()
+		result.LatencyMs = time.Since(start).Milliseconds()
+		metrics.Record(*result)
+		return
+	}
+
+	// Admission control: queue was full.
+	if submitStatus == "rate_limited" {
+		metrics.mu.Lock()
+		metrics.RateLimited++
+		metrics.mu.Unlock()
+		result.HarnessStatus = "RATE_LIMITED"
+		result.LatencyMs = time.Since(start).Milliseconds()
+		metrics.Record(*result)
+		return
+	}
+
+	// Idempotent re-submit: existing result returned immediately.
+	if submitStatus == "duplicate" {
+		metrics.mu.Lock()
+		metrics.DuplicateCount++
+		metrics.mu.Unlock()
+		// Still poll for the result — it already exists.
+	}
+
+	// Poll /status until done.
+	statusResp, err := fc.PollStatus(ticketID, metrics)
+	if err != nil {
+		result.HarnessStatus = "JUDGE0_ERROR"
+		result.Error = "poll: " + err.Error()
+		result.LatencyMs = time.Since(start).Milliseconds()
+		metrics.Record(*result)
+		return
+	}
+
+	result.LatencyMs = time.Since(start).Milliseconds()
+
+	if statusResp.Result == nil {
+		result.HarnessStatus = "JUDGE0_ERROR"
+		result.Error = "nil result in done response"
+		metrics.Record(*result)
+		return
+	}
+
+	fr := statusResp.Result
+
+	// Map Flask result to SubmissionResult.
+	switch {
+	case fr.SystemError != "":
+		metrics.mu.Lock()
+		metrics.SystemErrors++
+		metrics.mu.Unlock()
+		result.HarnessStatus = "SYSTEM_ERROR"
+		result.Error = fr.SystemError
+
+	case fr.SecurityError != "":
+		result.HarnessStatus = "BLOCKED"
+		result.Error = fr.SecurityError
+
+	case fr.Score == fr.Total:
+		result.HarnessStatus = "PASS"
+		result.Score = fr.Score
+
+	default:
+		result.Score = fr.Score
+		// Determine dominant failure status from TC results.
+		statusCount := make(map[string]int)
+		for _, tc := range fr.TCResults {
+			statusCount[tc.Status]++
+		}
+		dominant := "FAIL"
+		for _, s := range []string{"TLE", "ERROR", "FAIL"} {
+			if statusCount[s] > 0 {
+				dominant = s
+				break
+			}
+		}
+		if fr.GlobalTLE {
+			dominant = "TLE"
+		}
+		result.HarnessStatus = dominant
+	}
+
+	// Convert Flask TC results to the shared TCResult type.
+	result.TCDetails = make([]TCResult, len(fr.TCResults))
+	for i, tc := range fr.TCResults {
+		result.TCDetails[i] = TCResult{
+			TCID:     fmt.Sprintf("tc%d", tc.TCNum),
+			Status:   tc.Status,
+			Got:      tc.Got,
+			Expected: tc.Expected,
+			Detail:   tc.Detail,
+		}
+	}
+
+	metrics.Record(*result)
+}
+
 // ── Progress Printer ──────────────────────────────────────────────────────
 
 func printProgress(metrics *Metrics, cfg Config, done chan struct{}) {
@@ -1226,16 +1509,22 @@ func printProgress(metrics *Metrics, cfg Config, done chan struct{}) {
 			total := int64(cfg.Users)
 			inFlight := atomic.LoadInt64(&metrics.InFlight)
 			pct := float64(completed) / float64(total) * 100
-			fmt.Printf("\r  Progress: %d/%d (%.0f%%) | In-flight: %d | Elapsed: %.0fs",
-				completed, total, pct, inFlight,
-				time.Since(metrics.StartTime).Seconds())
+			qd := atomic.LoadInt64(&metrics.MaxQueueDepth)
+			if cfg.FlaskAPIURL != "" {
+				fmt.Printf("\r  Progress: %d/%d (%.0f%%) | In-flight: %d | Max queue depth: %d | Elapsed: %.0fs",
+					completed, total, pct, inFlight, qd,
+					time.Since(metrics.StartTime).Seconds())
+			} else {
+				fmt.Printf("\r  Progress: %d/%d (%.0f%%) | In-flight: %d | Elapsed: %.0fs",
+					completed, total, pct, inFlight,
+					time.Since(metrics.StartTime).Seconds())
+			}
 		}
 	}
 }
 
 // ── Report Writer ─────────────────────────────────────────────────────────
 
-// PerProblemSubmission is a single submission entry in the per-problem report.
 type PerProblemSubmission struct {
 	UserID        int        `json:"user_id"`
 	SolutionID    string     `json:"solution_id"`
@@ -1249,14 +1538,12 @@ type PerProblemSubmission struct {
 	TestCases     []TCResult `json:"test_cases"`
 }
 
-// PerProblemReport groups all submissions for one problem.
 type PerProblemReport struct {
 	ProblemID   string                 `json:"problem_id"`
 	Submissions []PerProblemSubmission `json:"submissions"`
 }
 
 func buildPerProblemReport(results []SubmissionResult) []PerProblemReport {
-	// Group by problem ID preserving insertion order of first occurrence.
 	order := []string{}
 	byProblem := map[string]*PerProblemReport{}
 
@@ -1294,27 +1581,39 @@ func writeJSONReport(metrics *Metrics, cfg Config, outputFile string, batchResul
 		return s
 	}()
 
+	mode := "direct_judge0"
+	target := cfg.Judge0URL
+	if cfg.FlaskAPIURL != "" {
+		mode = "flask_stack"
+		target = cfg.FlaskAPIURL
+	}
+
 	report := map[string]interface{}{
 		"config": map[string]interface{}{
+			"mode":        mode,
+			"target":      target,
 			"users":       cfg.Users,
 			"ramp_up_sec": cfg.RampUpSec,
 			"batch_size":  cfg.BatchSize,
-			"judge0_url":  cfg.Judge0URL,
 			"dry_run":     cfg.DryRun,
 		},
 		"summary": map[string]interface{}{
-			"total_submissions":  metrics.TotalSubmissions,
-			"completed":          metrics.Completed,
-			"errors":             metrics.Errors,
-			"blocked_by_ast":     metrics.Blocked,
-			"harness_jobs":       metrics.TotalSubmissions,
-			"batch_equivalent":   metrics.TotalSubmissions * 4,
-			"queue_reduction":    "4x",
-			"throughput_per_sec": float64(metrics.Completed) / metrics.EndTime.Sub(metrics.StartTime).Seconds(),
-			"latency_p50_ms":     percentile(sortedLats, 50),
-			"latency_p95_ms":     percentile(sortedLats, 95),
-			"latency_p99_ms":     percentile(sortedLats, 99),
+			"total_submissions":   metrics.TotalSubmissions,
+			"completed":           metrics.Completed,
+			"errors":              metrics.Errors,
+			"blocked_by_security": metrics.Blocked,
+			"rate_limited_429":    metrics.RateLimited,
+			"duplicate_idempotent": metrics.DuplicateCount,
+			"system_errors":       metrics.SystemErrors,
+			"harness_jobs":        metrics.TotalSubmissions,
+			"batch_equivalent":    metrics.TotalSubmissions * 4,
+			"queue_reduction":     "4x",
+			"throughput_per_sec":  float64(metrics.Completed) / metrics.EndTime.Sub(metrics.StartTime).Seconds(),
+			"latency_p50_ms":      percentile(sortedLats, 50),
+			"latency_p95_ms":      percentile(sortedLats, 95),
+			"latency_p99_ms":      percentile(sortedLats, 99),
 			"peak_in_flight_jobs": metrics.MaxInFlight,
+			"max_queue_depth":     atomic.LoadInt64(&metrics.MaxQueueDepth),
 		},
 		"status_counts":      metrics.StatusCounts,
 		"problem_counts":     metrics.ProblemCounts,
@@ -1370,18 +1669,19 @@ func writeJSONReport(metrics *Metrics, cfg Config, outputFile string, batchResul
 func main() {
 	cfg := Config{}
 
-	flag.StringVar(&cfg.Judge0URL, "url", "http://localhost:2358", "Judge0 base URL")
-	flag.StringVar(&cfg.APIKey, "key", "", "Judge0 API key (X-Auth-Token)")
+	flag.StringVar(&cfg.Judge0URL, "url", "http://localhost:2358", "Judge0 base URL (direct mode)")
+	flag.StringVar(&cfg.FlaskAPIURL, "flask-url", "", "Flask API base URL — enables full-stack mode (e.g. http://localhost:5000)")
+	flag.StringVar(&cfg.APIKey, "key", "", "Judge0 API key (X-Auth-Token, direct mode only)")
 	flag.IntVar(&cfg.Users, "users", 500, "Number of virtual users")
 	flag.IntVar(&cfg.RampUpSec, "ramp", 10, "Ramp-up duration in seconds (flat mode only)")
-	flag.IntVar(&cfg.BatchSize, "batch", 0, "Batch size for pipelined mode (0 = flat concurrent mode)")
+	flag.IntVar(&cfg.BatchSize, "batch", 0, "Batch size for pipelined mode (0 = flat concurrent)")
 	flag.BoolVar(&cfg.AcceptOnly, "accept-only", false, "Only submit accepted solutions (100% pass target)")
-	flag.IntVar(&cfg.CallbackPort, "callback-port", 0, "Port for embedded callback server (0 = use polling)")
+	flag.IntVar(&cfg.CallbackPort, "callback-port", 0, "Callback server port, direct mode only (0 = use polling)")
 	flag.StringVar(&cfg.CallbackHost, "callback-host", "host.docker.internal", "Hostname Judge0 uses to reach this machine")
 	flag.StringVar(&cfg.QuestionBank, "bank", "question_bank.json", "Path to question_bank.json")
-	flag.DurationVar(&cfg.PollInterval, "poll", 400*time.Millisecond, "Poll interval for Judge0 results")
-	flag.IntVar(&cfg.MaxPollSecs, "maxpoll", 180, "Max seconds to wait for a single submission result")
-	flag.BoolVar(&cfg.DryRun, "dryrun", false, "Dry run: build harnesses but don't submit to Judge0")
+	flag.DurationVar(&cfg.PollInterval, "poll", 400*time.Millisecond, "Poll interval for results")
+	flag.IntVar(&cfg.MaxPollSecs, "maxpoll", 300, "Max seconds to wait per submission result")
+	flag.BoolVar(&cfg.DryRun, "dryrun", false, "Dry run: build harnesses but don't submit")
 	flag.StringVar(&cfg.OutputFile, "out", "load_test_report.json", "Output JSON report file")
 	flag.Parse()
 
@@ -1395,15 +1695,24 @@ func main() {
 		log.Fatalf("Failed to parse question bank: %v", err)
 	}
 
+	// Determine mode
+	flaskMode := cfg.FlaskAPIURL != ""
+
 	fmt.Printf("\n  Judge0 Harness Load Tester\n")
 	fmt.Printf("  ───────────────────────────────────────────────\n")
-	fmt.Printf("  Target:       %s\n", cfg.Judge0URL)
+	if flaskMode {
+		fmt.Printf("  Mode:         Flask Stack (full pipeline)\n")
+		fmt.Printf("  Target:       %s\n", cfg.FlaskAPIURL)
+	} else {
+		fmt.Printf("  Mode:         Direct Judge0\n")
+		fmt.Printf("  Target:       %s\n", cfg.Judge0URL)
+	}
 	fmt.Printf("  Users:        %d\n", cfg.Users)
 	if cfg.BatchSize > 0 {
 		numBatches := (cfg.Users + cfg.BatchSize - 1) / cfg.BatchSize
-		fmt.Printf("  Mode:         Pipelined batches (%d batches × %d users, all batches fire simultaneously)\n", numBatches, cfg.BatchSize)
+		fmt.Printf("  Submit mode:  Pipelined batches (%d batches × %d users, all batches fire simultaneously)\n", numBatches, cfg.BatchSize)
 	} else {
-		fmt.Printf("  Mode:         Flat concurrent  (ramp-up %ds)\n", cfg.RampUpSec)
+		fmt.Printf("  Submit mode:  Flat concurrent (ramp-up %ds)\n", cfg.RampUpSec)
 	}
 	fmt.Printf("  Problems:     %d\n", len(bank.Problems))
 	fmt.Printf("  Solutions:    %s\n", func() string {
@@ -1412,22 +1721,43 @@ func main() {
 		}
 		return "random (all types)"
 	}())
-	fmt.Printf("  Result mode:  %s\n", func() string {
-		if cfg.CallbackPort > 0 {
-			return fmt.Sprintf("Callback (http://%s:%d/result)", cfg.CallbackHost, cfg.CallbackPort)
-		}
-		return fmt.Sprintf("Polling (interval=%s)", cfg.PollInterval)
-	}())
+	if !flaskMode {
+		fmt.Printf("  Result mode:  %s\n", func() string {
+			if cfg.CallbackPort > 0 {
+				return fmt.Sprintf("Callback (http://%s:%d/result)", cfg.CallbackHost, cfg.CallbackPort)
+			}
+			return fmt.Sprintf("Polling (interval=%s)", cfg.PollInterval)
+		}())
+	}
+	fmt.Printf("  Max wait:     %ds per submission\n", cfg.MaxPollSecs)
 	fmt.Printf("  Dry run:      %v\n", cfg.DryRun)
-	fmt.Printf("  Batch equiv:  ~%d jobs if using batch approach\n", cfg.Users*4)
+	fmt.Printf("  globalLimitS: %ds (for 4-TC problem with per_tc=2s)\n",
+		globalLimitS(4, 2))
+	fmt.Printf("  Batch equiv:  ~%d jobs if using per-TC batch approach\n", cfg.Users*4)
 	fmt.Printf("  ───────────────────────────────────────────────\n\n")
+
+	// ── Flask mode: pre-flight health check ──────────────────────────────
+	var flaskClient *FlaskClient
+	if flaskMode {
+		flaskClient = NewFlaskClient(cfg)
+		fmt.Printf("  Checking Flask API health...")
+		healthStatus, err := flaskClient.HealthCheck()
+		if err != nil {
+			fmt.Printf(" FAIL\n")
+			log.Fatalf("Flask API health check failed: %v\n  Run: docker compose up && gunicorn api:app ...", err)
+		}
+		fmt.Printf(" %s\n\n", strings.ToUpper(healthStatus))
+		if healthStatus == "degraded" {
+			fmt.Printf("  WARNING: system is degraded (Judge0 or circuit breaker issue). Proceeding anyway.\n\n")
+		}
+	}
 
 	metrics := NewMetrics()
 	client := NewJudge0Client(cfg)
 
-	// ── Start callback server if requested ────────────────────────────
+	// ── Callback server (direct mode only) ───────────────────────────────
 	var cs *CallbackServer
-	if cfg.CallbackPort > 0 {
+	if !flaskMode && cfg.CallbackPort > 0 {
 		cs = NewCallbackServer()
 		if err := cs.Start(cfg.CallbackPort); err != nil {
 			log.Fatalf("Failed to start callback server on port %d: %v", cfg.CallbackPort, err)
@@ -1442,15 +1772,13 @@ func main() {
 	var batchResults []BatchRecord
 
 	if cfg.BatchSize > 0 {
-		// ── Pipelined batch mode ────────────────────────────────────────
-		batchResults = runPipelinedBatches(bank, client, metrics, cfg, &inFlight, &maxInFlight, cs)
+		batchResults = runPipelinedBatches(bank, client, flaskClient, metrics, cfg, &inFlight, &maxInFlight, cs)
 		metrics.mu.Lock()
 		metrics.EndTime = time.Now()
 		metrics.InFlight = inFlight
 		metrics.MaxInFlight = maxInFlight
 		metrics.mu.Unlock()
 	} else {
-		// ── Flat concurrent mode ────────────────────────────────────────
 		var wg sync.WaitGroup
 		progressDone := make(chan struct{})
 		go printProgress(metrics, cfg, progressDone)
@@ -1463,7 +1791,7 @@ func main() {
 		for i := 0; i < cfg.Users; i++ {
 			wg.Add(1)
 			go func(uid int) {
-				runUser(uid, bank, client, metrics, cfg, &wg, &inFlight, &maxInFlight, cs)
+				runUser(uid, bank, client, flaskClient, metrics, cfg, &wg, &inFlight, &maxInFlight, cs)
 			}(i)
 			if rampDelay > 0 && i < cfg.Users-1 {
 				time.Sleep(rampDelay)

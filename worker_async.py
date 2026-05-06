@@ -83,6 +83,7 @@ async def process_job(
                                 "Your submission was not evaluated. Please resubmit."
                             )
                         },
+                        job.idem_key,
                     )
                     await asyncio.to_thread(queue.ack, job)
                 else:
@@ -97,7 +98,7 @@ async def process_job(
 
             else:
                 await asyncio.to_thread(
-                    queue.store_result, ticket_id, result_to_dict(result)
+                    queue.store_result, ticket_id, result_to_dict(result), job.idem_key
                 )
                 await asyncio.to_thread(queue.ack, job)
                 print(
@@ -113,10 +114,18 @@ async def process_job(
                     queue.store_result,
                     ticket_id,
                     {"system_error": f"Internal grading error. Please resubmit. ({exc})"},
+                    job.idem_key,
                 )
                 await asyncio.to_thread(queue.ack, job)
-            except Exception as inner:
-                print(f"[{ticket_id[:8]}] Failed to store error result: {inner}", flush=True)
+            except Exception as store_exc:
+                # Redis is unavailable (OOM, crash). Do NOT ack — the job stays
+                # in PROCESSING_QUEUE and the reconciler requeues it after
+                # INFLIGHT_TTL_S (300 s) when the inflight key expires.
+                print(
+                    f"[{ticket_id[:8]}] CRITICAL: cannot write error result: {store_exc}. "
+                    f"Job will be requeued by reconciler.",
+                    flush=True,
+                )
 
 
 # ── Main dequeue loop ─────────────────────────────────────────────────────────
@@ -182,23 +191,25 @@ if __name__ == "__main__":
 
     queue = PriorityJobQueue(r)
 
-    callback_port = os.getenv("CALLBACK_PORT")
-    callback_host = os.getenv("CALLBACK_HOST", "host.docker.internal")
+    callback_port_env = os.getenv("CALLBACK_PORT")
+    callback_host     = os.getenv("CALLBACK_HOST", "host.docker.internal")
     cfg = Judge0Config(
-        base_url    = os.getenv("JUDGE0_URL", "http://localhost:2358"),
-        api_key     = os.getenv("JUDGE0_API_KEY") or None,
-        callback_host = callback_host if callback_port is not None else None,
-        callback_port = int(callback_port) if callback_port is not None else None,
+        base_url = os.getenv("JUDGE0_URL", "http://localhost:2358"),
+        api_key  = os.getenv("JUDGE0_API_KEY") or None,
     )
 
     cb_server: CallbackServer | None = None
-    if cfg.callback_host:
-        cb_server = CallbackServer(port=cfg.callback_port or 0)
+    if callback_port_env is not None:
+        cb_port   = int(callback_port_env or "0")
+        cb_server = CallbackServer(port=cb_port)
         cb_server.start()
-        cfg.callback_port = cb_server.port
-        print(f"[async-worker] Callback server on port {cfg.callback_port}", flush=True)
+        print(f"[async-worker] Callback server on port {cb_server.port}", flush=True)
 
-    grader = Autograder(cfg)
+    grader = Autograder(
+        cfg,
+        callback_server = cb_server,
+        callback_host   = callback_host if cb_server else "host.docker.internal",
+    )
 
     # Use a thread pool large enough for MAX_CONCURRENCY + housekeeping threads
     executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENCY + 4)

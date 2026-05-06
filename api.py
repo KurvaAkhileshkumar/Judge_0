@@ -39,6 +39,7 @@ import time
 import uuid
 
 import redis
+import requests as http_requests
 from flask import Flask, Response, jsonify, request, stream_with_context
 
 from core.job_queue import (
@@ -49,6 +50,7 @@ from core.job_queue import (
     RESULT_TTL_S,
 )
 from core.harness_builder import TestCase
+from core.judge0_client import _judge0_breaker
 
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -62,6 +64,7 @@ IDEM_TTL_S       = 86400   # 24 hours
 # ── App & Redis setup ─────────────────────────────────────────────────────────
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB — rejects oversized payloads before any parsing
 
 _redis_client: redis.Redis | None = None
 _queue:        PriorityJobQueue  | None = None
@@ -173,9 +176,11 @@ def submit():
     }
 
     job = QueuedJob(
-        ticket_id  = ticket_id,
-        student_id = student_id,
-        payload    = payload,
+        ticket_id    = ticket_id,
+        student_id   = student_id,
+        submitted_at = time.time(),
+        payload      = payload,
+        idem_key     = idem_key,
     )
     queue.enqueue(job)
 
@@ -191,16 +196,21 @@ def status(ticket_id: str):
     Poll for a grading result.
 
     Returns:
-      202  { "status": "pending" }
+      202  { "status": "pending", "queue_depth": N, "estimated_wait_s": N }
       200  { "status": "done", "result": { ... } }
-      404  { "error": "Unknown ticket_id" }
     """
     r = _get_redis()
     raw = r.get(f"{RESULT_PREFIX}{ticket_id}")
     if raw is None:
-        # Check whether we've seen this ticket at all (pending deadline key)
-        # For simplicity, return 202 (the client should keep polling or use SSE)
-        return jsonify({"status": "pending"}), 202
+        depths = _get_queue().depths()
+        queue_depth = depths["retry"] + depths["normal"]
+        # 15 s is the typical wall time for a 1000-TC harness job at standard scale.
+        # This gives a rough ETA; the frontend should display it as "up to N seconds".
+        return jsonify({
+            "status":           "pending",
+            "queue_depth":      queue_depth,
+            "estimated_wait_s": queue_depth * 15,
+        }), 202
 
     try:
         result = json.loads(raw)
@@ -279,16 +289,50 @@ def health():
     Liveness + readiness probe.
 
     Returns:
-      200  { "status": "ok", "queue": { "retry": N, "normal": N } }
-      503  { "status": "error", "error": "..." }
+      200  { "status": "ok" | "degraded", "redis": {...}, "judge0": {...}, "circuit_breaker": {...} }
+      503  { "status": "error", ... }   — only when Redis is unreachable (true outage)
+
+    "degraded" means Judge0 is unreachable or the circuit breaker is open but
+    Redis is fine — workers will keep retrying, nothing is permanently lost.
+    "error" means Redis is down — the queue itself is unavailable.
     """
+    checks = {}
+    redis_ok = True
+
+    # ── Redis ─────────────────────────────────────────────────────────────
     try:
         r = _get_redis()
         r.ping()
         depths = _get_queue().depths()
-        return jsonify({"status": "ok", "queue": depths}), 200
+        checks["redis"] = {"ok": True, "queue": depths}
     except Exception as e:
-        return jsonify({"status": "error", "error": str(e)}), 503
+        checks["redis"] = {"ok": False, "error": str(e)}
+        redis_ok = False
+
+    # ── Judge0 ────────────────────────────────────────────────────────────
+    judge0_url = os.getenv("JUDGE0_URL", "http://localhost:2358")
+    try:
+        resp = http_requests.get(f"{judge0_url}/system_info", timeout=3)
+        judge0_ok = resp.status_code == 200
+        checks["judge0"] = {"ok": judge0_ok}
+    except Exception as e:
+        checks["judge0"] = {"ok": False, "error": str(e)}
+        judge0_ok = False
+
+    # ── Circuit breaker ───────────────────────────────────────────────────
+    breaker_open = _judge0_breaker.is_open()
+    checks["circuit_breaker"] = {"open": breaker_open}
+
+    # Determine overall status
+    if not redis_ok:
+        status_str = "error"
+    elif not judge0_ok or breaker_open:
+        status_str = "degraded"
+    else:
+        status_str = "ok"
+
+    http_status = 503 if not redis_ok else 200
+    return jsonify({"status": status_str, **checks}), http_status
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

@@ -182,7 +182,7 @@ def run_reconciler(r: redis.Redis) -> None:
             flush=True,
         )
 
-    db = int(r.client_info().get("db", 0)) if hasattr(r, "client_info") else 0
+    db = 0  # always using default db
     pubsub = listen_for_expired_deadlines(r, db=db)
 
     running = True
