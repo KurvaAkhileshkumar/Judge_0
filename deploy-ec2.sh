@@ -14,8 +14,17 @@ echo ""
 # ── 0. Disk space check ────────────────────────────────────────────────────
 DISK_FREE=$(df / --output=avail -BG | tail -1 | tr -d 'G ')
 echo "[0/6] Disk free: ${DISK_FREE}GB"
-if [ "$DISK_FREE" -lt 5 ]; then
-  echo "ERROR: Less than 5 GB free — run 'sudo docker system prune -a' first."
+IMAGE_EXISTS=$(sudo docker image inspect judge0/judge0:1.13.1 &>/dev/null && echo "yes" || echo "no")
+MIN_GB=3
+if [ "$IMAGE_EXISTS" = "no" ]; then
+  # Need ~16 GB to download judge0:1.13.1 (14.2 GB) and build Python images
+  MIN_GB=16
+fi
+if [ "$DISK_FREE" -lt "$MIN_GB" ]; then
+  echo "ERROR: Only ${DISK_FREE}GB free (need ${MIN_GB}GB)."
+  echo "  Expand your EBS volume in AWS Console (EC2 → Volumes → Modify),"
+  echo "  then run: sudo growpart /dev/xvda 1 && sudo resize2fs /dev/xvda1"
+  echo "  Or free space with: sudo docker builder prune -f"
   exit 1
 fi
 
