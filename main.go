@@ -1751,9 +1751,16 @@ func main() {
 	}
 	fmt.Printf("  Max wait:     %ds per submission\n", cfg.MaxPollSecs)
 	fmt.Printf("  Dry run:      %v\n", cfg.DryRun)
-	fmt.Printf("  globalLimitS: %ds (for 4-TC problem with per_tc=2s)\n",
-		globalLimitS(4, 2))
-	fmt.Printf("  Batch equiv:  ~%d jobs if using per-TC batch approach\n", cfg.Users*4)
+	firstProb := bank.Problems[0]
+	fmt.Printf("  globalLimitS: %ds (for %d-TC problem with per_tc=%ds)\n",
+		globalLimitS(len(firstProb.TestCases), firstProb.PerTCLimitS),
+		len(firstProb.TestCases), firstProb.PerTCLimitS)
+	totalTCs := 0
+	for _, p := range bank.Problems {
+		totalTCs += len(p.TestCases)
+	}
+	avgTCs := totalTCs / len(bank.Problems)
+	fmt.Printf("  Batch equiv:  ~%d jobs if using per-TC batch approach\n", cfg.Users*avgTCs)
 	fmt.Printf("  ───────────────────────────────────────────────\n\n")
 
 	// ── Flask mode: pre-flight health check ──────────────────────────────
