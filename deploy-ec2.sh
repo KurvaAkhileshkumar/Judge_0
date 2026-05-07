@@ -21,7 +21,7 @@ else
   echo "[1/6] Docker already installed: $(docker --version)"
 fi
 
-if ! docker compose version &>/dev/null; then
+if ! sudo docker compose version &>/dev/null; then
   echo "      Installing Docker Compose plugin..."
   sudo apt-get install -y docker-compose-plugin
 fi
@@ -60,25 +60,28 @@ fi
 
 # ── 4. Pull Judge0 image (pre-pull to avoid timeout during compose up) ─────
 echo "[4/6] Pre-pulling Judge0 image..."
-docker pull judge0/judge0:1.13.1
+sudo docker pull judge0/judge0:1.13.1
 
 # ── 5. Build Python services ───────────────────────────────────────────────
 echo "[5/6] Building Flask API + grading worker images..."
-docker compose -f "$COMPOSE_FILE" build
+sudo docker compose -f "$COMPOSE_FILE" build
 
 # ── 6. Start the stack ─────────────────────────────────────────────────────
 echo "[6/6] Starting stack (3 Judge0 worker replicas)..."
-docker compose -f "$COMPOSE_FILE" up -d --scale workers=3
+sudo docker compose -f "$COMPOSE_FILE" up -d --scale workers=3
 
 echo ""
-echo "=== Stack is up. Waiting 15s for Judge0 to initialise... ==="
-sleep 15
+echo "=== Stack is up. Waiting 45s for Judge0 to run DB migrations... ==="
+sleep 45
 
-# ── Health check ───────────────────────────────────────────────────────────
+# ── Health check (retry up to 3× if Judge0 is still starting) ─────────────
 echo ""
 echo "--- Judge0 system_info ---"
-curl -sf http://localhost:2358/system_info | python3 -m json.tool 2>/dev/null || \
-  curl -s http://localhost:2358/system_info
+for i in 1 2 3; do
+  RESP=$(curl -sf http://localhost:2358/system_info 2>/dev/null) && \
+    echo "$RESP" | python3 -m json.tool 2>/dev/null && break || \
+    { echo "  Attempt $i failed, retrying in 15s..."; sleep 15; }
+done
 
 echo ""
 echo "--- Flask API health ---"
@@ -87,7 +90,7 @@ curl -sf http://localhost:5001/health | python3 -m json.tool 2>/dev/null || \
 
 echo ""
 echo "--- Container status ---"
-docker compose -f "$COMPOSE_FILE" ps
+sudo docker compose -f "$COMPOSE_FILE" ps
 
 echo ""
 echo "=== Deploy complete ==="
