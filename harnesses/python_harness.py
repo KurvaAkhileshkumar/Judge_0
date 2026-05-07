@@ -208,6 +208,7 @@ def _child_run_stdio(tc):
             'MemoryError', 'Exception', 'BaseException',
             'True', 'False', 'None', 'NotImplemented', 'Ellipsis',
             'object', 'super', 'property', 'staticmethod', 'classmethod',
+            '__import__',  # needed for import statements in student code (e.g. import bisect)
         }}
     }}
     fake_stdin  = io.StringIO(tc.get("stdin_text", ""))
