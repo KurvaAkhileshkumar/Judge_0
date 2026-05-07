@@ -1,0 +1,162 @@
+version: "3.9"
+
+# EC2 c5.xlarge tuning — 4 vCPU / 8 GB RAM / Ubuntu 22.04.5 LTS / ap-south-1
+#
+# Deploy:
+#   docker compose -f docker-compose.ec2.yml up -d --scale workers=3
+#
+# Memory budget (workers=3):
+#   OS + overhead          ~1.0 GB
+#   PostgreSQL             ~0.5 GB  (shared_buffers=256MB)
+#   Redis                  ≤2.0 GB  (maxmemory 2gb)
+#   Judge0 server (Puma)   ~0.4 GB  (WEB_CONCURRENCY=2 × RAILS_MAX_THREADS=16)
+#   3 × workers            ≤2.0 GB  (mem_limit=700m each; 2 sandboxes × 256 MB)
+#   Flask API + graders    ~0.3 GB
+#   Total                  ~6.2 GB  ← safe within 7.5 GB available
+#
+# Sandbox capacity: --scale workers=3 × MAX_RUNNERS=2 = 6 concurrent sandboxes
+
+services:
+
+  # ── Judge0 API server (Puma / Rails) ──────────────────────────────────────
+  # 2 Puma processes × 16 threads = 32 HTTP slots
+  server:
+    image: judge0/judge0:1.13.1
+    volumes:
+      - ./judge0.ec2.conf:/judge0.conf:ro
+    ports:
+      - "2358:2358"
+    privileged: true
+    restart: always
+    sysctls:
+      net.core.somaxconn: 4096
+      net.ipv4.tcp_max_syn_backlog: 4096
+    environment:
+      - RAILS_MAX_THREADS=16
+      - WEB_CONCURRENCY=2
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - SECRET_KEY_BASE=${RAILS_SECRET_KEY_BASE}
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  # ── Judge0 Resque workers (isolate sandboxes) ─────────────────────────────
+  # Scale: --scale workers=3 → 3 containers × MAX_RUNNERS=2 = 6 sandboxes
+  # mem_limit=700m: 2 × 256 MB sandboxes + Rails + Resque overhead
+  workers:
+    image: judge0/judge0:1.13.1
+    command: ["./scripts/workers"]
+    volumes:
+      - ./judge0.ec2.conf:/judge0.conf:ro
+    privileged: true
+    restart: always
+    mem_limit: 700m
+    mem_reservation: 256m
+    ulimits:
+      nproc: 65536
+      nofile:
+        soft: 65536
+        hard: 65536
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - SECRET_KEY_BASE=${RAILS_SECRET_KEY_BASE}
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  # ── Flask grading API (gunicorn + gevent) ─────────────────────────────────
+  api:
+    build: .
+    command:
+      - gunicorn
+      - api:app
+      - --worker-class=gevent
+      - --workers=2
+      - --worker-connections=500
+      - --bind=0.0.0.0:5000
+      - --timeout=1900
+    ports:
+      - "5001:5000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JUDGE0_URL=http://server:2358
+      - MAX_QUEUE_DEPTH=5000
+      - SSE_TIMEOUT_S=1800
+      - PORT=5000
+      - HEALTH_TOKEN=${HEALTH_TOKEN:-}
+    depends_on:
+      - redis
+      - server
+    restart: always
+
+  # ── Python grading workers (async, callback mode) ─────────────────────────
+  # WORKER_CONCURRENCY=24: I/O-bound (waits for Judge0 callbacks), safe on 4 vCPU
+  grading_worker:
+    build: .
+    command: ["python", "worker_async.py"]
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JUDGE0_URL=http://server:2358
+      - WORKER_CONCURRENCY=24
+      - MAX_RETRY_COUNT=3
+      - CALLBACK_PORT=0
+    depends_on:
+      - redis
+      - server
+    restart: always
+
+  # ── Reconciler (crash recovery + deadline enforcement) ────────────────────
+  reconciler:
+    build: .
+    command: ["python", "reconciler.py"]
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - RECONCILER_SCAN_INTERVAL_S=60
+    depends_on:
+      - redis
+    restart: always
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  # max_connections: (WEB_CONCURRENCY×RAILS_MAX_THREADS) + (workers×5) + 20
+  # At --scale workers=3: (2×16) + (3×5) + 20 = 87 → 200 is safe headroom
+  db:
+    image: postgres:13
+    env_file: judge0.ec2.conf
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    command: postgres -c max_connections=200 -c shared_buffers=256MB
+    volumes:
+      - postgres-data:/var/lib/postgresql/data/
+    restart: always
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  # 2 GB cap: at 1000-submission peak ~115 MB actual → 17× headroom
+  redis:
+    image: redis:6.0
+    command:
+      [
+        "redis-server",
+        "--appendonly", "yes",
+        "--maxmemory",        "2gb",
+        "--maxmemory-policy", "allkeys-lru",
+        "--requirepass",      "${REDIS_PASSWORD}"
+      ]
+    volumes:
+      - redis-data:/data
+    restart: always
+
+volumes:
+  postgres-data:
+  redis-data:
