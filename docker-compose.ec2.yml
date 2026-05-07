@@ -3,16 +3,18 @@
 # Deploy:
 #   docker compose -f docker-compose.ec2.yml up -d --scale workers=3
 #
-# Memory budget (workers=3, MAX_RUNNERS=3):
+# Memory budget (workers=3, MAX_RUNNERS=2):
 #   OS + overhead          ~1.0 GB
 #   PostgreSQL             ≤1.0 GB  (mem_limit=1g, shared_buffers=512MB)
 #   Redis                  ≤2.0 GB  (maxmemory 2gb)
 #   Judge0 server (Puma)   ~0.4 GB  (WEB_CONCURRENCY=2 × RAILS_MAX_THREADS=16)
-#   3 × workers            ≤2.7 GB  (mem_limit=900m; 3 sandboxes × 256 MB + overhead)
+#   3 × workers            ≤2.1 GB  (mem_limit=700m; 2 harnesses × 30 forks + Rails)
 #   Flask API + graders    ~0.3 GB
-#   Total                  ~7.4 GB  ← safe within 7.5 GB available
+#   Total                  ~6.8 GB  ← safe within 7.5 GB available
 #
-# Sandbox capacity: --scale workers=3 × MAX_RUNNERS=3 = 9 concurrent sandboxes
+# Sandbox capacity: --scale workers=3 × MAX_RUNNERS=2 = 6 concurrent sandboxes
+# NOTE: MAX_RUNNERS=3 was tested and caused OOM kills on all 3 worker containers.
+# Root cause: 3 harnesses × 30 forks = 90 Python processes exceeds 900m mem_limit.
 
 services:
 
@@ -51,8 +53,8 @@ services:
       - ./judge0.ec2.conf:/judge0.conf:ro
     privileged: true
     restart: always
-    mem_limit: 900m
-    mem_reservation: 300m
+    mem_limit: 700m
+    mem_reservation: 256m
     ulimits:
       nproc: 65536
       nofile:
