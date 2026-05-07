@@ -66,6 +66,7 @@ type Config struct {
 	MaxPollSecs  int
 	DryRun       bool
 	OutputFile   string
+	RunID        string // unique suffix per run to bypass idempotency cache
 }
 
 // ── Question Bank Types ───────────────────────────────────────────────────
@@ -1386,7 +1387,7 @@ func runUserFlask(
 	}
 
 	req := FlaskSubmitRequest{
-		StudentID:     fmt.Sprintf("user_%d", userID),
+		StudentID:     fmt.Sprintf("user_%d_%s", userID, cfg.RunID),
 		AssessmentID:  "load_test_session_1",
 		Language:      prob.Language,
 		StudentCode:   sol.SourceCode,
@@ -1696,7 +1697,13 @@ func main() {
 	flag.IntVar(&cfg.MaxPollSecs, "maxpoll", 300, "Max seconds to wait per submission result")
 	flag.BoolVar(&cfg.DryRun, "dryrun", false, "Dry run: build harnesses but don't submit")
 	flag.StringVar(&cfg.OutputFile, "out", "load_test_report.json", "Output JSON report file")
+	flag.StringVar(&cfg.RunID, "run-id", "", "Unique run ID suffix appended to student_id to bypass idempotency cache (auto-generated if empty)")
 	flag.Parse()
+
+	// Auto-generate RunID if not provided so every run is cache-free by default
+	if cfg.RunID == "" {
+		cfg.RunID = fmt.Sprintf("%d", time.Now().UnixNano())
+	}
 
 	// Load question bank
 	bankData, err := os.ReadFile(cfg.QuestionBank)
