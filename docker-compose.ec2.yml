@@ -1,5 +1,3 @@
-version: "3.9"
-
 # EC2 c5.xlarge tuning — 4 vCPU / 8 GB RAM / Ubuntu 22.04.5 LTS / ap-south-1
 #
 # Deploy:
