@@ -49,6 +49,24 @@ from worker               import job_to_submission, result_to_dict, MAX_RETRY_CO
 log = get_logger(__name__)
 MAX_CONCURRENCY = int(os.getenv("WORKER_CONCURRENCY", 48))
 
+# Resque queue keys used by Judge0 internally.
+_RESQUE_KEYS = ("resque:queue:default", "resque:failed")
+
+
+def _flush_resque_queue(r) -> None:
+    """
+    Delete Judge0's internal Resque job queue.
+    Called when retries are exhausted — signals persistent OOM kills on the
+    Judge0 sandbox workers.  Flushing breaks the restart→OOM cascade: without
+    this, every worker restart picks up the same heavy jobs and dies again.
+    Best-effort: never raises.
+    """
+    try:
+        deleted = r.delete(*_RESQUE_KEYS)
+        log.warning("resque_queue_flushed", keys_deleted=deleted)
+    except Exception as exc:
+        log.error("resque_flush_failed", error=str(exc))
+
 
 def _own_ip() -> str:
     """Return this container's IP on the Docker bridge network."""
@@ -120,6 +138,11 @@ async def process_job(
                             grader.judge0.delete_submission,
                             result.judge0_raw.token,
                         )
+                    # Flush Resque queue to break OOM-kill cascade.
+                    # Exhausted retries = Judge0 workers kept dying (OOM).
+                    # Without this flush, every worker restart picks up the
+                    # same heavy jobs and OOM-kills again immediately.
+                    await asyncio.to_thread(_flush_resque_queue, queue.r)
                     await asyncio.to_thread(queue.ack, job)
                 else:
                     log.info(
