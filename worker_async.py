@@ -114,6 +114,12 @@ async def process_job(
                         },
                         job.idem_key,
                     )
+                    # Retries exhausted — delete Judge0 submission now
+                    if result.judge0_raw and result.judge0_raw.token:
+                        await asyncio.to_thread(
+                            grader.judge0.delete_submission,
+                            result.judge0_raw.token,
+                        )
                     await asyncio.to_thread(queue.ack, job)
                 else:
                     log.info(

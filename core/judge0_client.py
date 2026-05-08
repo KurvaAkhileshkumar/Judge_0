@@ -251,6 +251,7 @@ class Judge0Result:
     compile_output: str
     time_taken_s:   Optional[float]
     memory_kb:      Optional[int]
+    token:          str = ""   # Judge0 submission token — used for post-grade cleanup
 
 
 # ── Client ────────────────────────────────────────────────────────────────
@@ -388,7 +389,9 @@ class Judge0Client:
         )
         token = data["token"]
 
-        return self._wait_callback(token, global_limit_s)
+        result = self._wait_callback(token, global_limit_s)
+        result.token = token
+        return result
 
     # ── Callback path ─────────────────────────────────────────────────────
 
@@ -428,6 +431,23 @@ class Judge0Client:
             time_taken_s   = _parse_time(data.get("time")),
             memory_kb      = data.get("memory"),
         )
+
+    def delete_submission(self, token: str) -> None:
+        """
+        Delete a Judge0 submission after grading is complete.
+        Best-effort — never raises; a failed delete is not critical.
+        Keeps the PostgreSQL submissions table small automatically.
+        """
+        if not token:
+            return
+        try:
+            requests.delete(
+                f"{self.cfg.base_url}/submissions/{token}",
+                headers=self.headers,
+                timeout=10,
+            )
+        except Exception:
+            pass
 
     # ── Helpers ───────────────────────────────────────────────────────────
 

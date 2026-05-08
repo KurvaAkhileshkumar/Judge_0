@@ -193,6 +193,7 @@ class Autograder:
                 total      = len(submission.test_cases),
                 score      = 0,
             )
+            # Requeue — do NOT delete the submission yet; it may be retried.
             return GradingResult(
                 student_id    = submission.student_id,
                 language      = submission.language,
@@ -226,6 +227,7 @@ class Autograder:
                 total      = len(submission.test_cases),
                 score      = 0,
             )
+            # Requeue — keep the submission until retries are exhausted.
             return GradingResult(
                 student_id    = submission.student_id,
                 language      = submission.language,
@@ -234,6 +236,12 @@ class Autograder:
                 harness_code  = harness_code,
                 needs_requeue = True,
             )
+
+        # ── 7. Cleanup — delete Judge0 submission from PostgreSQL ─────────
+        # Grading is terminal (pass/fail/tle/compile error) — result is
+        # stored in Redis.  Delete the raw submission from Judge0's DB so
+        # the submissions table stays small automatically.  Best-effort.
+        self.judge0.delete_submission(judge0_result.token)
 
         return GradingResult(
             student_id   = submission.student_id,
