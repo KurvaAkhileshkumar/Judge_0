@@ -190,6 +190,426 @@
           "stdin_text": "29\n",
           "expected": "514229",
           "description": "n=29"
+        },
+        {
+          "id": "tc31",
+          "stdin_text": "30\n",
+          "expected": "832040",
+          "description": "n=30"
+        },
+        {
+          "id": "tc32",
+          "stdin_text": "31\n",
+          "expected": "1346269",
+          "description": "n=31"
+        },
+        {
+          "id": "tc33",
+          "stdin_text": "32\n",
+          "expected": "2178309",
+          "description": "n=32"
+        },
+        {
+          "id": "tc34",
+          "stdin_text": "33\n",
+          "expected": "3524578",
+          "description": "n=33"
+        },
+        {
+          "id": "tc35",
+          "stdin_text": "34\n",
+          "expected": "5702887",
+          "description": "n=34"
+        },
+        {
+          "id": "tc36",
+          "stdin_text": "35\n",
+          "expected": "9227465",
+          "description": "n=35"
+        },
+        {
+          "id": "tc37",
+          "stdin_text": "36\n",
+          "expected": "14930352",
+          "description": "n=36"
+        },
+        {
+          "id": "tc38",
+          "stdin_text": "37\n",
+          "expected": "24157817",
+          "description": "n=37"
+        },
+        {
+          "id": "tc39",
+          "stdin_text": "38\n",
+          "expected": "39088169",
+          "description": "n=38"
+        },
+        {
+          "id": "tc40",
+          "stdin_text": "39\n",
+          "expected": "63245986",
+          "description": "n=39"
+        },
+        {
+          "id": "tc41",
+          "stdin_text": "40\n",
+          "expected": "102334155",
+          "description": "n=40"
+        },
+        {
+          "id": "tc42",
+          "stdin_text": "41\n",
+          "expected": "165580141",
+          "description": "n=41"
+        },
+        {
+          "id": "tc43",
+          "stdin_text": "42\n",
+          "expected": "267914296",
+          "description": "n=42"
+        },
+        {
+          "id": "tc44",
+          "stdin_text": "43\n",
+          "expected": "433494437",
+          "description": "n=43"
+        },
+        {
+          "id": "tc45",
+          "stdin_text": "44\n",
+          "expected": "701408733",
+          "description": "n=44"
+        },
+        {
+          "id": "tc46",
+          "stdin_text": "45\n",
+          "expected": "1134903170",
+          "description": "n=45"
+        },
+        {
+          "id": "tc47",
+          "stdin_text": "46\n",
+          "expected": "1836311903",
+          "description": "n=46"
+        },
+        {
+          "id": "tc48",
+          "stdin_text": "47\n",
+          "expected": "2971215073",
+          "description": "n=47"
+        },
+        {
+          "id": "tc49",
+          "stdin_text": "48\n",
+          "expected": "4807526976",
+          "description": "n=48"
+        },
+        {
+          "id": "tc50",
+          "stdin_text": "49\n",
+          "expected": "7778742049",
+          "description": "n=49"
+        },
+        {
+          "id": "tc51",
+          "stdin_text": "50\n",
+          "expected": "12586269025",
+          "description": "n=50"
+        },
+        {
+          "id": "tc52",
+          "stdin_text": "51\n",
+          "expected": "20365011074",
+          "description": "n=51"
+        },
+        {
+          "id": "tc53",
+          "stdin_text": "52\n",
+          "expected": "32951280099",
+          "description": "n=52"
+        },
+        {
+          "id": "tc54",
+          "stdin_text": "53\n",
+          "expected": "53316291173",
+          "description": "n=53"
+        },
+        {
+          "id": "tc55",
+          "stdin_text": "54\n",
+          "expected": "86267571272",
+          "description": "n=54"
+        },
+        {
+          "id": "tc56",
+          "stdin_text": "55\n",
+          "expected": "139583862445",
+          "description": "n=55"
+        },
+        {
+          "id": "tc57",
+          "stdin_text": "56\n",
+          "expected": "225851433717",
+          "description": "n=56"
+        },
+        {
+          "id": "tc58",
+          "stdin_text": "57\n",
+          "expected": "365435296162",
+          "description": "n=57"
+        },
+        {
+          "id": "tc59",
+          "stdin_text": "58\n",
+          "expected": "591286729879",
+          "description": "n=58"
+        },
+        {
+          "id": "tc60",
+          "stdin_text": "59\n",
+          "expected": "956722026041",
+          "description": "n=59"
+        },
+        {
+          "id": "tc61",
+          "stdin_text": "60\n",
+          "expected": "1548008755920",
+          "description": "n=60"
+        },
+        {
+          "id": "tc62",
+          "stdin_text": "61\n",
+          "expected": "2504730781961",
+          "description": "n=61"
+        },
+        {
+          "id": "tc63",
+          "stdin_text": "62\n",
+          "expected": "4052739537881",
+          "description": "n=62"
+        },
+        {
+          "id": "tc64",
+          "stdin_text": "63\n",
+          "expected": "6557470319842",
+          "description": "n=63"
+        },
+        {
+          "id": "tc65",
+          "stdin_text": "64\n",
+          "expected": "10610209857723",
+          "description": "n=64"
+        },
+        {
+          "id": "tc66",
+          "stdin_text": "65\n",
+          "expected": "17167680177565",
+          "description": "n=65"
+        },
+        {
+          "id": "tc67",
+          "stdin_text": "66\n",
+          "expected": "27777890035288",
+          "description": "n=66"
+        },
+        {
+          "id": "tc68",
+          "stdin_text": "67\n",
+          "expected": "44945570212853",
+          "description": "n=67"
+        },
+        {
+          "id": "tc69",
+          "stdin_text": "68\n",
+          "expected": "72723460248141",
+          "description": "n=68"
+        },
+        {
+          "id": "tc70",
+          "stdin_text": "69\n",
+          "expected": "117669030460994",
+          "description": "n=69"
+        },
+        {
+          "id": "tc71",
+          "stdin_text": "70\n",
+          "expected": "190392490709135",
+          "description": "n=70"
+        },
+        {
+          "id": "tc72",
+          "stdin_text": "71\n",
+          "expected": "308061521170129",
+          "description": "n=71"
+        },
+        {
+          "id": "tc73",
+          "stdin_text": "72\n",
+          "expected": "498454011879264",
+          "description": "n=72"
+        },
+        {
+          "id": "tc74",
+          "stdin_text": "73\n",
+          "expected": "806515533049393",
+          "description": "n=73"
+        },
+        {
+          "id": "tc75",
+          "stdin_text": "74\n",
+          "expected": "1304969544928657",
+          "description": "n=74"
+        },
+        {
+          "id": "tc76",
+          "stdin_text": "75\n",
+          "expected": "2111485077978050",
+          "description": "n=75"
+        },
+        {
+          "id": "tc77",
+          "stdin_text": "76\n",
+          "expected": "3416454622906707",
+          "description": "n=76"
+        },
+        {
+          "id": "tc78",
+          "stdin_text": "77\n",
+          "expected": "5527939700884757",
+          "description": "n=77"
+        },
+        {
+          "id": "tc79",
+          "stdin_text": "78\n",
+          "expected": "8944394323791464",
+          "description": "n=78"
+        },
+        {
+          "id": "tc80",
+          "stdin_text": "79\n",
+          "expected": "14472334024676221",
+          "description": "n=79"
+        },
+        {
+          "id": "tc81",
+          "stdin_text": "80\n",
+          "expected": "23416728348467685",
+          "description": "n=80"
+        },
+        {
+          "id": "tc82",
+          "stdin_text": "81\n",
+          "expected": "37889062373143906",
+          "description": "n=81"
+        },
+        {
+          "id": "tc83",
+          "stdin_text": "82\n",
+          "expected": "61305790721611591",
+          "description": "n=82"
+        },
+        {
+          "id": "tc84",
+          "stdin_text": "83\n",
+          "expected": "99194853094755497",
+          "description": "n=83"
+        },
+        {
+          "id": "tc85",
+          "stdin_text": "84\n",
+          "expected": "160500643816367088",
+          "description": "n=84"
+        },
+        {
+          "id": "tc86",
+          "stdin_text": "85\n",
+          "expected": "259695496911122585",
+          "description": "n=85"
+        },
+        {
+          "id": "tc87",
+          "stdin_text": "86\n",
+          "expected": "420196140727489673",
+          "description": "n=86"
+        },
+        {
+          "id": "tc88",
+          "stdin_text": "87\n",
+          "expected": "679891637638612258",
+          "description": "n=87"
+        },
+        {
+          "id": "tc89",
+          "stdin_text": "88\n",
+          "expected": "1100087778366101931",
+          "description": "n=88"
+        },
+        {
+          "id": "tc90",
+          "stdin_text": "89\n",
+          "expected": "1779979416004714189",
+          "description": "n=89"
+        },
+        {
+          "id": "tc91",
+          "stdin_text": "90\n",
+          "expected": "2880067194370816120",
+          "description": "n=90"
+        },
+        {
+          "id": "tc92",
+          "stdin_text": "91\n",
+          "expected": "4660046610375530309",
+          "description": "n=91"
+        },
+        {
+          "id": "tc93",
+          "stdin_text": "92\n",
+          "expected": "7540113804746346429",
+          "description": "n=92"
+        },
+        {
+          "id": "tc94",
+          "stdin_text": "93\n",
+          "expected": "12200160415121876738",
+          "description": "n=93"
+        },
+        {
+          "id": "tc95",
+          "stdin_text": "94\n",
+          "expected": "19740274219868223167",
+          "description": "n=94"
+        },
+        {
+          "id": "tc96",
+          "stdin_text": "95\n",
+          "expected": "31940434634990099905",
+          "description": "n=95"
+        },
+        {
+          "id": "tc97",
+          "stdin_text": "96\n",
+          "expected": "51680708854858323072",
+          "description": "n=96"
+        },
+        {
+          "id": "tc98",
+          "stdin_text": "97\n",
+          "expected": "83621143489848422977",
+          "description": "n=97"
+        },
+        {
+          "id": "tc99",
+          "stdin_text": "98\n",
+          "expected": "135301852344706746049",
+          "description": "n=98"
+        },
+        {
+          "id": "tc100",
+          "stdin_text": "99\n",
+          "expected": "218922995834555169026",
+          "description": "n=99"
         }
       ],
       "solutions": [
@@ -198,6 +618,76 @@
           "type": "accepted",
           "description": "Iterative fibonacci",
           "expected_harness_statuses": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
             "PASS",
             "PASS",
             "PASS",
@@ -243,191 +733,681 @@
       "test_cases": [
         {
           "id": "tc1",
-          "stdin_text": "3\n1 2 5\n11\n",
-          "expected": "3",
-          "description": "coins=[1, 2, 5] amt=11"
-        },
-        {
-          "id": "tc2",
-          "stdin_text": "1\n2\n3\n",
-          "expected": "-1",
-          "description": "coins=[2] amt=3"
-        },
-        {
-          "id": "tc3",
-          "stdin_text": "1\n1\n0\n",
-          "expected": "0",
-          "description": "coins=[1] amt=0"
-        },
-        {
-          "id": "tc4",
           "stdin_text": "3\n1 2 5\n0\n",
           "expected": "0",
           "description": "coins=[1, 2, 5] amt=0"
         },
         {
-          "id": "tc5",
+          "id": "tc2",
           "stdin_text": "3\n1 2 5\n1\n",
           "expected": "1",
           "description": "coins=[1, 2, 5] amt=1"
         },
         {
-          "id": "tc6",
+          "id": "tc3",
           "stdin_text": "3\n1 2 5\n2\n",
           "expected": "1",
           "description": "coins=[1, 2, 5] amt=2"
         },
         {
-          "id": "tc7",
+          "id": "tc4",
           "stdin_text": "3\n1 2 5\n3\n",
           "expected": "2",
           "description": "coins=[1, 2, 5] amt=3"
         },
         {
-          "id": "tc8",
-          "stdin_text": "3\n1 2 5\n5\n",
+          "id": "tc5",
+          "stdin_text": "3\n1 2 5\n4\n",
+          "expected": "2",
+          "description": "coins=[1, 2, 5] amt=4"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "4\n1 5 10 25\n0\n",
+          "expected": "0",
+          "description": "coins=[1, 5, 10, 25] amt=0"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "4\n1 5 10 25\n1\n",
           "expected": "1",
-          "description": "coins=[1, 2, 5] amt=5"
+          "description": "coins=[1, 5, 10, 25] amt=1"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "4\n1 5 10 25\n2\n",
+          "expected": "2",
+          "description": "coins=[1, 5, 10, 25] amt=2"
         },
         {
           "id": "tc9",
-          "stdin_text": "3\n1 2 5\n10\n",
-          "expected": "2",
-          "description": "coins=[1, 2, 5] amt=10"
+          "stdin_text": "4\n1 5 10 25\n3\n",
+          "expected": "3",
+          "description": "coins=[1, 5, 10, 25] amt=3"
         },
         {
           "id": "tc10",
-          "stdin_text": "3\n1 2 5\n100\n",
-          "expected": "20",
-          "description": "coins=[1, 2, 5] amt=100"
+          "stdin_text": "4\n1 5 10 25\n4\n",
+          "expected": "4",
+          "description": "coins=[1, 5, 10, 25] amt=4"
         },
         {
           "id": "tc11",
-          "stdin_text": "4\n1 5 10 25\n30\n",
-          "expected": "2",
-          "description": "coins=[1, 5, 10, 25] amt=30"
+          "stdin_text": "3\n2 5 10\n0\n",
+          "expected": "0",
+          "description": "coins=[2, 5, 10] amt=0"
         },
         {
           "id": "tc12",
-          "stdin_text": "4\n1 5 10 25\n41\n",
-          "expected": "4",
-          "description": "coins=[1, 5, 10, 25] amt=41"
+          "stdin_text": "3\n2 5 10\n1\n",
+          "expected": "-1",
+          "description": "coins=[2, 5, 10] amt=1"
         },
         {
           "id": "tc13",
-          "stdin_text": "3\n2 5 10\n27\n",
-          "expected": "4",
-          "description": "coins=[2, 5, 10] amt=27"
+          "stdin_text": "3\n2 5 10\n2\n",
+          "expected": "1",
+          "description": "coins=[2, 5, 10] amt=2"
         },
         {
           "id": "tc14",
-          "stdin_text": "2\n3 5\n11\n",
-          "expected": "3",
-          "description": "coins=[3, 5] amt=11"
+          "stdin_text": "3\n2 5 10\n3\n",
+          "expected": "-1",
+          "description": "coins=[2, 5, 10] amt=3"
         },
         {
           "id": "tc15",
-          "stdin_text": "2\n3 5\n7\n",
-          "expected": "-1",
-          "description": "coins=[3, 5] amt=7"
+          "stdin_text": "3\n2 5 10\n4\n",
+          "expected": "2",
+          "description": "coins=[2, 5, 10] amt=4"
         },
         {
           "id": "tc16",
-          "stdin_text": "2\n3 5\n15\n",
-          "expected": "3",
-          "description": "coins=[3, 5] amt=15"
+          "stdin_text": "2\n3 5\n0\n",
+          "expected": "0",
+          "description": "coins=[3, 5] amt=0"
         },
         {
           "id": "tc17",
-          "stdin_text": "3\n1 3 4\n6\n",
-          "expected": "2",
-          "description": "coins=[1, 3, 4] amt=6"
+          "stdin_text": "2\n3 5\n1\n",
+          "expected": "-1",
+          "description": "coins=[3, 5] amt=1"
         },
         {
           "id": "tc18",
-          "stdin_text": "3\n1 3 4\n7\n",
-          "expected": "2",
-          "description": "coins=[1, 3, 4] amt=7"
+          "stdin_text": "2\n3 5\n2\n",
+          "expected": "-1",
+          "description": "coins=[3, 5] amt=2"
         },
         {
           "id": "tc19",
-          "stdin_text": "1\n2\n4\n",
-          "expected": "2",
-          "description": "coins=[2] amt=4"
+          "stdin_text": "2\n3 5\n3\n",
+          "expected": "1",
+          "description": "coins=[3, 5] amt=3"
         },
         {
           "id": "tc20",
-          "stdin_text": "1\n2\n6\n",
-          "expected": "3",
-          "description": "coins=[2] amt=6"
+          "stdin_text": "2\n3 5\n4\n",
+          "expected": "-1",
+          "description": "coins=[3, 5] amt=4"
         },
         {
           "id": "tc21",
+          "stdin_text": "3\n1 3 4\n0\n",
+          "expected": "0",
+          "description": "coins=[1, 3, 4] amt=0"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "3\n1 3 4\n1\n",
+          "expected": "1",
+          "description": "coins=[1, 3, 4] amt=1"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "3\n1 3 4\n2\n",
+          "expected": "2",
+          "description": "coins=[1, 3, 4] amt=2"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "3\n1 3 4\n3\n",
+          "expected": "1",
+          "description": "coins=[1, 3, 4] amt=3"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "3\n1 3 4\n4\n",
+          "expected": "1",
+          "description": "coins=[1, 3, 4] amt=4"
+        },
+        {
+          "id": "tc26",
           "stdin_text": "3\n2 3 5\n0\n",
           "expected": "0",
           "description": "coins=[2, 3, 5] amt=0"
         },
         {
-          "id": "tc22",
+          "id": "tc27",
           "stdin_text": "3\n2 3 5\n1\n",
           "expected": "-1",
           "description": "coins=[2, 3, 5] amt=1"
         },
         {
-          "id": "tc23",
+          "id": "tc28",
+          "stdin_text": "3\n2 3 5\n2\n",
+          "expected": "1",
+          "description": "coins=[2, 3, 5] amt=2"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "3\n2 3 5\n3\n",
+          "expected": "1",
+          "description": "coins=[2, 3, 5] amt=3"
+        },
+        {
+          "id": "tc30",
           "stdin_text": "3\n2 3 5\n4\n",
           "expected": "2",
           "description": "coins=[2, 3, 5] amt=4"
         },
         {
-          "id": "tc24",
-          "stdin_text": "3\n2 3 5\n7\n",
-          "expected": "2",
-          "description": "coins=[2, 3, 5] amt=7"
+          "id": "tc31",
+          "stdin_text": "3\n1 7 10\n0\n",
+          "expected": "0",
+          "description": "coins=[1, 7, 10] amt=0"
         },
         {
-          "id": "tc25",
-          "stdin_text": "3\n1 7 10\n20\n",
-          "expected": "2",
-          "description": "coins=[1, 7, 10] amt=20"
+          "id": "tc32",
+          "stdin_text": "3\n1 7 10\n1\n",
+          "expected": "1",
+          "description": "coins=[1, 7, 10] amt=1"
         },
         {
-          "id": "tc26",
-          "stdin_text": "3\n1 7 10\n14\n",
+          "id": "tc33",
+          "stdin_text": "3\n1 7 10\n2\n",
           "expected": "2",
-          "description": "coins=[1, 7, 10] amt=14"
+          "description": "coins=[1, 7, 10] amt=2"
         },
         {
-          "id": "tc27",
-          "stdin_text": "3\n1 7 10\n15\n",
+          "id": "tc34",
+          "stdin_text": "3\n1 7 10\n3\n",
           "expected": "3",
-          "description": "coins=[1, 7, 10] amt=15"
+          "description": "coins=[1, 7, 10] amt=3"
         },
         {
-          "id": "tc28",
-          "stdin_text": "3\n5 10 25\n30\n",
+          "id": "tc35",
+          "stdin_text": "3\n1 7 10\n4\n",
+          "expected": "4",
+          "description": "coins=[1, 7, 10] amt=4"
+        },
+        {
+          "id": "tc36",
+          "stdin_text": "3\n5 10 25\n0\n",
+          "expected": "0",
+          "description": "coins=[5, 10, 25] amt=0"
+        },
+        {
+          "id": "tc37",
+          "stdin_text": "3\n5 10 25\n1\n",
+          "expected": "-1",
+          "description": "coins=[5, 10, 25] amt=1"
+        },
+        {
+          "id": "tc38",
+          "stdin_text": "3\n5 10 25\n2\n",
+          "expected": "-1",
+          "description": "coins=[5, 10, 25] amt=2"
+        },
+        {
+          "id": "tc39",
+          "stdin_text": "3\n5 10 25\n3\n",
+          "expected": "-1",
+          "description": "coins=[5, 10, 25] amt=3"
+        },
+        {
+          "id": "tc40",
+          "stdin_text": "3\n5 10 25\n4\n",
+          "expected": "-1",
+          "description": "coins=[5, 10, 25] amt=4"
+        },
+        {
+          "id": "tc41",
+          "stdin_text": "2\n1 2\n0\n",
+          "expected": "0",
+          "description": "coins=[1, 2] amt=0"
+        },
+        {
+          "id": "tc42",
+          "stdin_text": "2\n1 2\n1\n",
+          "expected": "1",
+          "description": "coins=[1, 2] amt=1"
+        },
+        {
+          "id": "tc43",
+          "stdin_text": "2\n1 2\n2\n",
+          "expected": "1",
+          "description": "coins=[1, 2] amt=2"
+        },
+        {
+          "id": "tc44",
+          "stdin_text": "2\n1 2\n3\n",
           "expected": "2",
-          "description": "coins=[5, 10, 25] amt=30"
+          "description": "coins=[1, 2] amt=3"
         },
         {
-          "id": "tc29",
-          "stdin_text": "3\n5 10 25\n35\n",
+          "id": "tc45",
+          "stdin_text": "2\n1 2\n4\n",
           "expected": "2",
-          "description": "coins=[5, 10, 25] amt=35"
+          "description": "coins=[1, 2] amt=4"
         },
         {
-          "id": "tc30",
-          "stdin_text": "3\n1 2 5\n99\n",
-          "expected": "21",
-          "description": "coins=[1, 2, 5] amt=99"
+          "id": "tc46",
+          "stdin_text": "3\n2 4 8\n0\n",
+          "expected": "0",
+          "description": "coins=[2, 4, 8] amt=0"
+        },
+        {
+          "id": "tc47",
+          "stdin_text": "3\n2 4 8\n1\n",
+          "expected": "-1",
+          "description": "coins=[2, 4, 8] amt=1"
+        },
+        {
+          "id": "tc48",
+          "stdin_text": "3\n2 4 8\n2\n",
+          "expected": "1",
+          "description": "coins=[2, 4, 8] amt=2"
+        },
+        {
+          "id": "tc49",
+          "stdin_text": "3\n2 4 8\n3\n",
+          "expected": "-1",
+          "description": "coins=[2, 4, 8] amt=3"
+        },
+        {
+          "id": "tc50",
+          "stdin_text": "3\n2 4 8\n4\n",
+          "expected": "1",
+          "description": "coins=[2, 4, 8] amt=4"
+        },
+        {
+          "id": "tc51",
+          "stdin_text": "3\n1 6 9\n0\n",
+          "expected": "0",
+          "description": "coins=[1, 6, 9] amt=0"
+        },
+        {
+          "id": "tc52",
+          "stdin_text": "3\n1 6 9\n1\n",
+          "expected": "1",
+          "description": "coins=[1, 6, 9] amt=1"
+        },
+        {
+          "id": "tc53",
+          "stdin_text": "3\n1 6 9\n2\n",
+          "expected": "2",
+          "description": "coins=[1, 6, 9] amt=2"
+        },
+        {
+          "id": "tc54",
+          "stdin_text": "3\n1 6 9\n3\n",
+          "expected": "3",
+          "description": "coins=[1, 6, 9] amt=3"
+        },
+        {
+          "id": "tc55",
+          "stdin_text": "3\n1 6 9\n4\n",
+          "expected": "4",
+          "description": "coins=[1, 6, 9] amt=4"
+        },
+        {
+          "id": "tc56",
+          "stdin_text": "2\n3 7\n0\n",
+          "expected": "0",
+          "description": "coins=[3, 7] amt=0"
+        },
+        {
+          "id": "tc57",
+          "stdin_text": "2\n3 7\n1\n",
+          "expected": "-1",
+          "description": "coins=[3, 7] amt=1"
+        },
+        {
+          "id": "tc58",
+          "stdin_text": "2\n3 7\n2\n",
+          "expected": "-1",
+          "description": "coins=[3, 7] amt=2"
+        },
+        {
+          "id": "tc59",
+          "stdin_text": "2\n3 7\n3\n",
+          "expected": "1",
+          "description": "coins=[3, 7] amt=3"
+        },
+        {
+          "id": "tc60",
+          "stdin_text": "2\n3 7\n4\n",
+          "expected": "-1",
+          "description": "coins=[3, 7] amt=4"
+        },
+        {
+          "id": "tc61",
+          "stdin_text": "3\n2 7 13\n0\n",
+          "expected": "0",
+          "description": "coins=[2, 7, 13] amt=0"
+        },
+        {
+          "id": "tc62",
+          "stdin_text": "3\n2 7 13\n1\n",
+          "expected": "-1",
+          "description": "coins=[2, 7, 13] amt=1"
+        },
+        {
+          "id": "tc63",
+          "stdin_text": "3\n2 7 13\n2\n",
+          "expected": "1",
+          "description": "coins=[2, 7, 13] amt=2"
+        },
+        {
+          "id": "tc64",
+          "stdin_text": "3\n2 7 13\n3\n",
+          "expected": "-1",
+          "description": "coins=[2, 7, 13] amt=3"
+        },
+        {
+          "id": "tc65",
+          "stdin_text": "3\n2 7 13\n4\n",
+          "expected": "2",
+          "description": "coins=[2, 7, 13] amt=4"
+        },
+        {
+          "id": "tc66",
+          "stdin_text": "4\n1 4 9 16\n0\n",
+          "expected": "0",
+          "description": "coins=[1, 4, 9, 16] amt=0"
+        },
+        {
+          "id": "tc67",
+          "stdin_text": "4\n1 4 9 16\n1\n",
+          "expected": "1",
+          "description": "coins=[1, 4, 9, 16] amt=1"
+        },
+        {
+          "id": "tc68",
+          "stdin_text": "4\n1 4 9 16\n2\n",
+          "expected": "2",
+          "description": "coins=[1, 4, 9, 16] amt=2"
+        },
+        {
+          "id": "tc69",
+          "stdin_text": "4\n1 4 9 16\n3\n",
+          "expected": "3",
+          "description": "coins=[1, 4, 9, 16] amt=3"
+        },
+        {
+          "id": "tc70",
+          "stdin_text": "4\n1 4 9 16\n4\n",
+          "expected": "1",
+          "description": "coins=[1, 4, 9, 16] amt=4"
+        },
+        {
+          "id": "tc71",
+          "stdin_text": "3\n5 7 11\n0\n",
+          "expected": "0",
+          "description": "coins=[5, 7, 11] amt=0"
+        },
+        {
+          "id": "tc72",
+          "stdin_text": "3\n5 7 11\n1\n",
+          "expected": "-1",
+          "description": "coins=[5, 7, 11] amt=1"
+        },
+        {
+          "id": "tc73",
+          "stdin_text": "3\n5 7 11\n2\n",
+          "expected": "-1",
+          "description": "coins=[5, 7, 11] amt=2"
+        },
+        {
+          "id": "tc74",
+          "stdin_text": "3\n5 7 11\n3\n",
+          "expected": "-1",
+          "description": "coins=[5, 7, 11] amt=3"
+        },
+        {
+          "id": "tc75",
+          "stdin_text": "3\n5 7 11\n4\n",
+          "expected": "-1",
+          "description": "coins=[5, 7, 11] amt=4"
+        },
+        {
+          "id": "tc76",
+          "stdin_text": "5\n1 2 3 4 5\n0\n",
+          "expected": "0",
+          "description": "coins=[1, 2, 3, 4, 5] amt=0"
+        },
+        {
+          "id": "tc77",
+          "stdin_text": "5\n1 2 3 4 5\n1\n",
+          "expected": "1",
+          "description": "coins=[1, 2, 3, 4, 5] amt=1"
+        },
+        {
+          "id": "tc78",
+          "stdin_text": "5\n1 2 3 4 5\n2\n",
+          "expected": "1",
+          "description": "coins=[1, 2, 3, 4, 5] amt=2"
+        },
+        {
+          "id": "tc79",
+          "stdin_text": "5\n1 2 3 4 5\n3\n",
+          "expected": "1",
+          "description": "coins=[1, 2, 3, 4, 5] amt=3"
+        },
+        {
+          "id": "tc80",
+          "stdin_text": "5\n1 2 3 4 5\n4\n",
+          "expected": "1",
+          "description": "coins=[1, 2, 3, 4, 5] amt=4"
+        },
+        {
+          "id": "tc81",
+          "stdin_text": "3\n10 20 50\n0\n",
+          "expected": "0",
+          "description": "coins=[10, 20, 50] amt=0"
+        },
+        {
+          "id": "tc82",
+          "stdin_text": "3\n10 20 50\n1\n",
+          "expected": "-1",
+          "description": "coins=[10, 20, 50] amt=1"
+        },
+        {
+          "id": "tc83",
+          "stdin_text": "3\n10 20 50\n2\n",
+          "expected": "-1",
+          "description": "coins=[10, 20, 50] amt=2"
+        },
+        {
+          "id": "tc84",
+          "stdin_text": "3\n10 20 50\n3\n",
+          "expected": "-1",
+          "description": "coins=[10, 20, 50] amt=3"
+        },
+        {
+          "id": "tc85",
+          "stdin_text": "3\n10 20 50\n4\n",
+          "expected": "-1",
+          "description": "coins=[10, 20, 50] amt=4"
+        },
+        {
+          "id": "tc86",
+          "stdin_text": "3\n3 5 7\n0\n",
+          "expected": "0",
+          "description": "coins=[3, 5, 7] amt=0"
+        },
+        {
+          "id": "tc87",
+          "stdin_text": "3\n3 5 7\n1\n",
+          "expected": "-1",
+          "description": "coins=[3, 5, 7] amt=1"
+        },
+        {
+          "id": "tc88",
+          "stdin_text": "3\n3 5 7\n2\n",
+          "expected": "-1",
+          "description": "coins=[3, 5, 7] amt=2"
+        },
+        {
+          "id": "tc89",
+          "stdin_text": "3\n3 5 7\n3\n",
+          "expected": "1",
+          "description": "coins=[3, 5, 7] amt=3"
+        },
+        {
+          "id": "tc90",
+          "stdin_text": "3\n3 5 7\n4\n",
+          "expected": "-1",
+          "description": "coins=[3, 5, 7] amt=4"
+        },
+        {
+          "id": "tc91",
+          "stdin_text": "2\n1 100\n0\n",
+          "expected": "0",
+          "description": "coins=[1, 100] amt=0"
+        },
+        {
+          "id": "tc92",
+          "stdin_text": "2\n1 100\n1\n",
+          "expected": "1",
+          "description": "coins=[1, 100] amt=1"
+        },
+        {
+          "id": "tc93",
+          "stdin_text": "2\n1 100\n2\n",
+          "expected": "2",
+          "description": "coins=[1, 100] amt=2"
+        },
+        {
+          "id": "tc94",
+          "stdin_text": "2\n1 100\n3\n",
+          "expected": "3",
+          "description": "coins=[1, 100] amt=3"
+        },
+        {
+          "id": "tc95",
+          "stdin_text": "2\n1 100\n4\n",
+          "expected": "4",
+          "description": "coins=[1, 100] amt=4"
+        },
+        {
+          "id": "tc96",
+          "stdin_text": "2\n2 3\n0\n",
+          "expected": "0",
+          "description": "coins=[2, 3] amt=0"
+        },
+        {
+          "id": "tc97",
+          "stdin_text": "2\n2 3\n1\n",
+          "expected": "-1",
+          "description": "coins=[2, 3] amt=1"
+        },
+        {
+          "id": "tc98",
+          "stdin_text": "2\n2 3\n2\n",
+          "expected": "1",
+          "description": "coins=[2, 3] amt=2"
+        },
+        {
+          "id": "tc99",
+          "stdin_text": "2\n2 3\n3\n",
+          "expected": "1",
+          "description": "coins=[2, 3] amt=3"
+        },
+        {
+          "id": "tc100",
+          "stdin_text": "2\n2 3\n4\n",
+          "expected": "2",
+          "description": "coins=[2, 3] amt=4"
         }
       ],
       "solutions": [
         {
           "id": "coin_accepted",
           "type": "accepted",
-          "description": "Bottom-up DP coin change",
+          "description": "Bottom-up DP",
           "expected_harness_statuses": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
             "PASS",
             "PASS",
             "PASS",
@@ -459,7 +1439,7 @@
             "PASS",
             "PASS"
           ],
-          "source_code": "n = int(input())\ncoins = list(map(int, input().split()))\namount = int(input())\ndp = [float('inf')] * (amount + 1)\ndp[0] = 0\nfor i in range(1, amount + 1):\n    for c in coins:\n        if c <= i and dp[i - c] + 1 < dp[i]:\n            dp[i] = dp[i - c] + 1\nprint(-1 if dp[amount] == float('inf') else dp[amount])\n"
+          "source_code": "n = int(input())\ncoins = list(map(int, input().split()))\namount = int(input())\ndp = [float('inf')] * (amount + 1)\ndp[0] = 0\nfor i in range(1, amount + 1):\n    for c in coins:\n        if c <= i and dp[i-c] + 1 < dp[i]:\n            dp[i] = dp[i-c] + 1\nprint(-1 if dp[amount] == float('inf') else dp[amount])\n"
         }
       ]
     },
@@ -475,181 +1455,601 @@
           "id": "tc1",
           "stdin_text": "abc\nabc\n",
           "expected": "3",
-          "description": "lcs('abc','abc')"
+          "description": "len(3,3)"
         },
         {
           "id": "tc2",
           "stdin_text": "abc\ndef\n",
           "expected": "0",
-          "description": "lcs('abc','def')"
+          "description": "len(3,3)"
         },
         {
           "id": "tc3",
           "stdin_text": "abcde\nace\n",
           "expected": "3",
-          "description": "lcs('abcde','ace')"
+          "description": "len(5,3)"
         },
         {
           "id": "tc4",
           "stdin_text": "a\na\n",
           "expected": "1",
-          "description": "lcs('a','a')"
+          "description": "len(1,1)"
         },
         {
           "id": "tc5",
           "stdin_text": "a\nb\n",
           "expected": "0",
-          "description": "lcs('a','b')"
+          "description": "len(1,1)"
         },
         {
           "id": "tc6",
           "stdin_text": "ab\nab\n",
           "expected": "2",
-          "description": "lcs('ab','ab')"
+          "description": "len(2,2)"
         },
         {
           "id": "tc7",
           "stdin_text": "ab\nba\n",
           "expected": "1",
-          "description": "lcs('ab','ba')"
+          "description": "len(2,2)"
         },
         {
           "id": "tc8",
           "stdin_text": "abc\nac\n",
           "expected": "2",
-          "description": "lcs('abc','ac')"
+          "description": "len(3,2)"
         },
         {
           "id": "tc9",
           "stdin_text": "abcd\nabcd\n",
           "expected": "4",
-          "description": "lcs('abcd','abcd')"
+          "description": "len(4,4)"
         },
         {
           "id": "tc10",
           "stdin_text": "abcd\ndcba\n",
           "expected": "1",
-          "description": "lcs('abcd','dcba')"
+          "description": "len(4,4)"
         },
         {
           "id": "tc11",
           "stdin_text": "aab\nazb\n",
           "expected": "2",
-          "description": "lcs('aab','azb')"
+          "description": "len(3,3)"
         },
         {
           "id": "tc12",
           "stdin_text": "xyz\nxyz\n",
           "expected": "3",
-          "description": "lcs('xyz','xyz')"
+          "description": "len(3,3)"
         },
         {
           "id": "tc13",
           "stdin_text": "xyz\nzyx\n",
           "expected": "1",
-          "description": "lcs('xyz','zyx')"
+          "description": "len(3,3)"
         },
         {
           "id": "tc14",
           "stdin_text": "abcdef\nace\n",
           "expected": "3",
-          "description": "lcs('abcdef','ace')"
+          "description": "len(6,3)"
         },
         {
           "id": "tc15",
           "stdin_text": "abcdef\nabcdef\n",
           "expected": "6",
-          "description": "lcs('abcdef','abcdef')"
+          "description": "len(6,6)"
         },
         {
           "id": "tc16",
           "stdin_text": "abcdef\nfedcba\n",
           "expected": "1",
-          "description": "lcs('abcdef','fedcba')"
+          "description": "len(6,6)"
         },
         {
           "id": "tc17",
           "stdin_text": "hello\nhllo\n",
           "expected": "4",
-          "description": "lcs('hello','hllo')"
+          "description": "len(5,4)"
         },
         {
           "id": "tc18",
           "stdin_text": "abab\nbaba\n",
           "expected": "3",
-          "description": "lcs('abab','baba')"
+          "description": "len(4,4)"
         },
         {
           "id": "tc19",
           "stdin_text": "AGGTAB\nGXTXAYB\n",
           "expected": "4",
-          "description": "lcs('AGGTAB','GXTXAYB')"
+          "description": "len(6,7)"
         },
         {
           "id": "tc20",
           "stdin_text": "stone\nlongest\n",
           "expected": "3",
-          "description": "lcs('stone','longest')"
+          "description": "len(5,7)"
         },
         {
           "id": "tc21",
           "stdin_text": "nematode\nempty\n",
           "expected": "3",
-          "description": "lcs('nematode','empty')"
+          "description": "len(8,5)"
         },
         {
           "id": "tc22",
           "stdin_text": "aa\naa\n",
           "expected": "2",
-          "description": "lcs('aa','aa')"
+          "description": "len(2,2)"
         },
         {
           "id": "tc23",
           "stdin_text": "aaa\naa\n",
           "expected": "2",
-          "description": "lcs('aaa','aa')"
+          "description": "len(3,2)"
         },
         {
           "id": "tc24",
           "stdin_text": "aaaa\naa\n",
           "expected": "2",
-          "description": "lcs('aaaa','aa')"
+          "description": "len(4,2)"
         },
         {
           "id": "tc25",
           "stdin_text": "abcde\nedcba\n",
           "expected": "1",
-          "description": "lcs('abcde','edcba')"
+          "description": "len(5,5)"
         },
         {
           "id": "tc26",
           "stdin_text": "abcde\nabde\n",
           "expected": "4",
-          "description": "lcs('abcde','abde')"
+          "description": "len(5,4)"
         },
         {
           "id": "tc27",
           "stdin_text": "sunday\nsaturday\n",
           "expected": "5",
-          "description": "lcs('sunday','saturday')"
+          "description": "len(6,8)"
         },
         {
           "id": "tc28",
           "stdin_text": "programming\ngaming\n",
           "expected": "6",
-          "description": "lcs('programming','gaming')"
+          "description": "len(11,6)"
         },
         {
           "id": "tc29",
           "stdin_text": "ABCBDAB\nBDCAB\n",
           "expected": "4",
-          "description": "lcs('ABCBDAB','BDCAB')"
+          "description": "len(7,5)"
         },
         {
           "id": "tc30",
           "stdin_text": "abcdef\nabc\n",
           "expected": "3",
-          "description": "lcs('abcdef','abc')"
+          "description": "len(6,3)"
+        },
+        {
+          "id": "tc31",
+          "stdin_text": "xihh\nexd\n",
+          "expected": "1",
+          "description": "len(4,3)"
+        },
+        {
+          "id": "tc32",
+          "stdin_text": "snbacghqtargwuw\nrnho\n",
+          "expected": "2",
+          "description": "len(15,4)"
+        },
+        {
+          "id": "tc33",
+          "stdin_text": "zayzfwnkiegykdcmdllt\nizbxord\n",
+          "expected": "2",
+          "description": "len(20,7)"
+        },
+        {
+          "id": "tc34",
+          "stdin_text": "rjutlsgwcb\nvhyj\n",
+          "expected": "1",
+          "description": "len(10,4)"
+        },
+        {
+          "id": "tc35",
+          "stdin_text": "dmio\nulfllg\n",
+          "expected": "0",
+          "description": "len(4,6)"
+        },
+        {
+          "id": "tc36",
+          "stdin_text": "tufrxhf\nomiu\n",
+          "expected": "1",
+          "description": "len(7,4)"
+        },
+        {
+          "id": "tc37",
+          "stdin_text": "vkyybhbzkmicgsw\nkgupmu\n",
+          "expected": "2",
+          "description": "len(15,6)"
+        },
+        {
+          "id": "tc38",
+          "stdin_text": "iehxrrixsnsm\nlheqp\n",
+          "expected": "1",
+          "description": "len(12,5)"
+        },
+        {
+          "id": "tc39",
+          "stdin_text": "deuf\nzvn\n",
+          "expected": "0",
+          "description": "len(4,3)"
+        },
+        {
+          "id": "tc40",
+          "stdin_text": "mmtoqiravxdvryiyukdj\nnfoa\n",
+          "expected": "2",
+          "description": "len(20,4)"
+        },
+        {
+          "id": "tc41",
+          "stdin_text": "yfqduju\nqtgelyfryqatkpa\n",
+          "expected": "3",
+          "description": "len(7,15)"
+        },
+        {
+          "id": "tc42",
+          "stdin_text": "zjhb\nhsccxpcy\n",
+          "expected": "1",
+          "description": "len(4,8)"
+        },
+        {
+          "id": "tc43",
+          "stdin_text": "evprfiqtngryxwg\nwjmvu\n",
+          "expected": "1",
+          "description": "len(15,5)"
+        },
+        {
+          "id": "tc44",
+          "stdin_text": "qodhhcka\nsrhshacwubhc\n",
+          "expected": "3",
+          "description": "len(8,12)"
+        },
+        {
+          "id": "tc45",
+          "stdin_text": "cqh\nivpgrexs\n",
+          "expected": "0",
+          "description": "len(3,8)"
+        },
+        {
+          "id": "tc46",
+          "stdin_text": "hzpzngddvnlnnoxbvuud\nbmxkzdhggroe\n",
+          "expected": "3",
+          "description": "len(20,12)"
+        },
+        {
+          "id": "tc47",
+          "stdin_text": "iohcozrdbu\nracyh\n",
+          "expected": "1",
+          "description": "len(10,5)"
+        },
+        {
+          "id": "tc48",
+          "stdin_text": "ppgmb\nfmamizzojn\n",
+          "expected": "1",
+          "description": "len(5,10)"
+        },
+        {
+          "id": "tc49",
+          "stdin_text": "egjgbsxrbxkbbsp\nqqfbqcfctcvh\n",
+          "expected": "1",
+          "description": "len(15,12)"
+        },
+        {
+          "id": "tc50",
+          "stdin_text": "shstbtcnvs\nsqki\n",
+          "expected": "1",
+          "description": "len(10,4)"
+        },
+        {
+          "id": "tc51",
+          "stdin_text": "himevu\njokycaot\n",
+          "expected": "0",
+          "description": "len(6,8)"
+        },
+        {
+          "id": "tc52",
+          "stdin_text": "crgqielchljforwjtzuq\navrj\n",
+          "expected": "2",
+          "description": "len(20,4)"
+        },
+        {
+          "id": "tc53",
+          "stdin_text": "iddx\nreijt\n",
+          "expected": "1",
+          "description": "len(4,5)"
+        },
+        {
+          "id": "tc54",
+          "stdin_text": "gvuiqp\nibcuniba\n",
+          "expected": "2",
+          "description": "len(6,8)"
+        },
+        {
+          "id": "tc55",
+          "stdin_text": "uifxorwn\nradcw\n",
+          "expected": "2",
+          "description": "len(8,5)"
+        },
+        {
+          "id": "tc56",
+          "stdin_text": "blsre\nnebjlzblgvhvdly\n",
+          "expected": "2",
+          "description": "len(5,15)"
+        },
+        {
+          "id": "tc57",
+          "stdin_text": "txehfzzfnafxkzn\nzvxzhifzwd\n",
+          "expected": "4",
+          "description": "len(15,10)"
+        },
+        {
+          "id": "tc58",
+          "stdin_text": "phgoljzhha\nvgm\n",
+          "expected": "1",
+          "description": "len(10,3)"
+        },
+        {
+          "id": "tc59",
+          "stdin_text": "cyiluqmv\nrkadifs\n",
+          "expected": "1",
+          "description": "len(8,7)"
+        },
+        {
+          "id": "tc60",
+          "stdin_text": "dtnlxzk\nntq\n",
+          "expected": "1",
+          "description": "len(7,3)"
+        },
+        {
+          "id": "tc61",
+          "stdin_text": "sgib\nwnaqzrvxxx\n",
+          "expected": "0",
+          "description": "len(4,10)"
+        },
+        {
+          "id": "tc62",
+          "stdin_text": "ncvktk\nvdxjqjvn\n",
+          "expected": "1",
+          "description": "len(6,8)"
+        },
+        {
+          "id": "tc63",
+          "stdin_text": "wjregnvm\nvxftsjmraj\n",
+          "expected": "2",
+          "description": "len(8,10)"
+        },
+        {
+          "id": "tc64",
+          "stdin_text": "nzstuko\noovgqp\n",
+          "expected": "1",
+          "description": "len(7,6)"
+        },
+        {
+          "id": "tc65",
+          "stdin_text": "jqvut\nkcyh\n",
+          "expected": "0",
+          "description": "len(5,4)"
+        },
+        {
+          "id": "tc66",
+          "stdin_text": "zgeabhp\ntyconu\n",
+          "expected": "0",
+          "description": "len(7,6)"
+        },
+        {
+          "id": "tc67",
+          "stdin_text": "wwmpmheuwayydynhfzwq\nobrhdo\n",
+          "expected": "2",
+          "description": "len(20,6)"
+        },
+        {
+          "id": "tc68",
+          "stdin_text": "vqrtk\nyotxqnrofxpo\n",
+          "expected": "2",
+          "description": "len(5,12)"
+        },
+        {
+          "id": "tc69",
+          "stdin_text": "uiyyqpu\nhiocwj\n",
+          "expected": "1",
+          "description": "len(7,6)"
+        },
+        {
+          "id": "tc70",
+          "stdin_text": "kkrcee\nhmwewgc\n",
+          "expected": "1",
+          "description": "len(6,7)"
+        },
+        {
+          "id": "tc71",
+          "stdin_text": "kronbgnmys\nwaysmpaljy\n",
+          "expected": "2",
+          "description": "len(10,10)"
+        },
+        {
+          "id": "tc72",
+          "stdin_text": "rxxrzthphi\nnpamkvvzmx\n",
+          "expected": "1",
+          "description": "len(10,10)"
+        },
+        {
+          "id": "tc73",
+          "stdin_text": "etram\nssvacuneofbi\n",
+          "expected": "1",
+          "description": "len(5,12)"
+        },
+        {
+          "id": "tc74",
+          "stdin_text": "gokkymiyni\ncpaxrblh\n",
+          "expected": "0",
+          "description": "len(10,8)"
+        },
+        {
+          "id": "tc75",
+          "stdin_text": "yahg\nate\n",
+          "expected": "1",
+          "description": "len(4,3)"
+        },
+        {
+          "id": "tc76",
+          "stdin_text": "pvdsgo\nwiylf\n",
+          "expected": "0",
+          "description": "len(6,5)"
+        },
+        {
+          "id": "tc77",
+          "stdin_text": "xwdyfjdsajsvmmwgcswu\nhdwyjvtzdzszblrnvlcq\n",
+          "expected": "7",
+          "description": "len(20,20)"
+        },
+        {
+          "id": "tc78",
+          "stdin_text": "npdnluow\nenf\n",
+          "expected": "1",
+          "description": "len(8,3)"
+        },
+        {
+          "id": "tc79",
+          "stdin_text": "tzryponxsikhcio\nhyostvm\n",
+          "expected": "3",
+          "description": "len(15,7)"
+        },
+        {
+          "id": "tc80",
+          "stdin_text": "pkfpglzi\nkit\n",
+          "expected": "2",
+          "description": "len(8,3)"
+        },
+        {
+          "id": "tc81",
+          "stdin_text": "aqgchxn\npryhwpuwpozacjh\n",
+          "expected": "3",
+          "description": "len(7,15)"
+        },
+        {
+          "id": "tc82",
+          "stdin_text": "jvslprqlnx\nrklwoi\n",
+          "expected": "2",
+          "description": "len(10,6)"
+        },
+        {
+          "id": "tc83",
+          "stdin_text": "hdxgkdx\nrywfggx\n",
+          "expected": "2",
+          "description": "len(7,7)"
+        },
+        {
+          "id": "tc84",
+          "stdin_text": "xsyqtjdgjhlf\njawreib\n",
+          "expected": "1",
+          "description": "len(12,7)"
+        },
+        {
+          "id": "tc85",
+          "stdin_text": "jwe\nuypdasjppokfbip\n",
+          "expected": "1",
+          "description": "len(3,15)"
+        },
+        {
+          "id": "tc86",
+          "stdin_text": "mpcs\nuvbe\n",
+          "expected": "0",
+          "description": "len(4,4)"
+        },
+        {
+          "id": "tc87",
+          "stdin_text": "jchdr\nynttzthyqmoojsnjstbt\n",
+          "expected": "1",
+          "description": "len(5,20)"
+        },
+        {
+          "id": "tc88",
+          "stdin_text": "ugiv\ncfhfrc\n",
+          "expected": "0",
+          "description": "len(4,6)"
+        },
+        {
+          "id": "tc89",
+          "stdin_text": "nowtp\njbh\n",
+          "expected": "0",
+          "description": "len(5,3)"
+        },
+        {
+          "id": "tc90",
+          "stdin_text": "wocvhiz\nzusvzgn\n",
+          "expected": "2",
+          "description": "len(7,7)"
+        },
+        {
+          "id": "tc91",
+          "stdin_text": "huei\necbfzjtxsjodowj\n",
+          "expected": "1",
+          "description": "len(4,15)"
+        },
+        {
+          "id": "tc92",
+          "stdin_text": "qrpoctbnxk\ntiachvs\n",
+          "expected": "1",
+          "description": "len(10,7)"
+        },
+        {
+          "id": "tc93",
+          "stdin_text": "yvisbyyfpquoifsnupcp\nlnk\n",
+          "expected": "1",
+          "description": "len(20,3)"
+        },
+        {
+          "id": "tc94",
+          "stdin_text": "fknwpjvm\nyrbo\n",
+          "expected": "0",
+          "description": "len(8,4)"
+        },
+        {
+          "id": "tc95",
+          "stdin_text": "ikdy\nmqavronb\n",
+          "expected": "0",
+          "description": "len(4,8)"
+        },
+        {
+          "id": "tc96",
+          "stdin_text": "ltypuo\nybgirejowpdautz\n",
+          "expected": "3",
+          "description": "len(6,15)"
+        },
+        {
+          "id": "tc97",
+          "stdin_text": "jrarnc\nhdodu\n",
+          "expected": "0",
+          "description": "len(6,5)"
+        },
+        {
+          "id": "tc98",
+          "stdin_text": "wjqwi\nnpphoremgtqx\n",
+          "expected": "1",
+          "description": "len(5,12)"
+        },
+        {
+          "id": "tc99",
+          "stdin_text": "iyznk\nzqia\n",
+          "expected": "1",
+          "description": "len(5,4)"
+        },
+        {
+          "id": "tc100",
+          "stdin_text": "ssvpeor\nplkryrm\n",
+          "expected": "2",
+          "description": "len(7,7)"
         }
       ],
       "solutions": [
@@ -658,6 +2058,76 @@
           "type": "accepted",
           "description": "2D DP LCS",
           "expected_harness_statuses": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
             "PASS",
             "PASS",
             "PASS",
@@ -705,189 +2175,679 @@
           "id": "tc1",
           "stdin_text": "3 50\n10 20 30\n60 100 120\n",
           "expected": "220",
-          "description": "W=50"
+          "description": "n=3 W=50"
         },
         {
           "id": "tc2",
           "stdin_text": "1 10\n5\n100\n",
           "expected": "100",
-          "description": "W=10"
+          "description": "n=1 W=10"
         },
         {
           "id": "tc3",
           "stdin_text": "1 4\n5\n100\n",
           "expected": "0",
-          "description": "W=4"
+          "description": "n=1 W=4"
         },
         {
           "id": "tc4",
           "stdin_text": "2 10\n5 5\n10 20\n",
           "expected": "30",
-          "description": "W=10"
+          "description": "n=2 W=10"
         },
         {
           "id": "tc5",
           "stdin_text": "2 4\n5 5\n10 20\n",
           "expected": "0",
-          "description": "W=4"
+          "description": "n=2 W=4"
         },
         {
           "id": "tc6",
           "stdin_text": "2 5\n5 3\n10 5\n",
           "expected": "10",
-          "description": "W=5"
+          "description": "n=2 W=5"
         },
         {
           "id": "tc7",
           "stdin_text": "3 5\n2 3 4\n3 4 5\n",
           "expected": "7",
-          "description": "W=5"
+          "description": "n=3 W=5"
         },
         {
           "id": "tc8",
           "stdin_text": "4 5\n1 2 3 4\n10 20 30 40\n",
           "expected": "50",
-          "description": "W=5"
+          "description": "n=4 W=5"
         },
         {
           "id": "tc9",
           "stdin_text": "4 10\n1 2 3 4\n10 20 30 40\n",
           "expected": "100",
-          "description": "W=10"
+          "description": "n=4 W=10"
         },
         {
           "id": "tc10",
           "stdin_text": "4 9\n1 2 3 4\n10 20 30 40\n",
           "expected": "90",
-          "description": "W=9"
+          "description": "n=4 W=9"
         },
         {
           "id": "tc11",
           "stdin_text": "3 7\n3 4 5\n4 5 6\n",
           "expected": "9",
-          "description": "W=7"
+          "description": "n=3 W=7"
         },
         {
           "id": "tc12",
           "stdin_text": "3 6\n3 4 5\n4 5 6\n",
           "expected": "6",
-          "description": "W=6"
+          "description": "n=3 W=6"
         },
         {
           "id": "tc13",
           "stdin_text": "5 10\n2 2 3 5 9\n6 3 5 4 7\n",
           "expected": "15",
-          "description": "W=10"
+          "description": "n=5 W=10"
         },
         {
           "id": "tc14",
           "stdin_text": "2 3\n1 2\n5 8\n",
           "expected": "13",
-          "description": "W=3"
+          "description": "n=2 W=3"
         },
         {
           "id": "tc15",
           "stdin_text": "2 2\n1 2\n5 8\n",
           "expected": "8",
-          "description": "W=2"
+          "description": "n=2 W=2"
         },
         {
           "id": "tc16",
           "stdin_text": "3 0\n1 2 3\n5 8 3\n",
           "expected": "0",
-          "description": "W=0"
+          "description": "n=3 W=0"
         },
         {
           "id": "tc17",
           "stdin_text": "3 100\n1 2 3\n5 8 3\n",
           "expected": "16",
-          "description": "W=100"
+          "description": "n=3 W=100"
         },
         {
           "id": "tc18",
           "stdin_text": "4 6\n2 3 4 5\n3 4 5 6\n",
           "expected": "8",
-          "description": "W=6"
+          "description": "n=4 W=6"
         },
         {
           "id": "tc19",
           "stdin_text": "6 10\n1 2 3 4 5 6\n1 6 10 16 20 23\n",
           "expected": "39",
-          "description": "W=10"
+          "description": "n=6 W=10"
         },
         {
           "id": "tc20",
           "stdin_text": "5 20\n3 4 5 6 8\n4 6 5 8 12\n",
           "expected": "27",
-          "description": "W=20"
+          "description": "n=5 W=20"
         },
         {
           "id": "tc21",
           "stdin_text": "3 10\n6 10 12\n13 15 24\n",
           "expected": "15",
-          "description": "W=10"
+          "description": "n=3 W=10"
         },
         {
           "id": "tc22",
           "stdin_text": "4 10\n2 3 4 5\n3 4 5 6\n",
           "expected": "13",
-          "description": "W=10"
+          "description": "n=4 W=10"
         },
         {
           "id": "tc23",
           "stdin_text": "4 2\n1 1 1 1\n10 20 30 40\n",
           "expected": "70",
-          "description": "W=2"
+          "description": "n=4 W=2"
         },
         {
           "id": "tc24",
           "stdin_text": "4 3\n1 1 1 1\n10 20 30 40\n",
           "expected": "90",
-          "description": "W=3"
+          "description": "n=4 W=3"
         },
         {
           "id": "tc25",
           "stdin_text": "4 4\n1 1 1 1\n10 20 30 40\n",
           "expected": "100",
-          "description": "W=4"
+          "description": "n=4 W=4"
         },
         {
           "id": "tc26",
           "stdin_text": "4 5\n5 4 3 2\n10 40 30 50\n",
           "expected": "80",
-          "description": "W=5"
+          "description": "n=4 W=5"
         },
         {
           "id": "tc27",
           "stdin_text": "4 10\n5 4 3 2\n10 40 30 50\n",
           "expected": "120",
-          "description": "W=10"
+          "description": "n=4 W=10"
         },
         {
           "id": "tc28",
           "stdin_text": "1 9\n10\n1\n",
           "expected": "0",
-          "description": "W=9"
+          "description": "n=1 W=9"
         },
         {
           "id": "tc29",
           "stdin_text": "1 10\n10\n1\n",
           "expected": "1",
-          "description": "W=10"
+          "description": "n=1 W=10"
         },
         {
           "id": "tc30",
           "stdin_text": "3 5\n1 2 3\n6 10 12\n",
           "expected": "22",
-          "description": "W=5"
+          "description": "n=3 W=5"
+        },
+        {
+          "id": "tc31",
+          "stdin_text": "5 25\n4 4 10 7 4\n14 2 11 16 13\n",
+          "expected": "54",
+          "description": "n=5 W=25"
+        },
+        {
+          "id": "tc32",
+          "stdin_text": "5 47\n3 8 1 3 9\n19 11 4 15 4\n",
+          "expected": "53",
+          "description": "n=5 W=47"
+        },
+        {
+          "id": "tc33",
+          "stdin_text": "6 34\n1 3 7 3 2 8\n9 11 20 13 3 11\n",
+          "expected": "67",
+          "description": "n=6 W=34"
+        },
+        {
+          "id": "tc34",
+          "stdin_text": "8 48\n9 7 6 8 9 1 10 2\n8 10 8 3 14 4 4 15\n",
+          "expected": "63",
+          "description": "n=8 W=48"
+        },
+        {
+          "id": "tc35",
+          "stdin_text": "3 49\n5 1 1\n11 2 10\n",
+          "expected": "23",
+          "description": "n=3 W=49"
+        },
+        {
+          "id": "tc36",
+          "stdin_text": "4 28\n7 3 4 9\n14 19 6 6\n",
+          "expected": "45",
+          "description": "n=4 W=28"
+        },
+        {
+          "id": "tc37",
+          "stdin_text": "3 10\n10 7 10\n8 16 19\n",
+          "expected": "19",
+          "description": "n=3 W=10"
+        },
+        {
+          "id": "tc38",
+          "stdin_text": "3 19\n8 5 8\n9 1 15\n",
+          "expected": "24",
+          "description": "n=3 W=19"
+        },
+        {
+          "id": "tc39",
+          "stdin_text": "4 48\n9 3 2 8\n12 19 10 14\n",
+          "expected": "55",
+          "description": "n=4 W=48"
+        },
+        {
+          "id": "tc40",
+          "stdin_text": "7 21\n8 5 4 7 8 2 4\n13 19 12 19 10 10 1\n",
+          "expected": "60",
+          "description": "n=7 W=21"
+        },
+        {
+          "id": "tc41",
+          "stdin_text": "8 47\n7 5 1 10 1 10 8 5\n8 20 12 8 7 20 9 5\n",
+          "expected": "89",
+          "description": "n=8 W=47"
+        },
+        {
+          "id": "tc42",
+          "stdin_text": "7 11\n1 5 8 1 10 6 3\n3 10 11 14 6 7 5\n",
+          "expected": "32",
+          "description": "n=7 W=11"
+        },
+        {
+          "id": "tc43",
+          "stdin_text": "8 39\n6 9 9 5 3 5 8 5\n11 4 15 3 5 8 13 18\n",
+          "expected": "70",
+          "description": "n=8 W=39"
+        },
+        {
+          "id": "tc44",
+          "stdin_text": "4 10\n7 1 5 9\n4 15 12 9\n",
+          "expected": "27",
+          "description": "n=4 W=10"
+        },
+        {
+          "id": "tc45",
+          "stdin_text": "6 29\n6 2 4 8 1 10\n18 11 20 8 3 15\n",
+          "expected": "67",
+          "description": "n=6 W=29"
+        },
+        {
+          "id": "tc46",
+          "stdin_text": "7 24\n7 2 3 1 1 5 8\n4 4 8 18 5 13 15\n",
+          "expected": "63",
+          "description": "n=7 W=24"
+        },
+        {
+          "id": "tc47",
+          "stdin_text": "4 47\n9 7 10 3\n14 4 16 20\n",
+          "expected": "54",
+          "description": "n=4 W=47"
+        },
+        {
+          "id": "tc48",
+          "stdin_text": "5 22\n1 6 4 8 8\n8 12 4 12 18\n",
+          "expected": "42",
+          "description": "n=5 W=22"
+        },
+        {
+          "id": "tc49",
+          "stdin_text": "7 27\n1 7 5 4 2 8 2\n7 20 1 2 11 8 5\n",
+          "expected": "53",
+          "description": "n=7 W=27"
+        },
+        {
+          "id": "tc50",
+          "stdin_text": "8 41\n4 2 9 4 10 4 4 6\n5 20 1 9 5 5 18 9\n",
+          "expected": "71",
+          "description": "n=8 W=41"
+        },
+        {
+          "id": "tc51",
+          "stdin_text": "8 16\n2 1 3 1 6 4 10 6\n1 6 9 2 5 14 17 4\n",
+          "expected": "39",
+          "description": "n=8 W=16"
+        },
+        {
+          "id": "tc52",
+          "stdin_text": "7 9\n8 8 6 9 10 2 8\n17 8 20 2 17 10 15\n",
+          "expected": "30",
+          "description": "n=7 W=9"
+        },
+        {
+          "id": "tc53",
+          "stdin_text": "7 6\n1 8 7 7 2 8 8\n3 3 11 20 5 3 5\n",
+          "expected": "8",
+          "description": "n=7 W=6"
+        },
+        {
+          "id": "tc54",
+          "stdin_text": "4 44\n10 9 6 7\n20 17 10 15\n",
+          "expected": "62",
+          "description": "n=4 W=44"
+        },
+        {
+          "id": "tc55",
+          "stdin_text": "6 43\n7 2 2 9 4 7\n15 8 14 11 15 13\n",
+          "expected": "76",
+          "description": "n=6 W=43"
+        },
+        {
+          "id": "tc56",
+          "stdin_text": "5 11\n6 7 6 5 6\n5 16 3 3 3\n",
+          "expected": "16",
+          "description": "n=5 W=11"
+        },
+        {
+          "id": "tc57",
+          "stdin_text": "2 32\n2 6\n5 18\n",
+          "expected": "23",
+          "description": "n=2 W=32"
+        },
+        {
+          "id": "tc58",
+          "stdin_text": "2 42\n9 9\n11 4\n",
+          "expected": "15",
+          "description": "n=2 W=42"
+        },
+        {
+          "id": "tc59",
+          "stdin_text": "5 27\n7 1 5 10 5\n12 4 19 17 7\n",
+          "expected": "55",
+          "description": "n=5 W=27"
+        },
+        {
+          "id": "tc60",
+          "stdin_text": "3 47\n8 4 2\n12 18 12\n",
+          "expected": "42",
+          "description": "n=3 W=47"
+        },
+        {
+          "id": "tc61",
+          "stdin_text": "2 22\n10 4\n14 18\n",
+          "expected": "32",
+          "description": "n=2 W=22"
+        },
+        {
+          "id": "tc62",
+          "stdin_text": "8 44\n10 9 1 10 5 1 3 5\n10 11 12 1 6 5 19 13\n",
+          "expected": "77",
+          "description": "n=8 W=44"
+        },
+        {
+          "id": "tc63",
+          "stdin_text": "2 14\n1 2\n17 7\n",
+          "expected": "24",
+          "description": "n=2 W=14"
+        },
+        {
+          "id": "tc64",
+          "stdin_text": "5 31\n8 6 3 6 5\n11 19 20 3 2\n",
+          "expected": "55",
+          "description": "n=5 W=31"
+        },
+        {
+          "id": "tc65",
+          "stdin_text": "3 15\n10 1 2\n9 15 14\n",
+          "expected": "38",
+          "description": "n=3 W=15"
+        },
+        {
+          "id": "tc66",
+          "stdin_text": "5 43\n8 7 5 4 9\n4 12 14 4 10\n",
+          "expected": "44",
+          "description": "n=5 W=43"
+        },
+        {
+          "id": "tc67",
+          "stdin_text": "7 48\n10 8 9 5 1 4 7\n20 2 1 7 10 7 5\n",
+          "expected": "52",
+          "description": "n=7 W=48"
+        },
+        {
+          "id": "tc68",
+          "stdin_text": "8 21\n5 6 2 1 8 7 3 3\n13 18 8 17 18 12 3 13\n",
+          "expected": "74",
+          "description": "n=8 W=21"
+        },
+        {
+          "id": "tc69",
+          "stdin_text": "8 7\n7 1 8 2 6 10 7 10\n13 14 10 4 13 1 11 6\n",
+          "expected": "27",
+          "description": "n=8 W=7"
+        },
+        {
+          "id": "tc70",
+          "stdin_text": "8 44\n8 6 2 7 2 4 7 10\n13 17 3 13 10 11 8 11\n",
+          "expected": "83",
+          "description": "n=8 W=44"
+        },
+        {
+          "id": "tc71",
+          "stdin_text": "8 15\n2 9 2 9 9 4 6 6\n5 8 4 5 9 7 6 20\n",
+          "expected": "36",
+          "description": "n=8 W=15"
+        },
+        {
+          "id": "tc72",
+          "stdin_text": "3 46\n2 3 8\n15 19 19\n",
+          "expected": "53",
+          "description": "n=3 W=46"
+        },
+        {
+          "id": "tc73",
+          "stdin_text": "5 48\n10 10 6 6 3\n15 3 16 15 10\n",
+          "expected": "59",
+          "description": "n=5 W=48"
+        },
+        {
+          "id": "tc74",
+          "stdin_text": "8 22\n10 1 6 9 2 5 8 8\n2 2 12 10 3 3 20 20\n",
+          "expected": "52",
+          "description": "n=8 W=22"
+        },
+        {
+          "id": "tc75",
+          "stdin_text": "6 29\n8 10 9 1 8 10\n7 11 20 16 17 5\n",
+          "expected": "64",
+          "description": "n=6 W=29"
+        },
+        {
+          "id": "tc76",
+          "stdin_text": "2 33\n2 6\n3 17\n",
+          "expected": "20",
+          "description": "n=2 W=33"
+        },
+        {
+          "id": "tc77",
+          "stdin_text": "7 16\n1 4 8 8 9 9 10\n6 12 12 10 13 14 11\n",
+          "expected": "32",
+          "description": "n=7 W=16"
+        },
+        {
+          "id": "tc78",
+          "stdin_text": "7 43\n1 6 2 6 2 9 7\n10 9 20 5 11 3 19\n",
+          "expected": "77",
+          "description": "n=7 W=43"
+        },
+        {
+          "id": "tc79",
+          "stdin_text": "7 14\n6 5 7 3 10 2 5\n18 13 11 5 17 3 14\n",
+          "expected": "37",
+          "description": "n=7 W=14"
+        },
+        {
+          "id": "tc80",
+          "stdin_text": "6 28\n1 6 5 3 4 6\n16 7 8 5 5 3\n",
+          "expected": "44",
+          "description": "n=6 W=28"
+        },
+        {
+          "id": "tc81",
+          "stdin_text": "4 11\n9 9 9 1\n11 20 5 20\n",
+          "expected": "40",
+          "description": "n=4 W=11"
+        },
+        {
+          "id": "tc82",
+          "stdin_text": "5 14\n3 3 10 3 8\n2 14 12 8 15\n",
+          "expected": "37",
+          "description": "n=5 W=14"
+        },
+        {
+          "id": "tc83",
+          "stdin_text": "6 23\n8 4 9 4 5 8\n7 12 19 15 15 10\n",
+          "expected": "61",
+          "description": "n=6 W=23"
+        },
+        {
+          "id": "tc84",
+          "stdin_text": "8 29\n9 9 7 3 4 10 3 5\n2 16 12 18 4 17 4 10\n",
+          "expected": "63",
+          "description": "n=8 W=29"
+        },
+        {
+          "id": "tc85",
+          "stdin_text": "2 15\n5 8\n17 5\n",
+          "expected": "22",
+          "description": "n=2 W=15"
+        },
+        {
+          "id": "tc86",
+          "stdin_text": "8 32\n2 4 8 6 1 7 1 7\n17 12 8 13 3 12 8 1\n",
+          "expected": "73",
+          "description": "n=8 W=32"
+        },
+        {
+          "id": "tc87",
+          "stdin_text": "4 11\n6 3 3 1\n10 16 5 16\n",
+          "expected": "42",
+          "description": "n=4 W=11"
+        },
+        {
+          "id": "tc88",
+          "stdin_text": "5 44\n1 2 1 5 4\n5 18 20 17 14\n",
+          "expected": "74",
+          "description": "n=5 W=44"
+        },
+        {
+          "id": "tc89",
+          "stdin_text": "2 23\n4 5\n4 2\n",
+          "expected": "6",
+          "description": "n=2 W=23"
+        },
+        {
+          "id": "tc90",
+          "stdin_text": "3 31\n10 8 2\n4 16 20\n",
+          "expected": "40",
+          "description": "n=3 W=31"
+        },
+        {
+          "id": "tc91",
+          "stdin_text": "6 6\n9 10 4 3 5 7\n1 20 12 8 19 14\n",
+          "expected": "19",
+          "description": "n=6 W=6"
+        },
+        {
+          "id": "tc92",
+          "stdin_text": "3 47\n2 9 6\n3 17 18\n",
+          "expected": "38",
+          "description": "n=3 W=47"
+        },
+        {
+          "id": "tc93",
+          "stdin_text": "6 37\n9 1 7 8 1 7\n12 9 1 12 3 12\n",
+          "expected": "49",
+          "description": "n=6 W=37"
+        },
+        {
+          "id": "tc94",
+          "stdin_text": "3 47\n2 10 6\n5 2 12\n",
+          "expected": "19",
+          "description": "n=3 W=47"
+        },
+        {
+          "id": "tc95",
+          "stdin_text": "6 26\n3 8 8 3 3 2\n15 2 10 7 2 7\n",
+          "expected": "41",
+          "description": "n=6 W=26"
+        },
+        {
+          "id": "tc96",
+          "stdin_text": "2 25\n5 9\n13 18\n",
+          "expected": "31",
+          "description": "n=2 W=25"
+        },
+        {
+          "id": "tc97",
+          "stdin_text": "5 21\n1 4 5 6 1\n11 9 4 12 14\n",
+          "expected": "50",
+          "description": "n=5 W=21"
+        },
+        {
+          "id": "tc98",
+          "stdin_text": "5 33\n7 6 3 8 8\n12 17 9 3 14\n",
+          "expected": "55",
+          "description": "n=5 W=33"
+        },
+        {
+          "id": "tc99",
+          "stdin_text": "2 32\n10 3\n18 10\n",
+          "expected": "28",
+          "description": "n=2 W=32"
+        },
+        {
+          "id": "tc100",
+          "stdin_text": "4 11\n2 6 5 5\n15 20 14 6\n",
+          "expected": "35",
+          "description": "n=4 W=11"
         }
       ],
       "solutions": [
         {
           "id": "ks_accepted",
           "type": "accepted",
-          "description": "1D DP 0/1 knapsack",
+          "description": "1D DP knapsack",
           "expected_harness_statuses": [
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
+            "PASS",
             "PASS",
             "PASS",
             "PASS",
@@ -919,7 +2879,7 @@
             "PASS",
             "PASS"
           ],
-          "source_code": "line1 = input().split()\nn, W = int(line1[0]), int(line1[1])\nif n == 0:\n    print(0)\nelse:\n    weights = list(map(int, input().split()))\n    values = list(map(int, input().split()))\n    dp = [0] * (W + 1)\n    for i in range(n):\n        for w in range(W, weights[i] - 1, -1):\n            dp[w] = max(dp[w], dp[w - weights[i]] + values[i])\n    print(dp[W])\n"
+          "source_code": "line1 = input().split()\nn, W = int(line1[0]), int(line1[1])\nif n == 0 or W == 0:\n    print(0)\nelse:\n    weights = list(map(int, input().split()))\n    values = list(map(int, input().split()))\n    dp = [0] * (W + 1)\n    for i in range(n):\n        for w in range(W, weights[i]-1, -1):\n            dp[w] = max(dp[w], dp[w-weights[i]] + values[i])\n    print(dp[W])\n"
         }
       ]
     }
