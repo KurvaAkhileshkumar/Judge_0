@@ -151,11 +151,28 @@ class _SubmitRequest(BaseModel):
     param_types:     list[str] | None = None
     return_type:     str  = "auto"
 
+    @field_validator("test_cases")
+    @classmethod
+    def _check_test_cases(cls, v: list) -> list:
+        if not v:
+            raise ValueError("test_cases must not be empty")
+        if len(v) > 500:
+            raise ValueError("test_cases must not exceed 500 entries")
+        return v
+
     @field_validator("language")
     @classmethod
     def _check_language(cls, v: str) -> str:
         if v not in ("python", "c", "cpp", "java"):
             raise ValueError("language must be one of: python, c, cpp, java")
+        return v
+
+    @field_validator("function_name")
+    @classmethod
+    def _check_function_name(cls, v: str) -> str:
+        import re as _re
+        if not _re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", v):
+            raise ValueError("function_name must be a valid identifier (letters, digits, underscores)")
         return v
 
     @field_validator("mode")
@@ -178,6 +195,19 @@ class _SubmitRequest(BaseModel):
         if not (16 <= v <= 3500):
             raise ValueError("memory_limit_mb must be 16–3500")
         return v
+
+    @model_validator(mode="after")
+    def _cross_validate_mode_tcs(self) -> "_SubmitRequest":
+        for i, tc in enumerate(self.test_cases):
+            if self.mode == "function" and tc.inputs is None:
+                raise ValueError(
+                    f"test_cases[{i}]: mode='function' requires 'inputs', got only 'stdin_text'"
+                )
+            if self.mode == "stdio" and tc.stdin_text is None:
+                raise ValueError(
+                    f"test_cases[{i}]: mode='stdio' requires 'stdin_text', got only 'inputs'"
+                )
+        return self
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────

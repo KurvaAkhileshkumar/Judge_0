@@ -130,43 +130,133 @@ class HarnessBuilder:
             test_cases_json = json.dumps(tc_dicts),
             per_tc_limit_s  = self.cfg.per_tc_limit_s,
             memory_limit_mb = self.cfg.memory_limit_mb,
+            function_name   = self.cfg.function_name,
         )
 
-        # Now substitute the sentinel with the real (unescaped) student code
-        return filled.replace(_SENTINEL, self.cfg.student_code)
+        # Substitute sentinel with repr() of student code — safe against triple-quotes,
+        # backslashes, and any other characters that would break a string literal.
+        return filled.replace(_SENTINEL, repr(self.cfg.student_code))
 
     # ─────────────────────────────────────────────────────────────────
     # C
     # ─────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _c_string_escape(s: str) -> str:
+        """Escape a Python string for safe embedding inside a C string literal."""
+        return (s
+            .replace('\\', '\\\\')
+            .replace('"',  '\\"')
+            .replace('\n', '\\n')
+            .replace('\r', '\\r')
+            .replace('\t', '\\t')
+            .replace('\0', '\\0')
+        )
+
+    @staticmethod
+    def _c_literal(val, language: str = "c") -> str:
+        """
+        Serialize a Python input value as a C or C++ literal.
+
+        Handles the type mapping that str() gets wrong:
+          Python True/False → C: 1/0,  C++: true/false
+          Python None       → 0  (NULL-equivalent for numeric/pointer params)
+          Python str        → "quoted and escaped string literal"
+          Python int/float  → str(val)  (works directly in C/C++)
+          Python list/dict  → raises ValueError (use stdio mode for arrays)
+        """
+        if val is None:
+            return "0"
+        if isinstance(val, bool):   # must check before int — bool is subclass of int
+            if language == "cpp":
+                return "true" if val else "false"
+            return "1" if val else "0"
+        if isinstance(val, str):
+            escaped = (val
+                .replace('\\', '\\\\')
+                .replace('"',  '\\"')
+                .replace('\n', '\\n')
+                .replace('\r', '\\r')
+                .replace('\t', '\\t')
+            )
+            return f'"{escaped}"'
+        if isinstance(val, (int, float)):
+            return str(val)
+        raise ValueError(
+            f"Input value {val!r} (type {type(val).__name__}) cannot be passed as a "
+            f"C/C++ function argument. Use stdio mode for array or complex inputs."
+        )
+
+    @staticmethod
+    def _java_literal(val) -> str:
+        """
+        Serialize a Python input value as a Java Object expression for reflection.
+
+        Handles the type mapping that the old isinstance(v, (int,float)) check got wrong:
+          Python True/False → true/false  (bool must be checked BEFORE int)
+          Python None       → null
+          Python int        → (Object)(42)   autoboxes to Integer
+          Python float      → (Object)(1.5)  autoboxes to Double
+          Python str        → "escaped string literal"
+          Python list/dict  → raises ValueError (use stdio mode)
+        """
+        if val is None:
+            return "null"
+        if isinstance(val, bool):   # must check before int — bool is subclass of int
+            return "true" if val else "false"
+        if isinstance(val, int):
+            return f"(Object)({val})"
+        if isinstance(val, float):
+            return f"(Object)({val})"
+        if isinstance(val, str):
+            escaped = (val
+                .replace('\\', '\\\\')
+                .replace('"',  '\\"')
+                .replace('\n', '\\n')
+                .replace('\t', '\\t')
+            )
+            return f'"{escaped}"'
+        raise ValueError(
+            f"Input value {val!r} (type {type(val).__name__}) cannot be passed as a "
+            f"Java function argument. Use stdio mode for array or complex inputs."
+        )
+
     def _build_c(self) -> str:
-        template     = (_HARNESSES_DIR / "c_harness.c").read_text()
-        param_types  = self.cfg.param_types or []
-        params       = ", ".join(f"{t} p{i}" for i, t in enumerate(param_types))
-        args         = ", ".join(f"p{i}" for i in range(len(param_types)))
-        return_type  = self.cfg.return_type if self.cfg.return_type != "auto" else "int"
+        template    = (_HARNESSES_DIR / "c_harness.c").read_text()
+        param_types = self.cfg.param_types or []
+        return_type = self.cfg.return_type if self.cfg.return_type != "auto" else "int"
 
-        # FIX-2: tc_params_comma carries a trailing ", " only when params
-        # exist so the child function signature becomes valid C with zero args:
-        #   run_tc_child(int pipe_fd, const char* expected, ...)   ← 0 params
-        #   run_tc_child(int pipe_fd, int p0, const char* expected,...)← 1+ params
-        tc_params_comma = (params + ", ") if params else ""
-
-        # Escape { and } in student code so Python's .format() does not
-        # misinterpret them as format placeholders.  All non-trivial C code
-        # contains braces (function bodies, if/for/struct literals) and would
-        # raise KeyError without this escaping step.
         student_code_escaped = (
             self.cfg.student_code
                 .replace("{", "{{")
                 .replace("}", "}}")
         )
 
+        if self.cfg.mode == "stdio":
+            # Rename student's main() to avoid conflict with harness main().
+            # #define precedes the student block; #undef follows it so the
+            # harness's own "int main(void)" at the bottom stays as-is.
+            student_code_escaped = (
+                "#define main student_stdio_main\n" +
+                student_code_escaped +
+                "\n#undef main"
+            )
+            tc_params_comma        = "const char* _stdin_text, "
+            call_solve_and_capture = self._build_c_stdio_call()
+        else:
+            params      = ", ".join(f"{t} p{i}" for i, t in enumerate(param_types))
+            args        = ", ".join(f"p{i}" for i in range(len(param_types)))
+            # FIX-2: trailing ", " only when params exist so zero-arg functions
+            # don't produce "int pipe_fd, , int per_tc" — a C syntax error.
+            tc_params_comma        = (params + ", ") if params else ""
+            call_solve_and_capture = self._build_c_call(return_type)
+
         return template.format(
             delim                  = self.delim,
             student_code           = student_code_escaped,
             tc_params_comma        = tc_params_comma,
-            tc_args                = args,
-            call_solve_and_capture = self._build_c_call(return_type),
+            tc_args                = "",
+            call_solve_and_capture = call_solve_and_capture,
             tc_runner_body         = self._build_c_parallel_runner(),
         )
 
@@ -230,6 +320,56 @@ class HarnessBuilder:
         return f"""
     {return_type} ret = {fn}({args});
     snprintf(result.got, sizeof(result.got), "{fmt}", {cast}ret);
+"""
+
+    def _build_c_stdio_call(self) -> str:
+        """
+        C stdio mode: pipe _stdin_text into the child's stdin, call
+        student_stdio_main(0, NULL), capture stdout into result.got.
+        Uses tmpfile so both printf() and any other fd-1 writes are captured.
+        """
+        return r"""
+    /* stdio mode: redirect stdin from _stdin_text, capture stdout via tmpfile */
+    {
+        int _sp[2];
+        if (pipe(_sp) != 0) {
+            strcpy(result.status, "ERROR");
+            strcpy(result.detail, "pipe() failed for stdin redirect");
+        } else {
+            /* Feed TC input into pipe; close write end so student gets EOF */
+            write(_sp[1], _stdin_text, strlen(_stdin_text));
+            close(_sp[1]);
+
+            int _saved_in  = dup(STDIN_FILENO);
+            dup2(_sp[0], STDIN_FILENO);
+            close(_sp[0]);
+
+            /* Capture stdout (printf/puts/fwrite all go to fd 1) */
+            FILE* _tmp       = tmpfile();
+            int   _saved_out = dup(STDOUT_FILENO);
+            dup2(fileno(_tmp), STDOUT_FILENO);
+
+            student_stdio_main(0, NULL);
+            fflush(stdout);
+
+            dup2(_saved_in,  STDIN_FILENO);  close(_saved_in);
+            dup2(_saved_out, STDOUT_FILENO); close(_saved_out);
+
+            char _cbuf[MAX_OUTPUT];
+            memset(_cbuf, 0, sizeof(_cbuf));
+            fseek(_tmp, 0, SEEK_SET);
+            fread(_cbuf, 1, MAX_OUTPUT - 1, _tmp);
+            fclose(_tmp);
+
+            /* Strip trailing whitespace */
+            int _cl = (int)strlen(_cbuf);
+            while (_cl > 0 && (_cbuf[_cl-1] == '\n' || _cbuf[_cl-1] == '\r' ||
+                                _cbuf[_cl-1] == ' '  || _cbuf[_cl-1] == '\t'))
+                _cbuf[--_cl] = '\0';
+
+            strncpy(result.got, _cbuf, sizeof(result.got) - 1);
+        }
+    }
 """
 
     def _build_c_parallel_runner(self) -> str:
@@ -312,17 +452,20 @@ class HarnessBuilder:
 
             lines.append("        /* Phase 1: Fork batch children */")
             for b_i, tc in enumerate(batch):
-                g_i        = batch_start + b_i
-                args_str   = ", ".join(str(v) for v in (tc.inputs or []))
-                args_comma = (args_str + ", ") if args_str else ""
-                expected   = str(tc.expected).replace('"', '\\"')
+                g_i = batch_start + b_i
+                if self.cfg.mode == "stdio":
+                    stdin_esc  = self._c_string_escape(tc.stdin_text or "")
+                    args_comma = f'"{stdin_esc}", '
+                else:
+                    args_str   = ", ".join(self._c_literal(v, "c") for v in (tc.inputs or []))
+                    args_comma = (args_str + ", ") if args_str else ""
                 lines.append(f"""        {{
             int _pfd[2];
             if (pipe(_pfd) == 0) {{
                 pid_t _p = fork();
                 if (_p == 0) {{
                     close(_pfd[0]);
-                    run_tc_child(_pfd[1], {args_comma}"{expected}", {ps}, {mem_c});
+                    run_tc_child(_pfd[1], {args_comma}{ps}, {mem_c});
                 }}
                 close(_pfd[1]);
                 _pids[{b_i}] = _p;
@@ -429,26 +572,34 @@ class HarnessBuilder:
     def _build_cpp(self) -> str:
         template    = (_HARNESSES_DIR / "cpp_harness.cpp").read_text()
         param_types = self.cfg.param_types or []
-        params      = ", ".join(f"{t} p{i}" for i, t in enumerate(param_types))
-        args        = ", ".join(f"p{i}" for i in range(len(param_types)))
 
-        # FIX-2: same trailing-comma logic as C (see _build_c)
-        tc_params_comma = (params + ", ") if params else ""
-
-        # Same brace-escaping as _build_c: C++ code is full of { } characters
-        # that would be misinterpreted by Python's .format() without escaping.
         student_code_escaped = (
             self.cfg.student_code
                 .replace("{", "{{")
                 .replace("}", "}}")
         )
 
+        if self.cfg.mode == "stdio":
+            student_code_escaped = (
+                "#define main student_stdio_main\n" +
+                student_code_escaped +
+                "\n#undef main"
+            )
+            tc_params_comma        = "const char* _stdin_text, "
+            call_solve_and_capture = self._build_cpp_stdio_call()
+        else:
+            params      = ", ".join(f"{t} p{i}" for i, t in enumerate(param_types))
+            args        = ", ".join(f"p{i}" for i in range(len(param_types)))
+            # FIX-2: same trailing-comma logic as C
+            tc_params_comma        = (params + ", ") if params else ""
+            call_solve_and_capture = self._build_cpp_call()
+
         return template.format(
             delim                  = self.delim,
             student_code           = student_code_escaped,
             tc_params_comma        = tc_params_comma,
-            tc_args                = args,
-            call_solve_and_capture = self._build_cpp_call(),
+            tc_args                = "",
+            call_solve_and_capture = call_solve_and_capture,
             tc_runner_body         = self._build_cpp_parallel_runner(),
         )
 
@@ -457,14 +608,75 @@ class HarnessBuilder:
         rt   = self.cfg.return_type
         args = ", ".join(f"p{i}" for i in range(len(self.cfg.param_types or [])))
         if rt == "void":
-            # void functions: rely on oss capturing any cout output
             return f"{fn}({args});"
-        # FIX (cpp void-only skip): `auto` used to fall through to the no-capture
-        # branch, silently discarding non-void return values.  Now only `void`
-        # skips capture; everything else (including `auto`) uses `oss << ret`.
+        if rt == "auto":
+            # C++17 if constexpr: handles both void and non-void return types
+            # automatically. Avoids compile error when user omits return_type
+            # for a void function (the old `auto ret = void_fn()` would fail).
+            return f"""
+        {{
+            using _Ret = decltype({fn}({args}));
+            if constexpr (std::is_void_v<_Ret>) {{
+                {fn}({args});
+            }} else {{
+                oss << {fn}({args});
+            }}
+        }}"""
         return f"""
         auto ret = {fn}({args});
         oss << ret;
+"""
+
+    def _build_cpp_stdio_call(self) -> str:
+        """
+        C++ stdio mode: pipe _stdin_text into the child's stdin, call
+        student_stdio_main(0, nullptr), capture stdout via fd dup so both
+        printf() and std::cout output are captured.
+        """
+        return r"""
+    /* C++ stdio mode: redirect stdin, capture all stdout (printf + cout) */
+    {
+        int _sp[2];
+        if (pipe(_sp) != 0) {
+            strncpy(result.status, "ERROR",  sizeof(result.status) - 1);
+            strncpy(result.detail, "pipe() failed for stdin redirect", sizeof(result.detail) - 1);
+        } else {
+            write(_sp[1], _stdin_text, strlen(_stdin_text));
+            close(_sp[1]);
+
+            int _saved_in = dup(STDIN_FILENO);
+            dup2(_sp[0], STDIN_FILENO);
+            close(_sp[0]);
+
+            /* Capture at fd level — catches printf, puts, cout, cerr→stdout, etc. */
+            FILE* _tmp       = tmpfile();
+            int   _saved_out = dup(STDOUT_FILENO);
+            dup2(fileno(_tmp), STDOUT_FILENO);
+
+            student_stdio_main(0, nullptr);
+
+            /* Flush C and C++ output buffers before restoring fd */
+            fflush(stdout);
+            std::cout.flush();
+
+            dup2(_saved_in,  STDIN_FILENO);  close(_saved_in);
+            dup2(_saved_out, STDOUT_FILENO); close(_saved_out);
+
+            char _cbuf[8192];
+            memset(_cbuf, 0, sizeof(_cbuf));
+            fseek(_tmp, 0, SEEK_SET);
+            fread(_cbuf, 1, sizeof(_cbuf) - 1, _tmp);
+            fclose(_tmp);
+
+            std::string got_str(_cbuf);
+            while (!got_str.empty() &&
+                   (got_str.back() == '\n' || got_str.back() == '\r' ||
+                    got_str.back() == ' '  || got_str.back() == '\t'))
+                got_str.pop_back();
+
+            strncpy(result.got, got_str.c_str(), sizeof(result.got) - 1);
+        }
+    }
 """
 
     def _build_cpp_parallel_runner(self) -> str:
@@ -532,11 +744,15 @@ class HarnessBuilder:
         memset(_done, 0, sizeof(_done));
         _global_tle = 0;  /* reset from any previous batch alarm */""")
 
-            lines.append("        /* Phase 1: Fork batch children (Fix 4.1: no expected arg) */")
+            lines.append("        /* Phase 1: Fork batch children */")
             for b_i, tc in enumerate(batch):
-                g_i        = batch_start + b_i
-                args_str   = ", ".join(str(v) for v in (tc.inputs or []))
-                args_comma = (args_str + ", ") if args_str else ""
+                g_i = batch_start + b_i
+                if self.cfg.mode == "stdio":
+                    stdin_esc  = self._c_string_escape(tc.stdin_text or "")
+                    args_comma = f'"{stdin_esc}", '
+                else:
+                    args_str   = ", ".join(self._c_literal(v, "cpp") for v in (tc.inputs or []))
+                    args_comma = (args_str + ", ") if args_str else ""
                 lines.append(f"""        {{
             int _pfd[2];
             if (pipe(_pfd) == 0) {{

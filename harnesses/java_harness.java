@@ -102,6 +102,61 @@ public class Harness {
     /* ── Memory tracking ─────────────────────────────────────────────── */
     static final MemoryMXBean MX = ManagementFactory.getMemoryMXBean();
 
+    /* ── Per-TC fresh classloader (fixes static state contamination) ────
+     * Each TC gets its own ClassLoader that defines a brand-new copy of
+     * Harness$Student with zeroed static fields. Without this, a student's
+     * `static int[] dp = new int[N]` from TC1 persists into TC2..TCN,
+     * causing stale-state wrong answers even for correct code.
+     *
+     * How it works: at startup we read Harness$Student.class bytes once.
+     * freshStudentClass() creates a new ClassLoader per call; since Java's
+     * class identity is (loader, name), each call produces an independent
+     * class with its own static storage. Falls back to Student.class if the
+     * class bytes can't be read (e.g. unusual sandbox classpath layout).
+     */
+    static final byte[] STUDENT_CLASS_BYTES;
+
+    static {
+        byte[] _bytes = null;
+        try {
+            InputStream _is = Harness.class.getClassLoader()
+                    .getResourceAsStream("Harness$Student.class");
+            if (_is != null) {
+                ByteArrayOutputStream _buf = new ByteArrayOutputStream();
+                byte[] _tmp = new byte[4096];
+                int _n;
+                while ((_n = _is.read(_tmp)) != -1) _buf.write(_tmp, 0, _n);
+                _is.close();
+                _bytes = _buf.toByteArray();
+            }
+        } catch (Exception _ignored) {}
+        STUDENT_CLASS_BYTES = _bytes;
+    }
+
+    static Class<?> freshStudentClass() {
+        if (STUDENT_CLASS_BYTES == null || STUDENT_CLASS_BYTES.length == 0)
+            return Student.class;
+        try {
+            ClassLoader _parent = Harness.class.getClassLoader();
+            ClassLoader _loader = new ClassLoader(_parent) {
+                @Override
+                protected Class<?> loadClass(String name, boolean resolve)
+                        throws ClassNotFoundException {
+                    if ("Harness$Student".equals(name)) {
+                        Class<?> _c = defineClass(name, STUDENT_CLASS_BYTES,
+                                0, STUDENT_CLASS_BYTES.length);
+                        if (resolve) resolveClass(_c);
+                        return _c;
+                    }
+                    return super.loadClass(name, resolve);
+                }
+            };
+            return _loader.loadClass("Harness$Student");
+        } catch (Exception _e) {
+            return Student.class;
+        }
+    }
+
     static long usedHeapBytes() {
         return MX.getHeapMemoryUsage().getUsed();
     }
@@ -162,9 +217,13 @@ public class Harness {
                 forceGC();
                 long memBefore = usedHeapBytes();
 
+                Class<?> _studentClass = freshStudentClass();
                 Class<?>[] paramClasses = resolveParamClasses(paramTypes);
-                Method m = Student.class.getMethod(functionName, paramClasses);
-                Object retVal = m.invoke(new Student(), inputs);
+                Method m = _studentClass.getDeclaredMethod(functionName, paramClasses);
+                m.setAccessible(true);
+                java.lang.reflect.Constructor<?> _ctor = _studentClass.getDeclaredConstructor();
+                _ctor.setAccessible(true);
+                Object retVal = m.invoke(_ctor.newInstance(), inputs);
 
                 forceGC();
                 long memUsedMb = Math.max(0, usedHeapBytes() - memBefore) / (1024 * 1024);
@@ -226,7 +285,8 @@ public class Harness {
             TL_IN.set(fakeIn);
 
             try {
-                Method m = Student.class.getMethod("main", String[].class);
+                Class<?> _studentClass = freshStudentClass();
+                Method m = _studentClass.getMethod("main", String[].class);
                 m.invoke(null, (Object) new String[]{});
 
                 result.got    = baos.toString().trim();
@@ -264,13 +324,23 @@ public class Harness {
         Class<?>[] out = new Class<?>[types.length];
         for (int i = 0; i < types.length; i++) {
             switch (types[i]) {
-                case "int":     out[i] = int.class;     break;
-                case "long":    out[i] = long.class;    break;
-                case "double":  out[i] = double.class;  break;
-                case "float":   out[i] = float.class;   break;
-                case "boolean": out[i] = boolean.class; break;
-                case "char":    out[i] = char.class;    break;
-                default:        out[i] = Class.forName(types[i]);
+                case "int":      out[i] = int.class;       break;
+                case "long":     out[i] = long.class;      break;
+                case "double":   out[i] = double.class;    break;
+                case "float":    out[i] = float.class;     break;
+                case "boolean":  out[i] = boolean.class;   break;
+                case "char":     out[i] = char.class;      break;
+                case "String":   out[i] = String.class;    break;
+                case "Integer":  out[i] = Integer.class;   break;
+                case "Long":     out[i] = Long.class;      break;
+                case "Double":   out[i] = Double.class;    break;
+                case "Float":    out[i] = Float.class;     break;
+                case "Boolean":  out[i] = Boolean.class;   break;
+                case "String[]": out[i] = String[].class;  break;
+                case "int[]":    out[i] = int[].class;     break;
+                case "long[]":   out[i] = long[].class;    break;
+                case "double[]": out[i] = double[].class;  break;
+                default:         out[i] = Class.forName(types[i]);
             }
         }
         return out;

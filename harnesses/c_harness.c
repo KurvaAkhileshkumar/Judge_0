@@ -160,6 +160,18 @@ static void run_tc_child(int pipe_fd, {tc_params_comma}int per_tc_limit_s, int m
     nproc_rl.rlim_max = 1;
     setrlimit(RLIMIT_NPROC, &nproc_rl);
 
+    /* Close all FDs except stdin/stdout/stderr and pipe_fd.
+     * Prevents student code from writing fake TCResult structs to the pipe
+     * by iterating over small FD numbers. After this, pipe_fd is the only
+     * FD > 2 that is open — but since PASS/FAIL from harness are rejected by
+     * OutputParser, even a successful write cannot forge a PASS verdict. */
+    {{
+        int _cfd;
+        for (_cfd = 3; _cfd < 1024; _cfd++) {{
+            if (_cfd != pipe_fd) close(_cfd);
+        }}
+    }}
+
     /* Set up per-child TLE alarm */
     _child_pipe_fd = pipe_fd;
     /* Fix 4.1: no _child_expected needed; TLE result needs no expected value */

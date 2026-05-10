@@ -1,0 +1,7 @@
+# Host-only load-test report generation dependencies
+# Run on the EC2 host or dev machine — NOT inside Docker containers
+# Install: pip install -r requirements-report.txt
+
+openpyxl>=3.1   # Excel report generation (generate_ec2_report.py)
+psutil>=5.9     # Live system metrics collector (collect_ec2_metrics.py)
+redis>=5.0      # Redis queue-depth sampling (collect_ec2_metrics.py)

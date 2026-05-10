@@ -49,6 +49,50 @@ class SecurityCheckResult:
         return f"{v.rule}{loc}: {v.detail}"
 
 
+# ── Infinite loop helpers (used by _PythonASTChecker) ────────────────────
+
+def _is_const_true(node: ast.expr) -> bool:
+    """Return True if node is the literal True or 1."""
+    if isinstance(node, ast.Constant):
+        return node.value in (True, 1)
+    return False
+
+
+def _body_can_exit(stmts: list) -> bool:
+    """
+    Return True if any statement in `stmts` contains a break, return, or
+    raise that could terminate the enclosing while loop.
+
+    Does NOT recurse into nested function/class/lambda definitions because
+    a `return` inside `def f(): return 1` does not exit the outer loop.
+    """
+    for stmt in stmts:
+        if isinstance(stmt, (ast.Break, ast.Return, ast.Raise)):
+            return True
+        # Skip nested scopes — their exits don't affect the outer loop
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef,
+                              ast.ClassDef, ast.Lambda)):
+            continue
+        # ExceptHandler is not a statement — handle it directly
+        if isinstance(stmt, ast.ExceptHandler):
+            if _body_can_exit(stmt.body):
+                return True
+            continue
+        # Recurse into control-flow sub-bodies (if/for/while/try/with)
+        # Note: handlers is a list of ExceptHandler, handled above via Try.handlers
+        for _attr in ("body", "orelse", "finalbody"):
+            sub = getattr(stmt, _attr, None)
+            if isinstance(sub, list) and _body_can_exit(sub):
+                return True
+        # ast.Try.handlers is List[ExceptHandler] — recurse into each
+        handlers = getattr(stmt, "handlers", None)
+        if isinstance(handlers, list):
+            for h in handlers:
+                if isinstance(h, ast.ExceptHandler) and _body_can_exit(h.body):
+                    return True
+    return False
+
+
 # ── PYTHON AST VISITOR ───────────────────────────────────────────────────
 
 class _PythonASTChecker(ast.NodeVisitor):
@@ -76,6 +120,13 @@ class _PythonASTChecker(ast.NodeVisitor):
         "io",
         # FIX-13b: pathlib.Path.read_text() / .write_text() bypass open().
         "pathlib",
+        # sys: sys.modules['os'] gives access to already-loaded dangerous modules
+        # without an import statement, bypassing all Import/ImportFrom AST checks.
+        # Example: def solve(n): return sys.modules['os'].system('...')
+        "sys",
+        # builtins: import builtins; builtins.open = real_open bypasses
+        # the harness monkey-patch of builtins.open with _safe_open.
+        "builtins",
     }
 
     BLOCKED_BUILTINS = {
@@ -171,6 +222,53 @@ class _PythonASTChecker(ast.NodeVisitor):
             pass
         self.generic_visit(node)
 
+    # ── Direct infinite recursion detection ─────────────────────────────
+    def visit_FunctionDef(self, node: ast.FunctionDef):
+        # Detect the simplest case: entire function body is a single statement
+        # that unconditionally calls itself — e.g. `def solve(n): return solve(n)`.
+        # Only flag single-statement bodies; multi-statement bodies may have a
+        # base case somewhere (we leave those for Judge0 to time out).
+        real_body = [s for s in node.body if not isinstance(s, ast.Expr)
+                     or not isinstance(s.value, ast.Constant)]
+        if len(real_body) == 1:
+            stmt = real_body[0]
+            call_node = None
+            if isinstance(stmt, ast.Return) and isinstance(stmt.value, ast.Call):
+                call_node = stmt.value
+            elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
+                call_node = stmt.value
+            if call_node is not None:
+                func = call_node.func
+                # Direct self-call: solve(...) or self.solve(...) etc.
+                called_name = (
+                    func.id if isinstance(func, ast.Name) else
+                    func.attr if isinstance(func, ast.Attribute) else None
+                )
+                if called_name == node.name:
+                    self._add(
+                        "InfiniteLoop",
+                        f"'{node.name}()' calls itself unconditionally — guaranteed TLE",
+                        node,
+                    )
+        self.generic_visit(node)
+
+    # async def has a separate AST node but identical structure
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    # ── Infinite loop detection ──────────────────────────────────────────
+    def visit_While(self, node: ast.While):
+        # Flag while True / while 1 only when the body has no way out.
+        # We walk the body but do NOT recurse into nested function/class
+        # definitions — a `return` inside `def f(): return 1` does NOT
+        # exit the outer while loop.
+        if _is_const_true(node.test) and not _body_can_exit(node.body):
+            self._add(
+                "InfiniteLoop",
+                "while True/1 with no break, return, or raise — guaranteed TLE",
+                node,
+            )
+        self.generic_visit(node)
+
 
 def _check_python_ast(code: str) -> List[SecurityViolation]:
     """
@@ -186,6 +284,38 @@ def _check_python_ast(code: str) -> List[SecurityViolation]:
     checker = _PythonASTChecker()
     checker.visit(tree)
     return checker.violations
+
+
+_INFINITE_LOOP_RE = re.compile(
+    r"\b(?:"
+    r"while\s*\(\s*(?:1|true)\s*\)"   # while(1) / while(true)
+    r"|for\s*\(\s*;\s*;\s*\)"          # for(;;)
+    r"|do\s*\{[^}]*\}\s*while\s*\(\s*(?:1|true)\s*\)"  # do { } while(1/true)
+    r")",
+    re.IGNORECASE | re.DOTALL,
+)
+
+def _check_c_infinite_loops(code: str) -> List[SecurityViolation]:
+    """
+    Detect unconditional infinite loops in C/C++/Java where the ENTIRE
+    submission has no break or return statement — guaranteeing TLE.
+    If there IS a break/return somewhere, the loop may be intentional
+    (e.g. while(1) { ... break; }) so we leave it for Judge0 to judge.
+    """
+    m = _INFINITE_LOOP_RE.search(code)
+    if not m:
+        return []
+    # Only flag if there is truly no exit path in the whole submission
+    has_exit = bool(re.search(r"\b(?:break|return)\b", code))
+    if has_exit:
+        return []
+    lineno = code[:m.start()].count("\n") + 1
+    loop_text = m.group(0).strip()
+    return [SecurityViolation(
+        "InfiniteLoop",
+        f"{loop_text} with no break/return in submission — guaranteed TLE",
+        lineno,
+    )]
 
 
 # ── C / C++ REGEX CHECKS ────────────────────────────────────────────────
@@ -210,6 +340,13 @@ _C_BLOCKED: List[Tuple[str, str]] = [
     # FIX-15: inline assembly can invoke arbitrary syscalls, bypassing all
     # regex pattern checks above. Block all GCC/Clang/MSVC asm syntax.
     (r"\b(?:asm|__asm__|__asm)\b",   "inline assembly not allowed"),
+    # syscall(): raw kernel invocation bypasses every blocked libc wrapper
+    # (fork, execve, socket, etc.) since the harness blocks the C-library
+    # functions but not the underlying syscall() entry point.
+    (r"\bsyscall\s*\(",              "syscall() not allowed"),
+    # fopen/open for file access — sandbox filesystem is limited but readable
+    (r"\bfopen\s*\(",                "fopen() not allowed"),
+    (r'\bopen\s*\(\s*"/',            'open() with absolute path not allowed'),
 ]
 
 # ── JAVA REGEX CHECKS ───────────────────────────────────────────────────
@@ -226,6 +363,16 @@ _JAVA_BLOCKED: List[Tuple[str, str]] = [
     (r"\bReflection\b",                      "Reflection not allowed"),
     (r"\bjava\s*\.\s*lang\s*\.\s*reflect",   "java.lang.reflect not allowed"),
     (r"\bUnsafe\b",                          "sun.misc.Unsafe not allowed"),
+    # File access via constructors that accept a String path — java.io.File is
+    # blocked but FileReader(String), FileInputStream(String), etc. are not.
+    (r"\bFileReader\s*\(",                   "java.io.FileReader not allowed"),
+    (r"\bFileWriter\s*\(",                   "java.io.FileWriter not allowed"),
+    (r"\bFileInputStream\s*\(",              "java.io.FileInputStream not allowed"),
+    (r"\bFileOutputStream\s*\(",             "java.io.FileOutputStream not allowed"),
+    # java.nio file access
+    (r"\bjava\s*\.\s*nio\b",                 "java.nio not allowed"),
+    (r"\bFiles\s*\.\s*read",                 "java.nio.file.Files.read*() not allowed"),
+    (r"\bPaths\s*\.\s*get\s*\(",             "java.nio.file.Paths.get() not allowed"),
 ]
 
 
@@ -274,8 +421,10 @@ class SecurityChecker:
             violations.extend(_check_python_ast(student_code))
         elif lang in ("c", "cpp"):
             violations.extend(_check_regex(student_code, _C_BLOCKED))
+            violations.extend(_check_c_infinite_loops(student_code))
         elif lang == "java":
             violations.extend(_check_regex(student_code, _JAVA_BLOCKED))
+            violations.extend(_check_c_infinite_loops(student_code))
 
         if violations:
             return SecurityCheckResult(False, violations)

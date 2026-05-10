@@ -51,8 +51,13 @@ _real_open   = open
 _real_signal = signal.signal
 _HARNESS_FILE = __file__
 
-# ── SECURITY: block harness file read ──────────────────────────────────
+# ── SECURITY: block harness file read and direct FD access ─────────────
 def _safe_open(file, mode="r", *args, **kwargs):
+    # Block integer FD access: open(3, 'wb') would allow writing to the
+    # result pipe FD by iterating small integers. Path-based check is skipped
+    # for integers because str(3) = "3" != harness path, so the check passes.
+    if isinstance(file, int):
+        raise PermissionError("Direct file descriptor access not allowed")
     try:
         if os.path.abspath(str(file)) == os.path.abspath(_HARNESS_FILE):
             raise PermissionError("Access denied")
@@ -99,7 +104,7 @@ builtins.quit = _safe_exit
 # ════════════════════════════════════════════════════════════════════════
 
 # Raw student source stored for stdio re-exec in child processes.
-_STUDENT_SOURCE = """{student_code_raw}"""
+_STUDENT_SOURCE = {student_code_raw}
 
 def _safe_tb():
     lines = traceback.format_exc().strip().splitlines()
@@ -131,6 +136,20 @@ def _child_run(tc, write_fd, per_tc_limit_s, mem_limit_mb):
     Sets up a per-child SIGALRM timeout via _real_signal, then runs the TC
     and writes exactly one JSON result to write_fd.
     """
+
+    # Strip dangerous modules from sys.modules so student code in function mode
+    # cannot access them via sys.modules['os'] (the harness imports os/signal/etc.
+    # at module level; those names are in globals inherited by the forked child).
+    # Removing from sys.modules means `import os` inside solve() would reload a
+    # fresh module AND any existing `os` name in solve()'s closure still works for
+    # the harness itself — we save references we need before stripping.
+    _strip_mods = (
+        'os', 'subprocess', 'socket', 'signal', 'resource', 'select',
+        'multiprocessing', 'threading', 'ctypes', 'mmap', 'fcntl',
+        'pty', 'tty', 'termios', 'posix', 'posixpath', 'pathlib',
+    )
+    for _m in _strip_mods:
+        sys.modules.pop(_m, None)
 
     # Per-child TLE: use _real_signal (parent replaced signal.signal with _safe_signal)
     def _tle(s, f):
@@ -174,10 +193,10 @@ def _child_run(tc, write_fd, per_tc_limit_s, mem_limit_mb):
 
 def _child_run_function(tc):
     """
-    Runs solve(*inputs) and returns the actual output.
+    Runs {function_name}(*inputs) and returns the actual output.
     Fix 4.1: No expected comparison inside sandbox — OutputParser does it.
     """
-    actual = solve(*tc["input"])
+    actual = {function_name}(*tc["input"])
     got_s  = str(actual).strip()
     return {{
         "status": "OUTPUT",

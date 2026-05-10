@@ -19,6 +19,12 @@ from typing import Optional
 
 VALID_STATUSES = {"PASS", "FAIL", "TLE", "MLE", "SEGV", "FPE", "ERROR", "OUTPUT"}
 
+# Statuses a harness is ALLOWED to emit. PASS and FAIL are never emitted by
+# the harness — they are assigned only by OutputParser after comparison.
+# Accepting PASS/FAIL from harness output would allow students to forge
+# verdicts by writing fake TCResult structs to the result pipe.
+_HARNESS_STATUSES = {"TLE", "MLE", "SEGV", "FPE", "ERROR", "OUTPUT"}
+
 
 def _num_equal(a_str: str, b_str: str) -> bool:
     """Float-tolerant comparison: relative tolerance 1e-6, absolute 1e-9."""
@@ -113,7 +119,9 @@ class OutputParser:
             data = json.loads(content)
 
             status = data.get("status", "ERROR")
-            if status not in VALID_STATUSES:
+            if status not in _HARNESS_STATUSES:
+                # Reject PASS/FAIL from harness: harness never emits them legitimately.
+                # Receiving them means student wrote a fake result to the pipe.
                 status = "ERROR"
 
             # Fix 4.1: harnesses emit OUTPUT; comparison done here with expected_values
@@ -146,10 +154,12 @@ class OutputParser:
             )
 
         except json.JSONDecodeError:
-            # Content wasn't valid JSON — student may have corrupted output
-            # Try to detect status from raw text as fallback
+            # Content wasn't valid JSON — student may have corrupted output.
+            # Only scan for harness-emitted statuses — never assign PASS/FAIL
+            # from raw text, as that would let a student forge a PASS verdict
+            # by injecting the literal string "PASS" into corrupted output.
             status = "ERROR"
-            for s in VALID_STATUSES:
+            for s in _HARNESS_STATUSES:
                 if s in content:
                     status = s
                     break
@@ -162,11 +172,12 @@ class OutputParser:
 
 
 def parse_judge0_response(
-    judge0_stdout:  str,
-    judge0_status:  str,   # Judge0's own status: "Accepted", "Time Limit Exceeded", etc.
-    session_id:     str,
-    total_tc_count: int,
+    judge0_stdout:   str,
+    judge0_status:   str,   # Judge0's own status: "Accepted", "Time Limit Exceeded", etc.
+    session_id:      str,
+    total_tc_count:  int,
     expected_values: list = None,   # Fix 4.1: passed from autograder; harness emits OUTPUT
+    compile_output:  str  = None,   # Compiler error message from Judge0 (status_id=6)
 ) -> ParsedSubmission:
     """
     Top-level parser.
@@ -189,12 +200,14 @@ def parse_judge0_response(
 
     # Judge0 compile error — no output at all
     if judge0_status in ("Compilation Error", "Internal Error"):
+        if compile_output:
+            # Trim to 500 chars so it fits in the result JSON without overwhelming
+            snippet = compile_output.strip()[:500]
+            detail = f"Compilation Error:\n{snippet}"
+        else:
+            detail = f"Judge0: {judge0_status}"
         results = [
-            TCResult(
-                tc_num = i,
-                status = "ERROR",
-                detail = f"Judge0: {judge0_status}"
-            )
+            TCResult(tc_num=i, status="ERROR", detail=detail)
             for i in range(1, total_tc_count + 1)
         ]
         return ParsedSubmission(tc_results=results, total=total_tc_count)

@@ -10,6 +10,7 @@ Usage:
     print(result.summary())
 """
 
+import re
 import sys
 import os
 import time
@@ -19,7 +20,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from core.harness_builder import HarnessBuilder, HarnessConfig, TestCase
-from core.output_parser   import OutputParser, ParsedSubmission, parse_judge0_response
+from core.output_parser   import OutputParser, ParsedSubmission, TCResult, parse_judge0_response
 from core.judge0_client   import Judge0Client, Judge0Config, Judge0Result, CallbackServer
 from security.security    import SecurityChecker, sanitize_for_injection
 
@@ -37,6 +38,96 @@ _INFRA_ERROR_KEYWORDS = (
     "out of memory",            # system-level OOM messages
     "calloc failed",            # harness heap allocation failure (Fix 1.2)
 )
+
+
+_FUNCTION_SKIP = frozenset({
+    "main", "int", "void", "bool", "char", "float", "double", "long",
+    "string", "auto", "if", "for", "while", "switch", "printf", "scanf",
+})
+
+
+def _find_defined_functions(code: str, language: str) -> list[str]:
+    """Return names of functions defined in the student's code."""
+    lang = language.lower()
+    if lang == "python":
+        via_def    = re.findall(r"^\s*(?:async\s+)?def\s+(\w+)\s*\(", code, re.MULTILINE)
+        via_lambda = re.findall(r"^\s*(\w+)\s*=\s*lambda\b", code, re.MULTILINE)
+        return via_def + via_lambda
+    elif lang in ("c", "cpp"):
+        return re.findall(
+            r"\b(?:static\s+|inline\s+|extern\s+)*\w[\w\s*]*\s+(\w+)\s*\(", code
+        )
+    elif lang == "java":
+        return re.findall(
+            r"\b(?:(?:public|private|protected|static|final|synchronized)\s+)*"
+            r"\w[\w<>\[\]]*\s+(\w+)\s*\(",
+            code,
+        )
+    return []
+
+
+def _best_candidate(candidates: list[str], expected: str) -> str:
+    """
+    Pick the most likely solution function from multiple candidates.
+
+    Priority order:
+      1. Name contains the expected name as a substring (e.g. solve_problem ⊇ solve)
+         — among those, prefer the one closest in length to expected.
+      2. No name contains expected — take the LAST defined function.
+         Helper functions are almost always defined before the main solution
+         in competitive-programming style code.
+    """
+    exp_lower = expected.lower()
+    containing = [n for n in candidates if exp_lower in n.lower()]
+    if containing:
+        return min(containing, key=lambda n: abs(len(n) - len(expected)))
+    # Fall back to last defined — helpers come first, solution comes last
+    return candidates[-1]
+
+
+def _detect_function_name(code: str, language: str, expected: str) -> str | None:
+    """
+    Return the function name to call in the harness.
+
+    1. If `expected` is defined in the code, return `expected`.
+    2. Otherwise scan for any defined function and return the first candidate
+       that isn't a well-known non-solution name.
+    3. Return None if no function is found at all.
+    """
+    fn   = re.escape(expected)
+    lang = language.lower()
+
+    if lang == "python":
+        if re.search(
+            rf"(?:\b(?:async\s+)?def\s+{fn}\s*\(|^\s*{fn}\s*=\s*(?:lambda\b|\w))",
+            code, re.MULTILINE,
+        ):
+            return expected
+    elif lang in ("c", "cpp"):
+        if re.search(
+            rf"\b(?:static\s+|inline\s+|extern\s+)*\w[\w\s*]*\s+{fn}\s*\(", code
+        ):
+            return expected
+    elif lang == "java":
+        if re.search(
+            rf"\b(?:(?:public|private|protected|static|final|synchronized)\s+)*"
+            rf"\w[\w<>\[\]]*\s+{fn}\s*\(",
+            code,
+        ):
+            return expected
+    else:
+        return expected  # unknown language — don't block
+
+    # Expected name not found — find what the student actually defined
+    candidates = [
+        n for n in _find_defined_functions(code, language)
+        if n not in _FUNCTION_SKIP and n != expected
+    ]
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0]
+    return _best_candidate(candidates, expected)
 
 
 def _is_infrastructure_failure(parsed: ParsedSubmission) -> bool:
@@ -148,12 +239,60 @@ class Autograder:
         builder = HarnessBuilder(config)
 
         # ── 2. Security check ────────────────────────────────────────────
+        # Runs BEFORE missing-function check so security violations are always
+        # reported correctly (don't want "function not found" to shadow "import os").
         sec = self.security.check(
             submission.student_code,
             submission.language,
             builder.delim
         )
         if not sec.passed:
+            # Infinite loop detected statically — return TLE for every TC
+            # without hitting Judge0 at all (saves compilation + execution time).
+            if sec.violations and all(v.rule == "InfiniteLoop" for v in sec.violations):
+                detail = sec.violations[0].detail
+                tle_results = [
+                    TCResult(
+                        tc_num = i + 1,
+                        status = "TLE",
+                        detail = f"Infinite loop detected: {detail}",
+                    )
+                    for i in range(len(submission.test_cases))
+                ]
+                tle_sub = ParsedSubmission(
+                    tc_results = tle_results,
+                    total      = len(submission.test_cases),
+                    score      = 0,
+                    global_tle = True,
+                )
+                return GradingResult(
+                    student_id   = submission.student_id,
+                    language     = submission.language,
+                    submission   = tle_sub,
+                    judge0_raw   = None,
+                    harness_code = "",
+                )
+
+            # SyntaxError: return as ERROR for all TCs (not as a "blocked" security violation)
+            if sec.violations and sec.violations[0].rule == "SyntaxError":
+                detail = f"SyntaxError: {sec.violations[0].detail}"
+                err_results = [
+                    TCResult(tc_num=i + 1, status="ERROR", detail=detail)
+                    for i in range(len(submission.test_cases))
+                ]
+                return GradingResult(
+                    student_id   = submission.student_id,
+                    language     = submission.language,
+                    submission   = ParsedSubmission(
+                        tc_results = err_results,
+                        total      = len(submission.test_cases),
+                        score      = 0,
+                    ),
+                    judge0_raw   = None,
+                    harness_code = "",
+                )
+
+            # Real security violation — block the submission
             empty_sub = ParsedSubmission(
                 tc_results = [],
                 total      = len(submission.test_cases),
@@ -167,6 +306,39 @@ class Autograder:
                 harness_code   = "",
                 security_error = sec.reason,
             )
+
+        # ── 2b. Auto-detect function name (function mode only) ──────────
+        # If the student used a different name than expected (e.g. solve_problem
+        # instead of solve), detect it and update config so the harness calls the
+        # right function.  Only error if no function is defined at all.
+        if submission.mode == "function":
+            actual_fn = _detect_function_name(
+                submission.student_code,
+                submission.language,
+                submission.function_name,
+            )
+            if actual_fn is None:
+                detail = (
+                    f"No function definition found in your submission. "
+                    f"Make sure you define a function."
+                )
+                error_results = [
+                    TCResult(tc_num=i + 1, status="ERROR", detail=detail)
+                    for i in range(len(submission.test_cases))
+                ]
+                return GradingResult(
+                    student_id   = submission.student_id,
+                    language     = submission.language,
+                    submission   = ParsedSubmission(
+                        tc_results = error_results,
+                        total      = len(submission.test_cases),
+                        score      = 0,
+                    ),
+                    judge0_raw   = None,
+                    harness_code = "",
+                )
+            # Update harness config to call whatever the student actually named it
+            config.function_name = actual_fn
 
         # ── 3. Sanitize and build harness ────────────────────────────────
         config.student_code = sanitize_for_injection(
@@ -213,6 +385,7 @@ class Autograder:
             session_id      = builder.session_id,
             total_tc_count  = len(submission.test_cases),
             expected_values = expected_values,
+            compile_output  = judge0_result.compile_output,
         )
 
         # ── 6. Infrastructure failure detection ──────────────────────────

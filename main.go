@@ -41,6 +41,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/exec"
 	"sort"
 	"strings"
 	"sync"
@@ -52,21 +53,24 @@ import (
 // ── Config ────────────────────────────────────────────────────────────────
 
 type Config struct {
-	Judge0URL    string
-	FlaskAPIURL  string // when set, use Flask stack mode instead of direct Judge0
-	APIKey       string
-	Users        int
-	RampUpSec    int
-	BatchSize    int
-	AcceptOnly   bool
-	CallbackPort int
-	CallbackHost string
-	QuestionBank string
-	PollInterval time.Duration
-	MaxPollSecs  int
-	DryRun       bool
-	OutputFile   string
-	RunID        string // unique suffix per run to bypass idempotency cache
+	Judge0URL      string
+	FlaskAPIURL    string // when set, use Flask stack mode instead of direct Judge0
+	APIKey         string
+	Users          int
+	RampUpSec      int
+	BatchSize      int
+	AcceptOnly     bool
+	CallbackPort   int
+	CallbackHost   string
+	QuestionBank   string
+	PollInterval   time.Duration
+	MaxPollSecs    int
+	DryRun         bool
+	OutputFile     string
+	RunID          string // unique suffix per run to bypass idempotency cache
+	AutoReport     bool   // auto-run generate_ec2_report.py after the test
+	CompareReports bool   // pass --compare to the Python generator
+	MetricsFile    string // optional metrics.jsonl path for the Python generator
 }
 
 // ── Question Bank Types ───────────────────────────────────────────────────
@@ -197,6 +201,7 @@ type SubmissionResult struct {
 	SolutionID    string
 	SolutionType  string
 	HarnessStatus string // PASS/FAIL/TLE/ERROR/BLOCKED/JUDGE0_ERROR/SYSTEM_ERROR/RATE_LIMITED
+	SourceCode    string // actual code the student submitted
 	TCDetails     []TCResult
 	LatencyMs     int64
 	Judge0Status  string
@@ -1203,6 +1208,7 @@ func runUser(
 		ProblemID:    prob.ID,
 		SolutionID:   sol.ID,
 		SolutionType: sol.Type,
+		SourceCode:   sol.SourceCode,
 		TotalTCs:     len(prob.TestCases),
 	}
 
@@ -1545,6 +1551,7 @@ type PerProblemSubmission struct {
 	SolutionID    string     `json:"solution_id"`
 	SolutionType  string     `json:"solution_type"`
 	HarnessStatus string     `json:"harness_status"`
+	SourceCode    string     `json:"source_code"`
 	Score         int        `json:"score"`
 	TotalTCs      int        `json:"total_tcs"`
 	LatencyMs     int64      `json:"latency_ms"`
@@ -1572,6 +1579,7 @@ func buildPerProblemReport(results []SubmissionResult) []PerProblemReport {
 			SolutionID:    r.SolutionID,
 			SolutionType:  r.SolutionType,
 			HarnessStatus: r.HarnessStatus,
+			SourceCode:    r.SourceCode,
 			Score:         r.Score,
 			TotalTCs:      r.TotalTCs,
 			LatencyMs:     r.LatencyMs,
@@ -1698,6 +1706,9 @@ func main() {
 	flag.BoolVar(&cfg.DryRun, "dryrun", false, "Dry run: build harnesses but don't submit")
 	flag.StringVar(&cfg.OutputFile, "out", "load_test_report.json", "Output JSON report file")
 	flag.StringVar(&cfg.RunID, "run-id", "", "Unique run ID suffix appended to student_id to bypass idempotency cache (auto-generated if empty)")
+	flag.BoolVar(&cfg.AutoReport, "auto-report", true, "Automatically generate Excel report (generate_ec2_report.py) after the test")
+	flag.BoolVar(&cfg.CompareReports, "compare", false, "Pass --compare to the Python generator to auto-detect sibling JSON reports for Sheet 4")
+	flag.StringVar(&cfg.MetricsFile, "metrics", "", "Path to metrics.jsonl from collect_ec2_metrics.py to embed in the Excel report")
 	flag.Parse()
 
 	// Auto-generate RunID if not provided so every run is cache-free by default
@@ -1844,6 +1855,44 @@ func main() {
 			log.Printf("Failed to write report: %v", err)
 		} else {
 			fmt.Printf("  JSON report written to: %s\n\n", cfg.OutputFile)
+
+			// ── Auto-generate Excel report ─────────────────────────────────────
+			if cfg.AutoReport {
+				generateExcelReport(cfg)
+			}
 		}
 	}
+}
+
+// generateExcelReport runs generate_ec2_report.py as a subprocess.
+// It tries python3 first, then python.  If neither is found it prints a hint.
+func generateExcelReport(cfg Config) {
+	args := []string{"generate_ec2_report.py", cfg.OutputFile}
+	if cfg.MetricsFile != "" {
+		args = append(args, "--metrics", cfg.MetricsFile)
+	}
+	if cfg.CompareReports {
+		args = append(args, "--compare")
+	}
+
+	// Determine xlsx output path (same stem as JSON file)
+	xlsxPath := strings.TrimSuffix(cfg.OutputFile, ".json") + ".xlsx"
+	args = append(args, "--out", xlsxPath)
+
+	interpreters := []string{"python3", "python"}
+	var lastErr error
+	for _, py := range interpreters {
+		cmd := exec.Command(py, args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		fmt.Printf("  Generating Excel report: %s %s\n", py, strings.Join(args, " "))
+		if err := cmd.Run(); err == nil {
+			fmt.Printf("  Excel report saved to  : %s\n\n", xlsxPath)
+			return
+		} else {
+			lastErr = err
+		}
+	}
+	log.Printf("WARNING: Could not auto-generate Excel report: %v", lastErr)
+	log.Printf("  Run manually: python3 generate_ec2_report.py %s --out %s", cfg.OutputFile, xlsxPath)
 }

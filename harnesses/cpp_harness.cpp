@@ -20,9 +20,11 @@
 #include <string>
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
 #include <stdexcept>
 #include <new>
 #include <cmath>
+#include <type_traits>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
@@ -129,6 +131,15 @@ static void run_tc_child(int pipe_fd, {tc_params_comma}int per_tc_limit_s, int m
     /* Block fork() in student code */
     struct rlimit nproc_rl {{ 1, 1 }};
     setrlimit(RLIMIT_NPROC, &nproc_rl);
+
+    /* Close all FDs except stdin/stdout/stderr and pipe_fd.
+     * Same rationale as C harness: prevents student from writing fake
+     * TCResult structs to the pipe by iterating small FD numbers. */
+    {{
+        for (int _cfd = 3; _cfd < 1024; _cfd++) {{
+            if (_cfd != pipe_fd) close(_cfd);
+        }}
+    }}
 
     /* Per-child TLE alarm (Fix 4.1: no _child_expected needed) */
     _child_pipe_fd = pipe_fd;
