@@ -972,6 +972,131 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
             _style(c, bg=_C["light_grey"], bold=(ci == 1), size=9)
         row += 1
 
+    # ── Section: Container CPU & Memory ───────────────────────────────────────
+    # Extract per-container series from snapshots that have docker stats
+    container_series: dict = {}   # name → {cpu_pcts, mem_mbs, mem_pcts}
+    container_order: list = []    # first-seen insertion order
+
+    for m in metrics_data:
+        for c in m.get("containers", []):
+            name = c.get("name", "?")
+            if name not in container_series:
+                container_series[name] = {"cpu_pcts": [], "mem_mbs": [], "mem_pcts": []}
+                container_order.append(name)
+            container_series[name]["cpu_pcts"].append(c.get("cpu_pct", 0))
+            container_series[name]["mem_mbs"].append(c.get("mem_mb", 0))
+            container_series[name]["mem_pcts"].append(c.get("mem_pct", 0))
+
+    if container_series:
+        sorted_names = sorted(container_order)
+
+        # ── Container peak summary ─────────────────────────────────────────
+        N_CSUMM = 6
+        _write_section(ws, row, "CONTAINER PERFORMANCE SUMMARY  (peaks & averages during test)", N_CSUMM)
+        row += 1
+
+        for ci, h in enumerate(
+            ["Container", "Avg CPU %", "Max CPU %", "Avg Mem (MB)", "Max Mem (MB)", "Max Mem %"], 1
+        ):
+            _write_col_header(ws, row, ci, h, bg=_C["hdr_light"], fg=_C["hdr_dark"])
+        row += 1
+
+        for i, name in enumerate(sorted_names):
+            series = container_series[name]
+            avg_cpu     = sum(series["cpu_pcts"]) / max(len(series["cpu_pcts"]), 1)
+            max_cpu     = max(series["cpu_pcts"], default=0)
+            avg_mem     = sum(series["mem_mbs"])  / max(len(series["mem_mbs"]),  1)
+            max_mem     = max(series["mem_mbs"],  default=0)
+            max_mem_pct = max(series["mem_pcts"], default=0)
+
+            alt_bg  = _C["alt_row"] if i % 2 else _C["white"]
+            cpu_bg  = (_C["cpu_crit"] if max_cpu     >= 90 else
+                       _C["cpu_warn"] if max_cpu     >= 70 else _C["cpu_ok"])
+            mem_bg  = (_C["cpu_crit"] if max_mem_pct >= 90 else
+                       _C["cpu_warn"] if max_mem_pct >= 75 else _C["cpu_ok"])
+
+            for ci, (val, bg) in enumerate([
+                (name,                    alt_bg),
+                (f"{avg_cpu:.1f}%",       alt_bg),
+                (f"{max_cpu:.1f}%",       cpu_bg),
+                (f"{avg_mem:.0f} MB",     alt_bg),
+                (f"{max_mem:.0f} MB",     mem_bg),
+                (f"{max_mem_pct:.1f}%",   mem_bg),
+            ], 1):
+                c = ws.cell(row=row, column=ci, value=val)
+                _style(c, bg=bg, bold=(ci == 1))
+            row += 1
+        row += 1
+
+        # ── Container CPU % timeline ───────────────────────────────────────
+        N_CTIMELINE = 1 + len(sorted_names)
+        _write_section(ws, row, "CONTAINER CPU %  TIMELINE", N_CTIMELINE)
+        row += 1
+
+        c0 = ws.cell(row=row, column=1, value="Timestamp")
+        _style(c0, bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
+        for ci, name in enumerate(sorted_names, 2):
+            c = ws.cell(row=row, column=ci, value=f"{name}\nCPU %")
+            _style(c, bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
+        ws.row_dimensions[row].height = 28
+        row += 1
+
+        for i, m in enumerate(metrics_data):
+            bg = _C["alt_row"] if i % 2 else _C["white"]
+            ws.cell(row=row, column=1, value=m.get("timestamp", ""))
+            _style(ws.cell(row=row, column=1), bg=bg)
+            by_name = {cdata["name"]: cdata for cdata in m.get("containers", [])}
+            for ci, name in enumerate(sorted_names, 2):
+                cdata = by_name.get(name)
+                if cdata:
+                    cpu = cdata.get("cpu_pct", 0)
+                    cpu_bg = (_C["cpu_crit"] if cpu >= 90 else
+                              _C["cpu_warn"] if cpu >= 70 else _C["cpu_ok"])
+                    c = ws.cell(row=row, column=ci, value=f"{cpu:.1f}%")
+                    _style(c, bg=cpu_bg, halign="center")
+                else:
+                    c = ws.cell(row=row, column=ci, value="–")
+                    _style(c, bg=bg, halign="center")
+            row += 1
+        row += 1
+
+        # ── Container Memory (MB) timeline ────────────────────────────────
+        _write_section(ws, row, "CONTAINER MEMORY (MB)  TIMELINE", N_CTIMELINE)
+        row += 1
+
+        c0 = ws.cell(row=row, column=1, value="Timestamp")
+        _style(c0, bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
+        for ci, name in enumerate(sorted_names, 2):
+            c = ws.cell(row=row, column=ci, value=f"{name}\nMem MB")
+            _style(c, bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
+        ws.row_dimensions[row].height = 28
+        row += 1
+
+        for i, m in enumerate(metrics_data):
+            bg = _C["alt_row"] if i % 2 else _C["white"]
+            ws.cell(row=row, column=1, value=m.get("timestamp", ""))
+            _style(ws.cell(row=row, column=1), bg=bg)
+            by_name = {cdata["name"]: cdata for cdata in m.get("containers", [])}
+            for ci, name in enumerate(sorted_names, 2):
+                cdata = by_name.get(name)
+                if cdata:
+                    mem     = cdata.get("mem_mb", 0)
+                    mem_pct = cdata.get("mem_pct", 0)
+                    mem_bg  = (_C["cpu_crit"] if mem_pct >= 90 else
+                               _C["cpu_warn"] if mem_pct >= 75 else _C["cpu_ok"])
+                    c = ws.cell(row=row, column=ci, value=int(mem))
+                    _style(c, bg=mem_bg, halign="center")
+                else:
+                    c = ws.cell(row=row, column=ci, value="–")
+                    _style(c, bg=bg, halign="center")
+            row += 1
+        row += 1
+
+        # Set widths for container columns
+        ws.column_dimensions["A"].width = 22
+        for ci in range(2, N_CTIMELINE + 1):
+            ws.column_dimensions[get_column_letter(ci)].width = 18
+
     # ── Column widths ─────────────────────────────────────────────────────────
     _set_col_widths(ws, [30, 18, 14, 40, 18, 18])
     ws.freeze_panes = ws.cell(row=3, column=1)
@@ -1692,8 +1817,17 @@ def main():
         if not compare_reports:
             print("WARNING: No valid comparison files found; Sheet 4 will be skipped.")
 
-    # ── Output path ───────────────────────────────────────────────────────────
-    out_path = Path(args.out) if args.out else report_path.with_suffix(".xlsx")
+    # ── Output path ────────────────────────────────────────────────────────────
+    # If the JSON lives in a "Jsons" subdirectory (e.g. Reports/Jsons/X.json),
+    # place the XLSX one level up (e.g. Reports/X.xlsx) unless --out is given.
+    if args.out:
+        out_path = Path(args.out)
+    else:
+        xlsx_name = report_path.with_suffix(".xlsx").name
+        if report_path.parent.name.lower() == "jsons":
+            out_path = report_path.parent.parent / xlsx_name
+        else:
+            out_path = report_path.with_suffix(".xlsx")
 
     # ── Build workbook ────────────────────────────────────────────────────────
     print("Building Excel workbook…")

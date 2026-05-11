@@ -26,6 +26,14 @@ Metrics captured every --interval seconds:
     redis_mem_used_mb  — used_memory (MB)
     redis_queue_depth  — len(judge0:jobs:normal) + len(judge0:jobs:retry)
 
+  Docker containers (via `docker stats --no-stream`, unless --no-docker):
+    containers[]       — list per running container:
+      .name            — container name
+      .cpu_pct         — CPU utilisation %
+      .mem_mb          — memory used (MB)
+      .mem_limit_mb    — memory limit (MB)
+      .mem_pct         — memory used %
+
 Usage:
     # Terminal 1 — start collector
     python collect_ec2_metrics.py --out metrics.jsonl --interval 5
@@ -47,6 +55,7 @@ import datetime
 import json
 import os
 import signal
+import subprocess
 import sys
 import time
 
@@ -61,6 +70,63 @@ try:
     _HAS_REDIS = True
 except ImportError:
     _HAS_REDIS = False
+
+
+# ── Docker stats helpers ─────────────────────────────────────────────────────
+
+def _parse_docker_mem(mem_str: str):
+    """Parse Docker MemUsage string e.g. '450MiB / 7.5GiB' → (used_mb, limit_mb)."""
+    def _to_mb(s: str) -> float:
+        s = s.strip()
+        if s.endswith('GiB'):
+            return float(s[:-3]) * 1024
+        if s.endswith('GB'):
+            return float(s[:-2]) * 1000
+        if s.endswith('MiB') or s.endswith('MB'):
+            return float(s[:-3 if s.endswith('iB') else -2])
+        if s.endswith('KiB') or s.endswith('kB'):
+            return float(s[:-3 if s.endswith('iB') else -2]) / 1024
+        if s.endswith('B'):
+            return float(s[:-1]) / (1024 * 1024)
+        try:
+            return float(s)
+        except ValueError:
+            return 0.0
+    parts = mem_str.split(' / ')
+    if len(parts) == 2:
+        return _to_mb(parts[0]), _to_mb(parts[1])
+    return 0.0, 0.0
+
+
+def _collect_docker_stats() -> list:
+    """Run `docker stats --no-stream` and return per-container stats list."""
+    try:
+        result = subprocess.run(
+            ["docker", "stats", "--no-stream", "--format", "{{json .}}"],
+            capture_output=True, text=True, timeout=15,
+        )
+        containers = []
+        for line in result.stdout.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+                cpu = float(d.get("CPUPerc", "0%").rstrip('%'))
+                used_mb, limit_mb = _parse_docker_mem(d.get("MemUsage", "0MiB / 0MiB"))
+                mem_pct = float(d.get("MemPerc", "0%").rstrip('%'))
+                containers.append({
+                    "name":         d.get("Name", d.get("Container", "?")),
+                    "cpu_pct":      round(cpu, 2),
+                    "mem_mb":       round(used_mb, 1),
+                    "mem_limit_mb": round(limit_mb, 1),
+                    "mem_pct":      round(mem_pct, 2),
+                })
+            except Exception:
+                pass
+        return containers
+    except Exception:
+        return []
 
 
 # ── Redis connection ──────────────────────────────────────────────────────────
@@ -86,7 +152,7 @@ def _make_redis_client():
 
 # ── Snapshot logic ────────────────────────────────────────────────────────────
 
-def _collect_snapshot(prev_disk, prev_net, prev_time, rc):
+def _collect_snapshot(prev_disk, prev_net, prev_time, rc, docker_enabled: bool = True):
     """
     Capture one metrics snapshot.  Returns (snap_dict, disk_counters, net_counters, now).
     Delta-rate fields (disk/net MB/s) are only populated when a previous reading exists.
@@ -140,6 +206,12 @@ def _collect_snapshot(prev_disk, prev_net, prev_time, rc):
         except Exception:
             pass  # Redis disconnected mid-test — skip this snapshot's Redis fields
 
+    # ── Docker container stats ────────────────────────────────────────────────
+    if docker_enabled:
+        containers = _collect_docker_stats()
+        if containers:
+            snap["containers"] = containers
+
     return snap, disk, net, now
 
 
@@ -154,6 +226,8 @@ def main():
                         help="Output JSONL file (one JSON object per line)")
     parser.add_argument("--interval", type=float, default=5.0,
                         help="Sampling interval in seconds")
+    parser.add_argument("--no-docker", action="store_true",
+                        help="Disable per-container docker stats collection")
     args = parser.parse_args()
 
     # Warm up the CPU percent counter — first call always returns 0.0
@@ -191,14 +265,15 @@ def main():
             time.sleep(args.interval)
 
             snap, prev_disk, prev_net, prev_time = _collect_snapshot(
-                prev_disk, prev_net, prev_time, rc
+                prev_disk, prev_net, prev_time, rc,
+                docker_enabled=not args.no_docker,
             )
 
             fh.write(json.dumps(snap) + "\n")
             fh.flush()
             count += 1
 
-            # Pretty console output
+            # Pretty console output — host metrics
             print(
                 f"{snap['timestamp']:<22}"
                 f" {snap.get('cpu_pct', '?'):>5}%"
@@ -212,6 +287,15 @@ def main():
                 f" {snap.get('redis_queue_depth', '?'):>8}"
                 f" {snap.get('redis_mem_used_mb', '?'):>7} MB"
             )
+            # Per-container stats
+            for c in snap.get('containers', []):
+                cpu_flag = ' !!!' if c['cpu_pct'] >= 90 else (' !' if c['cpu_pct'] >= 70 else '')
+                mem_flag = ' !!!' if c['mem_pct'] >= 90 else (' !' if c['mem_pct'] >= 75 else '')
+                print(
+                    f"  {c['name']:<38}"
+                    f" cpu={c['cpu_pct']:>5.1f}%{cpu_flag:<4}"
+                    f" mem={c['mem_mb']:>7.0f} MB ({c['mem_pct']:.1f}%){mem_flag}"
+                )
 
     print(f"\n✓ Done.  {count} snapshots written to {args.out}")
 

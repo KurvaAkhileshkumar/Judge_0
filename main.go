@@ -42,6 +42,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -71,6 +72,8 @@ type Config struct {
 	AutoReport     bool   // auto-run generate_ec2_report.py after the test
 	CompareReports bool   // pass --compare to the Python generator
 	MetricsFile    string // optional metrics.jsonl path for the Python generator
+	AutoMetrics    bool   // auto-start/stop collect_ec2_metrics.py around the test
+	MetricsInterval float64 // sampling interval (seconds) for auto metrics
 	Workers        int    // Judge0 worker containers (--scale workers=N) for the report
 	Runners        int    // MAX_RUNNERS per worker container for the report
 	PumaSlots      int    // Puma HTTP slots (WEB_CONCURRENCY × RAILS_MAX_THREADS) for the report
@@ -1710,11 +1713,13 @@ func main() {
 	flag.DurationVar(&cfg.PollInterval, "poll", 400*time.Millisecond, "Poll interval for results")
 	flag.IntVar(&cfg.MaxPollSecs, "maxpoll", 300, "Max seconds to wait per submission result")
 	flag.BoolVar(&cfg.DryRun, "dryrun", false, "Dry run: build harnesses but don't submit")
-	flag.StringVar(&cfg.OutputFile, "out", "load_test_report.json", "Output JSON report file")
+	flag.StringVar(&cfg.OutputFile, "out", "Reports/Jsons/load_test_report.json", "Output JSON report file (default places JSON in Reports/Jsons/)")
 	flag.StringVar(&cfg.RunID, "run-id", "", "Unique run ID suffix appended to student_id to bypass idempotency cache (auto-generated if empty)")
 	flag.BoolVar(&cfg.AutoReport, "auto-report", true, "Automatically generate Excel report (generate_ec2_report.py) after the test")
 	flag.BoolVar(&cfg.CompareReports, "compare", false, "Pass --compare to the Python generator to auto-detect sibling JSON reports for Sheet 4")
-	flag.StringVar(&cfg.MetricsFile, "metrics", "", "Path to metrics.jsonl from collect_ec2_metrics.py to embed in the Excel report")
+	flag.StringVar(&cfg.MetricsFile, "metrics", "", "Path to metrics.jsonl from collect_ec2_metrics.py to embed in the Excel report (auto-set when --auto-metrics is used)")
+	flag.BoolVar(&cfg.AutoMetrics, "auto-metrics", true, "Auto-start collect_ec2_metrics.py before the test and stop it afterwards (requires Python + psutil)")
+	flag.Float64Var(&cfg.MetricsInterval, "metrics-interval", 5.0, "Sampling interval in seconds for the auto metrics collector")
 	flag.IntVar(&cfg.Workers, "report-workers", 3, "Number of Judge0 worker containers (--scale workers=N); stored in the JSON report and forwarded to the Excel generator")
 	flag.IntVar(&cfg.Runners, "report-runners", 2, "MAX_RUNNERS per worker container; stored in the JSON report")
 	flag.IntVar(&cfg.PumaSlots, "report-puma-slots", 32, "Puma HTTP slots (WEB_CONCURRENCY × RAILS_MAX_THREADS); stored in the JSON report")
@@ -1723,6 +1728,17 @@ func main() {
 	// Auto-generate RunID if not provided so every run is cache-free by default
 	if cfg.RunID == "" {
 		cfg.RunID = fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+
+	// ── Auto-start metrics collector ──────────────────────────────────────────
+	if cfg.AutoMetrics && cfg.MetricsFile == "" && !cfg.DryRun {
+		// Derive metrics path alongside the JSON output
+		metricsPath := strings.TrimSuffix(cfg.OutputFile, ".json") + "_metrics.jsonl"
+		actualPath, stopMetrics := startMetricsCollector(metricsPath, cfg.MetricsInterval)
+		if actualPath != "" {
+			cfg.MetricsFile = actualPath
+			defer stopMetrics()
+		}
 	}
 
 	// Load question bank
@@ -1873,6 +1889,44 @@ func main() {
 	}
 }
 
+// startMetricsCollector launches collect_ec2_metrics.py in the background.
+// It returns the path to the JSONL file it will write and a stop() function
+// that sends SIGINT to the subprocess (triggering its graceful shutdown).
+// If the collector cannot be started (Python not found, script missing), it
+// logs a warning and returns ("", func(){}) so the caller can proceed safely.
+func startMetricsCollector(outFile string, intervalSec float64) (metricsPath string, stop func()) {
+	stop = func() {}
+
+	script := "collect_ec2_metrics.py"
+	if _, err := os.Stat(script); err != nil {
+		log.Printf("WARNING: %s not found — metrics collection skipped", script)
+		return "", stop
+	}
+
+	intervalStr := fmt.Sprintf("%.1f", intervalSec)
+	args := []string{script, "--out", outFile, "--interval", intervalStr}
+
+	interpreters := []string{"python3", "python"}
+	var cmd *exec.Cmd
+	for _, py := range interpreters {
+		cmd = exec.Command(py, args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err == nil {
+			fmt.Printf("  Metrics collector started  (PID %d) → %s  (interval=%ss)\n",
+				cmd.Process.Pid, outFile, intervalStr)
+			stop = func() {
+				fmt.Printf("  Stopping metrics collector (PID %d)…\n", cmd.Process.Pid)
+				_ = cmd.Process.Signal(os.Interrupt) // SIGINT → graceful shutdown
+				_ = cmd.Wait()
+			}
+			return outFile, stop
+		}
+	}
+	log.Printf("WARNING: Could not start metrics collector: Python interpreter not found")
+	return "", func() {}
+}
+
 // generateExcelReport runs generate_ec2_report.py as a subprocess.
 // It tries python3 first, then python.  If neither is found it prints a hint.
 func generateExcelReport(cfg Config) {
@@ -1890,8 +1944,15 @@ func generateExcelReport(cfg Config) {
 		args = append(args, "--runners", fmt.Sprintf("%d", cfg.Runners))
 	}
 
-	// Determine xlsx output path (same stem as JSON file)
-	xlsxPath := strings.TrimSuffix(cfg.OutputFile, ".json") + ".xlsx"
+	// Determine xlsx output path.
+	// If the JSON lives in a "Jsons" subdirectory (e.g. Reports/Jsons/X.json),
+	// place the XLSX one level up (e.g. Reports/X.xlsx).
+	outBase := filepath.Base(strings.TrimSuffix(cfg.OutputFile, ".json") + ".xlsx")
+	outDir := filepath.Dir(cfg.OutputFile)
+	if strings.EqualFold(filepath.Base(outDir), "Jsons") {
+		outDir = filepath.Dir(outDir)
+	}
+	xlsxPath := filepath.Join(outDir, outBase)
 	args = append(args, "--out", xlsxPath)
 
 	interpreters := []string{"python3", "python"}
@@ -1909,5 +1970,6 @@ func generateExcelReport(cfg Config) {
 		}
 	}
 	log.Printf("WARNING: Could not auto-generate Excel report: %v", lastErr)
-	log.Printf("  Run manually: python3 generate_ec2_report.py %s --workers %d --runners %d --out %s", cfg.OutputFile, cfg.Workers, cfg.Runners, xlsxPath)
+	log.Printf("  Run manually: python3 generate_ec2_report.py %s --workers %d --runners %d --out %s",
+		cfg.OutputFile, cfg.Workers, cfg.Runners, xlsxPath)
 }
