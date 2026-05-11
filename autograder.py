@@ -348,13 +348,41 @@ class Autograder:
         harness_code = builder.build()
 
         # ── 4. Submit to Judge0 ──────────────────────────────────────────
-        judge0_result = self.judge0.submit_and_wait(
-            source_code     = harness_code,
-            language        = submission.language,
-            per_tc_limit_s  = submission.per_tc_limit_s,
-            tc_count        = len(submission.test_cases),
-            memory_limit_mb = submission.memory_limit_mb,
-        )
+        # HTTP 5xx from Puma (overloaded) and callback/poll timeouts are both
+        # infrastructure failures — the student's code never ran.  Return
+        # needs_requeue=True so the worker retries instead of reporting a
+        # terminal SYSTEM_ERROR that was not the student's fault.
+        try:
+            judge0_result = self.judge0.submit_and_wait(
+                source_code     = harness_code,
+                language        = submission.language,
+                per_tc_limit_s  = submission.per_tc_limit_s,
+                tc_count        = len(submission.test_cases),
+                memory_limit_mb = submission.memory_limit_mb,
+            )
+        except Exception as exc:
+            import requests as _req
+            # HTTP 5xx → Puma overloaded; TimeoutError → callback never fired;
+            # RuntimeError → circuit breaker open.  All are retriable infra faults.
+            is_retriable = (
+                isinstance(exc, (_req.HTTPError, TimeoutError, RuntimeError,
+                                 _req.ConnectionError, _req.Timeout))
+            )
+            if is_retriable:
+                empty_sub = ParsedSubmission(
+                    tc_results = [],
+                    total      = len(submission.test_cases),
+                    score      = 0,
+                )
+                return GradingResult(
+                    student_id    = submission.student_id,
+                    language      = submission.language,
+                    submission    = empty_sub,
+                    judge0_raw    = None,
+                    harness_code  = harness_code,
+                    needs_requeue = True,
+                )
+            raise  # unexpected error — propagate so process_job logs it
 
         # Fix 1.3: Judge0 status 12 (Internal Error) means isolate itself
         # crashed (cgroup OOM, exec failure, sandbox setup error).  The

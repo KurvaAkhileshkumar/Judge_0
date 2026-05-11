@@ -332,7 +332,12 @@ class Judge0Client:
     ) -> dict:
         """
         POST to Judge0 with exponential back-off on transient 5xx / network
-        errors (0.5 s, 1 s, 2 s).  4xx are not retried (client error).
+        errors.  4xx are not retried (client error).
+
+        Back-off schedule for 5xx (Puma overloaded):
+          attempt 0 → 1 s
+          attempt 1 → 4 s
+          attempt 2 → raise HTTPError  (caller handles as needs_requeue)
 
         Fix 2.5: honours the circuit breaker.  When the breaker is open, all
         calls fail fast with RuntimeError instead of hammering Judge0 further.
@@ -361,7 +366,9 @@ class Judge0Client:
             except (requests.Timeout, requests.ConnectionError) as e:
                 last_exc = e
             if attempt < max_retries - 1:
-                time.sleep(0.5 * (2 ** attempt))   # 0.5 s, 1 s, 2 s
+                # Longer back-off for 5xx so Puma has time to recover:
+                # 1 s → 4 s (vs old 0.5 s → 1 s which just hammered again)
+                time.sleep(1.0 * (4 ** attempt))
         _judge0_breaker.record_failure()
         raise last_exc  # type: ignore[misc]
 
