@@ -1595,7 +1595,24 @@ def main():
             "auto-detect all load_test_report*.json in the same directory."
         ),
     )
+    parser.add_argument(
+        "--all",
+        nargs="+",
+        metavar="FILE",
+        default=None,
+        help=(
+            "All-files mode: pass every JSON file to compare. No 'primary' "
+            "designation — all files appear equally in Sheet 4. "
+            "The first file is used for Sheets 1-3 as a representative sample. "
+            "Overrides the positional 'report' argument and --compare."
+        ),
+    )
     args = parser.parse_args()
+
+    # ── --all mode: first file becomes primary, all go into Sheet 4 ──────────
+    if args.all:
+        args.report = args.all[0]
+        # We'll handle compare_reports directly in the --all block below
 
     # ── Load primary report ───────────────────────────────────────────────────
     report_path = Path(args.report)
@@ -1635,7 +1652,22 @@ def main():
 
     # ── Resolve comparison reports ────────────────────────────────────────────
     compare_reports: list = []   # list of (filename_str, report_dict)
-    if args.compare is not None:
+
+    if args.all:
+        # --all mode: load every file; first is already loaded as primary above
+        for fpath_str in args.all[1:]:
+            cpath = Path(fpath_str)
+            if not cpath.exists():
+                print(f"WARNING: File not found: {cpath}  (skipping)")
+                continue
+            try:
+                with open(cpath, encoding="utf-8") as fh:
+                    crpt = json.load(fh)
+                compare_reports.append((str(cpath), crpt))
+                print(f"  File : {cpath}")
+            except Exception as exc:
+                print(f"WARNING: Could not read {cpath}: {exc}  (skipping)")
+    elif args.compare is not None:
         # --compare with explicit files
         if args.compare:
             compare_files = [Path(f) for f in args.compare]
@@ -1672,7 +1704,7 @@ def main():
     build_sheet3(wb, report)
 
     if compare_reports:
-        # Ensure the primary report is always first in the comparison
+        # All files go into Sheet 4 equally; primary is always listed first
         all_for_compare = [(str(report_path), report)] + [
             (f, r) for f, r in compare_reports if str(f) != str(report_path)
         ]
