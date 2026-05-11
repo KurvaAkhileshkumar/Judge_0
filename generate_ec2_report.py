@@ -1667,7 +1667,7 @@ def main():
     print("Building Excel workbook…")
     wb = openpyxl.Workbook()
 
-    build_sheet1(wb, report, workers=args.workers, runners=args.runners)
+    build_sheet1(wb, report, workers=workers, runners=runners)
     build_sheet2(wb, report, metrics_data)
     build_sheet3(wb, report)
 
