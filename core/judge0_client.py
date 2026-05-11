@@ -320,6 +320,10 @@ class Judge0Client:
             # Both avoid cgroup v1 which is not available on Mac Docker Desktop.
             "enable_per_process_and_thread_time_limit":   True,
             "enable_per_process_and_thread_memory_limit": True,
+            # Harness forks one child per TC in parallel; default sandbox limit
+            # (MAX_PROCESSES_AND_OR_THREADS) must cover all children + overhead.
+            # Judge0 conf sets MAX_MAX_PROCESSES_AND_OR_THREADS=500 as the ceiling.
+            "number_of_processes": MAX_PARALLEL_TCS + 20,
         }
         return payload, global_limit_s
 

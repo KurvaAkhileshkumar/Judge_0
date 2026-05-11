@@ -386,7 +386,7 @@ def _run_all_parallel(test_cases, per_tc_limit_s, memory_limit_mb):
                 chunks[g_i] = []
 
         # ── COLLECT PHASE for this batch ──────────────────────────────────
-        deadline    = time.monotonic() + per_tc_limit_s + 1.5
+        deadline    = time.monotonic() + per_tc_limit_s + 5
         fd_to_job   = {{r_fd: (pid, idx) for pid, r_fd, idx in jobs}}
         pending_fds = set(fd_to_job.keys())
 
