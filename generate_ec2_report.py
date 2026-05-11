@@ -1297,8 +1297,10 @@ def build_sheet3(wb: openpyxl.Workbook, report: dict):
         ws.column_dimensions[get_column_letter(base + 1)].width = 18  # Got
         ws.column_dimensions[get_column_letter(base + 2)].width = 14  # Expected
 
-    # Freeze at the per-submission detail header
-    ws.freeze_panes = ws.cell(row=detail_data_start, column=3)
+    # Freeze row 1 (title) and columns A+B (User ID / Problem ID) so the sheet
+    # scrolls freely in both directions regardless of how many users are in the
+    # summary section above the detail table.
+    ws.freeze_panes = "C2"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
