@@ -6,7 +6,6 @@ COPY requirements-api.txt .
 RUN pip install --no-cache-dir -r requirements-api.txt
 
 COPY . .
-RUN pip install --no-cache-dir .
 
 # Run as a non-root user to limit blast radius from any container escape.
 # The appuser (UID 1001) owns /app so gunicorn and workers can read all files.
