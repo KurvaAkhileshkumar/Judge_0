@@ -43,7 +43,7 @@ METRICS_INTERVAL=5
 
 # Cooldowns (seconds)
 COOLDOWN_BETWEEN_RUNS=45       # wait between consecutive scenarios in same phase
-COOLDOWN_PHASE_START=60        # wait after docker compose up before first test
+COOLDOWN_PHASE_START=120       # wait after docker compose up — Resque workers need ~90s to register
 COMPOSE_DOWN_WAIT=20           # wait after docker compose down
 
 # Flags
@@ -101,13 +101,23 @@ wait_healthy() {
   ok "Flask healthy"
 
   # 2. Judge0 /system_info — verify EXACT expected worker count is connected
-  local j0url="${FLASK_URL%:5001}:2358"
-  deadline=$(( $(date +%s) + 90 ))
-  log "Waiting for Judge0 to report $expected_workers worker(s) at $j0url ..."
+  #    Resque workers take ~60-120s after container start to register.
+  #    We wait up to 240s total. If workers never appear we ABORT — running
+  #    a test with 0 workers produces 100% SYSTEM_ERROR and wastes the run.
+  #    Judge0 server is always on port 2358 on the same host.
+  local host_only="${FLASK_URL#http://}"   # strip scheme
+  host_only="${host_only%%:*}"             # strip :port  →  "localhost" or IP
+  local j0url="http://${host_only}:2358"
+  deadline=$(( $(date +%s) + 240 ))
+  log "Waiting for Judge0 to report $expected_workers worker(s) at $j0url (up to 240s) ..."
   until curl -sf "$j0url/system_info" \
     | python3 -c "
 import sys, json
-d = json.load(sys.stdin)
+try:
+    d = json.load(sys.stdin)
+except Exception as e:
+    print(f'  /system_info parse error: {e}', flush=True)
+    sys.exit(1)
 got = int(d.get('workers', 0))
 want = $expected_workers
 if got < want:
@@ -116,8 +126,7 @@ if got < want:
 print(f'  workers={got}/{want} — OK')
 " 2>/dev/null; do
     [[ $(date +%s) -lt $deadline ]] || {
-      warn "Judge0 /system_info: expected $expected_workers workers but not all connected after 90s — proceeding anyway"
-      break
+      die "Judge0 /system_info: expected $expected_workers workers but none connected after 240s. Check worker logs: docker compose -f docker-compose.ec2.yml logs --tail=50 workers"
     }
     sleep 5
   done

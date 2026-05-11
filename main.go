@@ -1525,7 +1525,7 @@ func runUserFlask(
 
 // ── Progress Printer ──────────────────────────────────────────────────────
 
-func printProgress(metrics *Metrics, cfg Config, done chan struct{}) {
+func printProgress(metrics *Metrics, cfg Config, inFlightPtr *int64, done chan struct{}) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -1535,15 +1535,16 @@ func printProgress(metrics *Metrics, cfg Config, done chan struct{}) {
 		case <-ticker.C:
 			completed := atomic.LoadInt64(&metrics.Completed)
 			total := int64(cfg.Users)
-			inFlight := atomic.LoadInt64(&metrics.InFlight)
+			inFlight := atomic.LoadInt64(inFlightPtr)
+			pending := total - completed
 			pct := float64(completed) / float64(total) * 100
 			if cfg.FlaskAPIURL != "" {
-				fmt.Printf("\r  Progress: %d/%d (%.0f%%) | In-flight: %d | Elapsed: %.0fs (SSE)",
-					completed, total, pct, inFlight,
+				fmt.Printf("\r  Progress: %d/%d (%.0f%%) | In-flight: %d | Pending: %d | Elapsed: %.0fs (SSE)",
+					completed, total, pct, inFlight, pending,
 					time.Since(metrics.StartTime).Seconds())
 			} else {
-				fmt.Printf("\r  Progress: %d/%d (%.0f%%) | In-flight: %d | Elapsed: %.0fs",
-					completed, total, pct, inFlight,
+				fmt.Printf("\r  Progress: %d/%d (%.0f%%) | In-flight: %d | Pending: %d | Elapsed: %.0fs",
+					completed, total, pct, inFlight, pending,
 					time.Since(metrics.StartTime).Seconds())
 			}
 		}
@@ -1846,7 +1847,7 @@ func main() {
 	} else {
 		var wg sync.WaitGroup
 		progressDone := make(chan struct{})
-		go printProgress(metrics, cfg, progressDone)
+		go printProgress(metrics, cfg, &inFlight, progressDone)
 
 		rampDelay := time.Duration(0)
 		if cfg.RampUpSec > 0 && cfg.Users > 1 {
@@ -1939,7 +1940,9 @@ func startMetricsCollector(outFile string, intervalSec float64) (metricsPath str
 	}
 
 	intervalStr := fmt.Sprintf("%.1f", intervalSec)
-	args := []string{script, "--out", outFile, "--interval", intervalStr}
+	// -u = unbuffered stdout/stderr so metrics output appears in real-time
+	// rather than being flushed all at once when the process exits.
+	args := []string{"-u", script, "--out", outFile, "--interval", intervalStr}
 
 	// Build subprocess environment: inherit current env, then inject any
 	// missing variables from .env so REDIS_PASSWORD etc. are available
