@@ -1474,9 +1474,6 @@ func runUserFlask(
 	// Map Flask result to SubmissionResult.
 	switch {
 	case fr.SystemError != "":
-		metrics.mu.Lock()
-		metrics.SystemErrors++
-		metrics.mu.Unlock()
 		result.HarnessStatus = "SYSTEM_ERROR"
 		result.Error = fr.SystemError
 

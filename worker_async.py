@@ -53,16 +53,26 @@ MAX_CONCURRENCY = int(os.getenv("WORKER_CONCURRENCY", 48))
 _RESQUE_KEYS = ("resque:queue:default", "resque:failed")
 
 
+# One-shot flag: flush the Resque queue at most once per worker process.
+# Called when retries are exhausted, which signals persistent OOM kills on
+# Judge0 sandbox workers.  After the first flush, subsequent exhaustions don't
+# need to re-flush (the queue is already empty).
+_resque_flushed = False
+
+
 def _flush_resque_queue(r) -> None:
     """
     Delete Judge0's internal Resque job queue.
-    Called when retries are exhausted — signals persistent OOM kills on the
-    Judge0 sandbox workers.  Flushing breaks the restart→OOM cascade: without
-    this, every worker restart picks up the same heavy jobs and dies again.
-    Best-effort: never raises.
+    Flushing breaks the restart→OOM cascade: without this, every worker
+    restart picks up the same heavy jobs and dies again.
+    Best-effort: never raises.  Skips if already flushed this process.
     """
+    global _resque_flushed
+    if _resque_flushed:
+        return
     try:
         deleted = r.delete(*_RESQUE_KEYS)
+        _resque_flushed = True
         log.warning("resque_queue_flushed", keys_deleted=deleted)
     except Exception as exc:
         log.error("resque_flush_failed", error=str(exc))
@@ -105,9 +115,17 @@ async def process_job(
     """
     Process a single grading job under the concurrency semaphore.
     All paths call queue.ack(job) to remove from PROCESSING_QUEUE.
+
+    Backoff note: asyncio.sleep() for requeue back-off runs OUTSIDE the
+    semaphore so sleeping coroutines don't block the 24 concurrency slots.
+    Without this, a burst failure (all 24 jobs fail simultaneously) holds
+    every semaphore slot for the full back-off duration and no new jobs
+    can start until all sleepers wake up.
     """
+    ticket_id  = job.ticket_id
+    _requeue_backoff_s: float | None = None   # set inside sem, consumed outside
+
     async with sem:
-        ticket_id = job.ticket_id
         try:
             submission = job_to_submission(job)
             result     = await asyncio.to_thread(
@@ -139,20 +157,22 @@ async def process_job(
                             result.judge0_raw.token,
                         )
                     # Flush Resque queue to break OOM-kill cascade.
-                    # Exhausted retries = Judge0 workers kept dying (OOM).
-                    # Without this flush, every worker restart picks up the
-                    # same heavy jobs and OOM-kills again immediately.
+                    # One-shot: _flush_resque_queue no-ops after first call.
                     await asyncio.to_thread(_flush_resque_queue, queue.r)
                     await asyncio.to_thread(queue.ack, job)
                 else:
+                    # Schedule: attempt 0→1: 5s, attempt 1→2: 15s, attempt 2→3: 45s
+                    # This gives the 30s circuit-breaker recovery window time to
+                    # close before the next attempt reaches Judge0.
+                    _requeue_backoff_s = 5.0 * (3 ** job.retry_count)  # 5, 15, 45
                     log.info(
                         "job_requeued",
                         ticket_id=ticket_id[:8],
                         attempt=job.retry_count + 1,
                         max_retries=MAX_RETRY_COUNT,
+                        backoff_s=_requeue_backoff_s,
                     )
-                    await asyncio.to_thread(queue.requeue, job)
-                    await asyncio.to_thread(queue.ack, job)
+                    # NOTE: requeue + ack happen OUTSIDE the semaphore (see below)
 
             else:
                 await asyncio.to_thread(
@@ -182,6 +202,21 @@ async def process_job(
                     ticket_id=ticket_id[:8],
                     error=str(store_exc),
                 )
+
+    # ── Outside the semaphore: back-off sleep then requeue ────────────────────
+    # The semaphore slot is now free so other jobs can run concurrently while
+    # this coroutine waits for the back-off period to elapse.
+    if _requeue_backoff_s is not None:
+        await asyncio.sleep(_requeue_backoff_s)
+        try:
+            await asyncio.to_thread(queue.requeue, job)
+            await asyncio.to_thread(queue.ack, job)
+        except Exception as requeue_exc:
+            log.error(
+                "job_requeue_failed",
+                ticket_id=ticket_id[:8],
+                error=str(requeue_exc),
+            )
 
 
 # ── Main dequeue loop ─────────────────────────────────────────────────────────
