@@ -398,14 +398,25 @@ class Judge0Client:
     def _wait_callback(self, token: str, global_limit_s: int) -> Judge0Result:
         """
         Register the token, then block on the Event until Judge0 fires the
-        webhook.  Timeout = global_limit_s + a generous 30s buffer for
-        network latency and Judge0 queue time.
+        webhook.  Timeout = global_limit_s + 120s buffer to absorb Judge0
+        queue drain time under high concurrency (1000+ users).
+
+        If the callback still hasn't arrived after the timeout, fall back to
+        polling GET /submissions/{token} so that results Judge0 already
+        computed are not thrown away as SYSTEM_ERROR.
         """
-        timeout_s = global_limit_s + 30
+        # +120s: at 1000 concurrent users Judge0's Resque queue can hold a
+        # submission for 60-90 s before execution even starts; +30s was too
+        # tight and caused spurious SYSTEM_ERRORs for accepted solutions.
+        timeout_s = global_limit_s + 120
         evt       = self.callback_server.register(token)
         fired     = evt.wait(timeout=timeout_s)
 
         if not fired:
+            # Callback never arrived — try polling before giving up.
+            poll_result = self._poll_fallback(token, global_limit_s)
+            if poll_result is not None:
+                return poll_result
             raise TimeoutError(
                 f"Callback not received for token {token} after {timeout_s}s"
             )
@@ -415,6 +426,47 @@ class Judge0Client:
             raise RuntimeError(f"Callback event fired but no payload found for {token}")
 
         return self._parse_webhook_payload(raw)
+
+    def _poll_fallback(self, token: str, global_limit_s: int) -> Optional["Judge0Result"]:
+        """
+        Poll GET /submissions/{token} after a callback timeout.
+        Judge0 may have finished the job but the webhook was lost (network
+        blip, container restart, full thread pool).  We poll up to
+        poll_budget_s in 5 s intervals and return the result if the job
+        is no longer in-queue/processing.  Returns None if still pending or
+        on any error — caller will then raise TimeoutError as before.
+        """
+        poll_budget_s = 60  # spend up to 60 s trying before giving up
+        interval_s    = 5
+        deadline      = time.monotonic() + poll_budget_s
+
+        while time.monotonic() < deadline:
+            try:
+                resp = requests.get(
+                    f"{self.cfg.base_url}/submissions/{token}"
+                    "?base64_encoded=true&fields=stdout,stderr,compile_output,status,time,memory",
+                    headers=self.headers,
+                    timeout=10,
+                )
+                if resp.status_code != 200:
+                    time.sleep(interval_s)
+                    continue
+
+                data      = resp.json()
+                status_id = data.get("status", {}).get("id", 0)
+
+                # status 1 = In Queue, 2 = Processing — keep waiting
+                if status_id in (1, 2):
+                    time.sleep(interval_s)
+                    continue
+
+                # Any terminal status (3–13) — parse and return
+                return self._parse_webhook_payload(data)
+
+            except Exception:
+                time.sleep(interval_s)
+
+        return None
 
     def _parse_webhook_payload(self, data: dict) -> Judge0Result:
         """
