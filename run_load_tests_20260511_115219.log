@@ -1,0 +1,196 @@
+[0;36m[11:52:19][0m Logging to run_load_tests_20260511_115219.log
+
+[1m[0;36m╔══════════════════════════════════════════════════════════════╗[0m
+[1m[0;36m║  Judge0 Automated Load Test Suite  |  2026-05-11 11:52:19      ║[0m
+[1m[0;36m╚══════════════════════════════════════════════════════════════╝[0m
+
+[0;36m[11:52:19][0m Deploy dir  : /home/ubuntu/judge0
+[0;36m[11:52:19][0m Flask URL   : http://localhost:5001
+[0;36m[11:52:19][0m Question bank: question_bank_mixed.json
+[0;36m[11:52:19][0m Resume mode : false
+[0;36m[11:52:19][0m Skip Excel  : false
+[0;36m[11:52:19][0m Only phase  : all
+
+
+[1m[0;36m╔══════════════════════════════════════════════════════════════╗[0m
+[1m[0;36m║  PHASE A — workers=3  MAX_RUNNERS=2  (6 sandboxes)  puma_slots=32║[0m
+[1m[0;36m╚══════════════════════════════════════════════════════════════╝[0m
+
+[0;36m[11:52:19][0m Stopping ALL existing containers (base project teardown)...
+[0;36m[11:53:12][0m Starting containers (--scale workers=3) ...
+ Network judge0_default Creating 
+ Network judge0_default Created 
+ Container judge0-redis-1 Creating 
+ Container judge0-db-1 Creating 
+ Container judge0-db-1 Created 
+ Container judge0-redis-1 Created 
+ Container judge0-workers-3 Creating 
+ Container judge0-workers-1 Creating 
+ Container judge0-workers-2 Creating 
+ Container judge0-reconciler-1 Creating 
+ Container judge0-server-1 Creating 
+ Container judge0-workers-2 Created 
+ Container judge0-workers-1 Created 
+ Container judge0-server-1 Created 
+ Container judge0-grading_worker-1 Creating 
+ Container judge0-api-1 Creating 
+ Container judge0-workers-3 Created 
+ Container judge0-reconciler-1 Created 
+ Container judge0-grading_worker-1 Created 
+ Container judge0-api-1 Created 
+ Container judge0-redis-1 Starting 
+ Container judge0-db-1 Starting 
+ Container judge0-db-1 Started 
+ Container judge0-redis-1 Started 
+ Container judge0-reconciler-1 Starting 
+ Container judge0-server-1 Starting 
+ Container judge0-workers-3 Starting 
+ Container judge0-server-1 Started 
+ Container judge0-api-1 Starting 
+ Container judge0-grading_worker-1 Starting 
+ Container judge0-workers-3 Started 
+ Container judge0-workers-1 Starting 
+ Container judge0-reconciler-1 Started 
+ Container judge0-api-1 Started 
+ Container judge0-grading_worker-1 Started 
+ Container judge0-workers-1 Started 
+ Container judge0-workers-2 Starting 
+ Container judge0-workers-2 Started 
+[0;36m[11:53:14][0m Waiting 60s for containers to warm up...
+[0;36m[11:54:14][0m Waiting for Flask health at http://localhost:5001/health ...
+[0;32m[11:54:14] ✔ Flask healthy[0m
+[0;36m[11:54:14][0m Waiting for Judge0 to report 3 worker(s) at http://localhost:2358 ...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+  workers=0/3 — waiting...
+[1;33m[11:55:45] ⚠ Judge0 /system_info: expected 3 workers but not all connected after 90s — proceeding anyway[0m
+[0;32m[11:55:45] ✔ Judge0 workers verified (3)[0m
+[0;36m[11:55:45][0m Verifying container health (docker ps) ...
+[0;32m[11:55:45] ✔ All containers running[0m
+
+[1m[0;36m╔══════════════════════════════════════════════════════════════╗[0m
+[1m[0;36m║  Scenario: A_100u_flat  |  users=100 ramp=0s batch=0           ║[0m
+[1m[0;36m╚══════════════════════════════════════════════════════════════╝[0m
+
+[0;36m[11:55:45][0m workers=3  runners=2  puma_slots=32
+[0;36m[11:55:45][0m Output → Reports/Jsons/A_100u_flat.json
+  Injected POSTGRES_PASSWORD from .env into metrics collector env
+  Injected RAILS_SECRET_KEY_BASE from .env into metrics collector env
+  Metrics collector started  (PID 2199374) → Reports/Jsons/A_100u_flat_metrics.jsonl  (interval=5.0s)
+
+  Judge0 Harness Load Tester
+  ───────────────────────────────────────────────
+  Mode:         Flask Stack (full pipeline)
+  Target:       http://localhost:5001
+  Users:        100
+  Submit mode:  Flat concurrent (ramp-up 0s)
+  Problems:     4
+  Solutions:    random (all types)
+  Max wait:     300s per submission
+  Dry run:      false
+  globalLimitS: 7s (for 100-TC problem with per_tc=2s)
+  Batch equiv:  ~10000 jobs if using per-TC batch approach
+  ───────────────────────────────────────────────
+
+  Checking Flask API health... OK
+
+  Progress: 32/100 (32%) | In-flight: 0 | Elapsed: 2s (SSE)
+
+╔══════════════════════════════════════════════════════════════╗
+║              JUDGE0 HARNESS LOAD TEST RESULTS               ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Test Mode:                       Flask Stack (full pipeline)
+  Total Users:                     100
+  Test Duration:                   3.5s
+  Total Submissions:               100
+  Completed:                       100
+
+  ── Submission Outcomes ────────────────────────────────────
+  Errors (network/Judge0):         0
+  Blocked by security checker:     0
+  Rate Limited (429):              0
+  Duplicate (idempotent):          0
+  System Errors (infra):           200
+
+  ── Queue Depth Comparison ─────────────────────────────────
+  Harness jobs (actual):           100
+  Batch equivalent jobs:           400
+  Queue reduction factor:          4.0x
+  Peak in-flight jobs:             100
+  Result delivery:                 SSE (/results/stream)
+
+  ── Latency ────────────────────────────────────────────────
+  Average:                         2178ms
+  p50:                             2088ms
+  p95:                             3345ms
+  p99:                             3438ms
+  Max:                             3448ms
+
+  ── Throughput ─────────────────────────────────────────────
+  Submissions/sec:                 28.94/sec
+
+  ── Result Status Breakdown ────────────────────────────────
+  SYSTEM_ERROR:                    100 (100.0%)
+
+  ── Solution Type Breakdown ────────────────────────────────
+  accepted:                        100
+
+  ── Per-Problem Breakdown ──────────────────────────────────
+  fibonacci:                       26 submissions
+  knapsack:                        29 submissions
+  coin_change:                     24 submissions
+  lcs:                             21 submissions
+
+  JSON report written to: Reports/Jsons/A_100u_flat.json
+
+  Stopping metrics collector (PID 2199374)…
+Connected to Redis @ localhost:6379
+Collecting system metrics every 5.0s  →  Reports/Jsons/A_100u_flat_metrics.jsonl
+Press Ctrl-C to stop.
+
+Timestamp                CPU%   RAM%   RAM Used   Disk R   Disk W   Net TX   Net RX    TCP   RQueue     RMem
+---------------------------------------------------------------------------------------------------------
+2026-05-11 11:55:54     98.1%  26.8%      2.17 GB     0.0/s    0.46/s    1.05/s    1.06/s      5        0     1.4 MB
+  judge0-grading_worker-1              cg_cpu=  0.0%      cg_mem=     46 MB (0.6%)  real_cpu=  0.0%      real_rss=     60 MB
+  judge0-api-1                         cg_cpu=  0.0%      cg_mem=    104 MB (1.3%)  real_cpu=  0.0%      real_rss=    162 MB
+  judge0-reconciler-1                  cg_cpu=  0.1%      cg_mem=     21 MB (0.3%)  real_cpu=  0.0%      real_rss=     35 MB
+  judge0-workers-3                     cg_cpu=132.5% !!!  cg_mem=    294 MB (28.7%)  real_cpu= 36.4%      real_rss=    414 MB
+  judge0-server-1                      cg_cpu=  0.0%      cg_mem=    232 MB (3.0%)  real_cpu=  0.0%      real_rss=    356 MB
+  judge0-workers-1                     cg_cpu=131.4% !!!  cg_mem=    264 MB (25.8%)  real_cpu= 33.1%      real_rss=    401 MB
+  judge0-workers-2                     cg_cpu=130.7% !!!  cg_mem=    334 MB (32.6%)  real_cpu= 31.4%      real_rss=    512 MB
+  judge0-db-1                          cg_cpu=  0.0%      cg_mem=     40 MB (9.9%)  real_cpu=  0.0%      real_rss=    137 MB
+  judge0-redis-1                       cg_cpu=  0.2%      cg_mem=      6 MB (1.1%)  real_cpu=  0.0%      real_rss=     16 MB
+
+✓ Done.  2 snapshots written to Reports/Jsons/A_100u_flat_metrics.jsonl
+  Generating Excel report: python3 generate_ec2_report.py Reports/Jsons/A_100u_flat.json --metrics Reports/Jsons/A_100u_flat_metrics.jsonl --workers 3 --runners 2 --out Reports/A_100u_flat.xlsx
+Reading report  : Reports/Jsons/A_100u_flat.json
+Workers         : 3  runners/worker: 2  (sandboxes: 6)
+Reading metrics : Reports/Jsons/A_100u_flat_metrics.jsonl
+  2 metric snapshots loaded
+Building Excel workbook…
+
+✓  Report saved : Reports/A_100u_flat.xlsx
+   Sheet 1  — System Info
+   Sheet 2  — Load Test Metrics  (2 live-metric snapshots)
+   Sheet 3  — User Test Case Results  (100 submissions)
+  Excel report saved to  : Reports/A_100u_flat.xlsx
+
+[0;32m[11:55:59] ✔ Done: A_100u_flat → Reports/Jsons/A_100u_flat.json[0m
+[0;36m[11:55:59][0m Cooldown 45s (queue drain + system settle)...

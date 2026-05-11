@@ -1,0 +1,233 @@
+[0;36m[12:38:31][0m Logging to run_load_tests_20260511_123831.log
+
+[1m[0;36m╔══════════════════════════════════════════════════════════════╗[0m
+[1m[0;36m║  Judge0 Automated Load Test Suite  |  2026-05-11 12:38:31      ║[0m
+[1m[0;36m╚══════════════════════════════════════════════════════════════╝[0m
+
+[0;36m[12:38:31][0m Deploy dir  : /home/ubuntu/judge0
+[0;36m[12:38:31][0m Flask URL   : http://localhost:5001
+[0;36m[12:38:31][0m Question bank: question_bank_mixed.json
+[0;36m[12:38:31][0m Resume mode : false
+[0;36m[12:38:31][0m Skip Excel  : false
+[0;36m[12:38:31][0m Only phase  : all
+
+
+[1m[0;36m╔══════════════════════════════════════════════════════════════╗[0m
+[1m[0;36m║  PHASE A — workers=3  MAX_RUNNERS=2  (6 sandboxes)  puma_slots=32║[0m
+[1m[0;36m╚══════════════════════════════════════════════════════════════╝[0m
+
+[0;36m[12:38:31][0m Stopping ALL existing containers (base project teardown)...
+[0;36m[12:39:27][0m Starting containers (--scale workers=3) ...
+ Network judge0_default Creating 
+ Network judge0_default Created 
+ Container judge0-redis-1 Creating 
+ Container judge0-db-1 Creating 
+ Container judge0-redis-1 Created 
+ Container judge0-reconciler-1 Creating 
+ Container judge0-db-1 Created 
+ Container judge0-workers-3 Creating 
+ Container judge0-workers-1 Creating 
+ Container judge0-workers-2 Creating 
+ Container judge0-server-1 Creating 
+ Container judge0-workers-2 Created 
+ Container judge0-server-1 Created 
+ Container judge0-api-1 Creating 
+ Container judge0-grading_worker-1 Creating 
+ Container judge0-workers-1 Created 
+ Container judge0-workers-3 Created 
+ Container judge0-reconciler-1 Created 
+ Container judge0-grading_worker-1 Created 
+ Container judge0-api-1 Created 
+ Container judge0-redis-1 Starting 
+ Container judge0-db-1 Starting 
+ Container judge0-db-1 Started 
+ Container judge0-redis-1 Started 
+ Container judge0-workers-1 Starting 
+ Container judge0-reconciler-1 Starting 
+ Container judge0-server-1 Starting 
+ Container judge0-server-1 Started 
+ Container judge0-grading_worker-1 Starting 
+ Container judge0-api-1 Starting 
+ Container judge0-workers-1 Started 
+ Container judge0-workers-3 Starting 
+ Container judge0-reconciler-1 Started 
+ Container judge0-workers-3 Started 
+ Container judge0-workers-2 Starting 
+ Container judge0-api-1 Started 
+ Container judge0-grading_worker-1 Started 
+ Container judge0-workers-2 Started 
+[0;36m[12:39:28][0m Waiting 120s for containers to warm up...
+[0;36m[12:41:28][0m Waiting for Flask health at http://localhost:5001/health ...
+[0;32m[12:41:28] ✔ Flask healthy[0m
+[0;36m[12:41:28][0m Judge0 /system_info reports workers=0 (expected ~3) — proceeding
+[0;36m[12:41:28][0m Verifying container health (docker ps) ...
+[0;32m[12:41:28] ✔ All containers running[0m
+
+[1m[0;36m╔══════════════════════════════════════════════════════════════╗[0m
+[1m[0;36m║  Scenario: A_100u_flat  |  users=100 ramp=0s batch=0           ║[0m
+[1m[0;36m╚══════════════════════════════════════════════════════════════╝[0m
+
+[0;36m[12:41:28][0m workers=3  runners=2  puma_slots=32
+[0;36m[12:41:28][0m Output → Reports/Jsons/A_100u_flat.json
+  Metrics collector started  (PID 2247606) → Reports/Jsons/A_100u_flat_metrics.jsonl  (interval=5.0s)
+
+  Judge0 Harness Load Tester
+  ───────────────────────────────────────────────
+  Mode:         Flask Stack (full pipeline)
+  Target:       http://localhost:5001
+  Users:        100
+  Submit mode:  Flat concurrent (ramp-up 0s)
+  Problems:     4
+  Solutions:    random (all types)
+  Max wait:     300s per submission
+  Dry run:      false
+  globalLimitS: 7s (for 100-TC problem with per_tc=2s)
+  Batch equiv:  ~10000 jobs if using per-TC batch approach
+  ───────────────────────────────────────────────
+
+  Checking Flask API health... OK
+
+Connected to Redis @ localhost:6379
+Collecting system metrics every 5.0s  →  Reports/Jsons/A_100u_flat_metrics.jsonl
+Press Ctrl-C to stop.
+
+Timestamp                CPU%   RAM%   RAM Used   Disk R   Disk W   Net TX   Net RX    TCP   RQueue     RMem
+---------------------------------------------------------------------------------------------------------
+  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 2s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 4s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 6s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 8s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 10s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 12s (SSE)2026-05-11 12:41:38     99.8%  52.0%      4.22 GB    0.44/s    8.05/s    2.02/s    2.03/s    305        0     6.3 MB
+  judge0-api-1                         cg_cpu=  2.9%      cg_mem=    106 MB (1.4%)  real_cpu=  0.0%      real_rss=    161 MB
+  judge0-grading_worker-1              cg_cpu=  3.8%      cg_mem=     44 MB (0.6%)  real_cpu=  1.7%      real_rss=     59 MB
+  judge0-reconciler-1                  cg_cpu=  0.1%      cg_mem=     22 MB (0.3%)  real_cpu=  0.0%      real_rss=     36 MB
+  judge0-workers-1                     cg_cpu=121.0% !!!  cg_mem=   1000 MB (97.7%)  real_cpu= 14.6%      real_rss=   1546 MB
+  judge0-workers-3                     cg_cpu=112.8% !!!  cg_mem=   1011 MB (98.8%)  real_cpu= 11.4%      real_rss=   1481 MB
+  judge0-server-1                      cg_cpu=  5.0%      cg_mem=    246 MB (3.2%)  real_cpu=  3.3%      real_rss=    367 MB
+  judge0-workers-2                     cg_cpu=119.7% !!!  cg_mem=    881 MB (86.0%)  real_cpu= 16.4%      real_rss=   1438 MB
+  judge0-db-1                          cg_cpu= 24.8%      cg_mem=    138 MB (34.6%)  real_cpu=  4.9%      real_rss=    700 MB
+  judge0-redis-1                       cg_cpu=  0.5%      cg_mem=     10 MB (1.9%)  real_cpu=  0.0%      real_rss=     17 MB
+  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 14s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 16s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 18s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 20s (SSE)2026-05-11 12:41:47    100.0%  53.4%      4.33 GB    0.01/s    1.02/s    1.65/s    1.66/s    305        0     6.8 MB
+  judge0-api-1                         cg_cpu=  2.8%      cg_mem=    106 MB (1.4%)  real_cpu=  3.3%      real_rss=    161 MB
+  judge0-grading_worker-1              cg_cpu=  9.6%      cg_mem=     46 MB (0.6%)  real_cpu=  0.0%      real_rss=     60 MB
+  judge0-reconciler-1                  cg_cpu=  0.1%      cg_mem=     22 MB (0.3%)  real_cpu=  0.0%      real_rss=     36 MB
+  judge0-workers-1                     cg_cpu=106.0% !!!  cg_mem=    904 MB (88.2%)  real_cpu= 17.8%      real_rss=   1305 MB
+  judge0-workers-3                     cg_cpu=120.7% !!!  cg_mem=    769 MB (75.1%)  real_cpu= 41.2%      real_rss=   1484 MB
+  judge0-server-1                      cg_cpu= 13.0%      cg_mem=    262 MB (3.4%)  real_cpu=  1.6%      real_rss=    383 MB
+  judge0-workers-2                     cg_cpu=119.5% !!!  cg_mem=    943 MB (92.1%)  real_cpu= 19.6%      real_rss=   1328 MB
+  judge0-db-1                          cg_cpu= 13.6%      cg_mem=    121 MB (30.2%)  real_cpu=  0.0%      real_rss=    781 MB
+  judge0-redis-1                       cg_cpu=  1.2%      cg_mem=     10 MB (1.9%)  real_cpu=  1.7%      real_rss=     17 MB
+  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 22s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 24s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 26s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 28s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 30s (SSE)2026-05-11 12:41:56    100.0%  54.4%      4.41 GB    0.01/s    4.13/s    1.71/s    1.71/s    305        0     6.3 MB
+  judge0-api-1                         cg_cpu=  2.6%      cg_mem=    106 MB (1.4%)  real_cpu=  1.6%      real_rss=    161 MB
+  judge0-grading_worker-1              cg_cpu=  5.8%      cg_mem=     47 MB (0.6%)  real_cpu=  0.0%      real_rss=     62 MB
+  judge0-reconciler-1                  cg_cpu=  0.1%      cg_mem=     22 MB (0.3%)  real_cpu=  0.0%      real_rss=     36 MB
+  judge0-workers-1                     cg_cpu=118.1% !!!  cg_mem=    891 MB (87.0%)  real_cpu= 18.0%      real_rss=   1502 MB
+  judge0-workers-3                     cg_cpu=112.1% !!!  cg_mem=    941 MB (91.9%)  real_cpu= 11.4%      real_rss=   1554 MB
+  judge0-server-1                      cg_cpu=  7.3%      cg_mem=    274 MB (3.5%)  real_cpu=  3.3%      real_rss=    394 MB
+  judge0-workers-2                     cg_cpu=115.9% !!!  cg_mem=    894 MB (87.4%)  real_cpu= 19.7%      real_rss=   1494 MB
+  judge0-db-1                          cg_cpu= 20.3%      cg_mem=    124 MB (30.9%)  real_cpu=  3.2%      real_rss=    889 MB
+  judge0-redis-1                       cg_cpu=  0.9%      cg_mem=      8 MB (1.6%)  real_cpu=  0.0%      real_rss=     17 MB
+  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 32s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 34s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 36s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 38s (SSE)2026-05-11 12:42:04    100.0%  54.0%      4.38 GB    0.05/s    0.98/s    1.69/s     1.7/s    305        0     6.6 MB
+  judge0-api-1                         cg_cpu=  2.7%      cg_mem=    106 MB (1.4%)  real_cpu=  0.0%      real_rss=    161 MB
+  judge0-grading_worker-1              cg_cpu=  4.1%      cg_mem=     48 MB (0.6%)  real_cpu=  1.7%      real_rss=     62 MB
+  judge0-reconciler-1                  cg_cpu=  0.1%      cg_mem=     22 MB (0.3%)  real_cpu=  0.0%      real_rss=     36 MB
+  judge0-workers-1                     cg_cpu=122.3% !!!  cg_mem=    930 MB (90.9%)  real_cpu= 16.4%      real_rss=   1338 MB
+  judge0-workers-3                     cg_cpu=118.4% !!!  cg_mem=    954 MB (93.1%)  real_cpu= 21.3%      real_rss=   1483 MB
+  judge0-server-1                      cg_cpu=  5.0%      cg_mem=    284 MB (3.7%)  real_cpu=  3.3%      real_rss=    407 MB
+  judge0-workers-2                     cg_cpu=125.8% !!!  cg_mem=    892 MB (87.1%)  real_cpu= 17.8%      real_rss=   1538 MB
+  judge0-db-1                          cg_cpu= 16.9%      cg_mem=    131 MB (32.8%)  real_cpu=  0.0%      real_rss=    800 MB
+  judge0-redis-1                       cg_cpu=  1.0%      cg_mem=      8 MB (1.6%)  real_cpu=  0.0%      real_rss=     16 MB
+  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 40s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 42s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 44s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 46s (SSE)  Progress: 0/100 (0%) | In-flight: 100 | Pending: 100 | Elapsed: 48s (SSE)2026-05-11 12:42:13    100.0%  54.6%      4.43 GB    0.01/s    1.01/s     1.7/s     1.7/s    305        0     6.6 MB
+  judge0-api-1                         cg_cpu=  2.7%      cg_mem=    106 MB (1.4%)  real_cpu=  0.0%      real_rss=    161 MB
+  judge0-grading_worker-1              cg_cpu= 10.0%      cg_mem=     48 MB (0.6%)  real_cpu=  3.3%      real_rss=     63 MB
+  judge0-reconciler-1                  cg_cpu=  0.1%      cg_mem=     22 MB (0.3%)  real_cpu=  0.0%      real_rss=     36 MB
+  judge0-workers-1                     cg_cpu=120.7% !!!  cg_mem=    915 MB (89.3%)  real_cpu= 16.4%      real_rss=   1400 MB
+  judge0-workers-3                     cg_cpu=112.0% !!!  cg_mem=    801 MB (78.2%)  real_cpu= 26.2%      real_rss=   1490 MB
+  judge0-server-1                      cg_cpu= 12.7%      cg_mem=    294 MB (3.8%)  real_cpu=  0.0%      real_rss=    416 MB
+  judge0-workers-2                     cg_cpu=118.1% !!!  cg_mem=    883 MB (86.3%)  real_cpu= 31.2%      real_rss=   1391 MB
+  judge0-db-1                          cg_cpu= 15.4%      cg_mem=    123 MB (30.8%)  real_cpu=  4.9%      real_rss=    801 MB
+  judge0-redis-1                       cg_cpu=  1.3%      cg_mem=      8 MB (1.6%)  real_cpu=  0.0%      real_rss=     16 MB
+  Progress: 8/100 (8%) | In-flight: 92 | Pending: 92 | Elapsed: 50s (SSE)  Progress: 20/100 (20%) | In-flight: 80 | Pending: 80 | Elapsed: 52s (SSE)  Progress: 35/100 (35%) | In-flight: 65 | Pending: 65 | Elapsed: 54s (SSE)  Progress: 45/100 (45%) | In-flight: 55 | Pending: 55 | Elapsed: 56s (SSE)2026-05-11 12:42:22    100.0%  55.0%      4.46 GB     0.0/s    0.93/s    1.57/s    1.58/s    224        0     5.8 MB
+  judge0-api-1                         cg_cpu=  2.1%      cg_mem=    105 MB (1.4%)  real_cpu=  0.0%      real_rss=    161 MB
+  judge0-grading_worker-1              cg_cpu=  4.4%      cg_mem=     48 MB (0.6%)  real_cpu=  1.7%      real_rss=     63 MB
+  judge0-reconciler-1                  cg_cpu=  0.1%      cg_mem=     22 MB (0.3%)  real_cpu=  0.0%      real_rss=     36 MB
+  judge0-workers-1                     cg_cpu=117.3% !!!  cg_mem=    936 MB (91.4%)  real_cpu= 13.2%      real_rss=   1418 MB
+  judge0-workers-3                     cg_cpu=117.8% !!!  cg_mem=    943 MB (92.1%)  real_cpu=  5.0%      real_rss=   1424 MB
+  judge0-server-1                      cg_cpu=  9.2%      cg_mem=    299 MB (3.9%)  real_cpu=  3.3%      real_rss=    420 MB
+  judge0-workers-2                     cg_cpu=120.7% !!!  cg_mem=    839 MB (82.0%)  real_cpu= 24.7%      real_rss=   1517 MB
+  judge0-db-1                          cg_cpu= 16.2%      cg_mem=    119 MB (29.8%)  real_cpu=  0.0%      real_rss=    835 MB
+  judge0-redis-1                       cg_cpu=  0.6%      cg_mem=      8 MB (1.6%)  real_cpu=  0.0%      real_rss=     16 MB
+  Progress: 61/100 (61%) | In-flight: 39 | Pending: 39 | Elapsed: 58s (SSE)  Progress: 70/100 (70%) | In-flight: 30 | Pending: 30 | Elapsed: 60s (SSE)  Progress: 86/100 (86%) | In-flight: 14 | Pending: 14 | Elapsed: 62s (SSE)  Progress: 98/100 (98%) | In-flight: 2 | Pending: 2 | Elapsed: 64s (SSE)
+
+╔══════════════════════════════════════════════════════════════╗
+║              JUDGE0 HARNESS LOAD TEST RESULTS               ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Test Mode:                       Flask Stack (full pipeline)
+  Total Users:                     100
+  Test Duration:                   64.2s
+  Total Submissions:               100
+  Completed:                       100
+
+  ── Submission Outcomes ────────────────────────────────────
+  Errors (network/Judge0):         0
+  Blocked by security checker:     0
+  Rate Limited (429):              0
+  Duplicate (idempotent):          0
+  System Errors (infra):           200
+
+  ── Queue Depth Comparison ─────────────────────────────────
+  Harness jobs (actual):           100
+  Batch equivalent jobs:           400
+  Queue reduction factor:          4.0x
+  Peak in-flight jobs:             100
+  Result delivery:                 SSE (/results/stream)
+
+  ── Latency ────────────────────────────────────────────────
+  Average:                         56634ms
+  p50:                             56732ms
+  p95:                             63721ms
+  p99:                             64073ms
+  Max:                             64144ms
+
+  ── Throughput ─────────────────────────────────────────────
+  Submissions/sec:                 1.56/sec
+
+  ── Result Status Breakdown ────────────────────────────────
+  SYSTEM_ERROR:                    100 (100.0%)
+
+  ── Solution Type Breakdown ────────────────────────────────
+  accepted:                        100
+
+  ── Per-Problem Breakdown ──────────────────────────────────
+  lcs:                             32 submissions
+  knapsack:                        23 submissions
+  coin_change:                     26 submissions
+  fibonacci:                       19 submissions
+
+  JSON report written to: Reports/Jsons/A_100u_flat.json
+
+  Stopping metrics collector (PID 2247606)…
+2026-05-11 12:42:31    100.0%  53.1%      4.31 GB     0.0/s    5.23/s    1.75/s    1.75/s     50        0     3.5 MB
+  judge0-api-1                         cg_cpu=  0.8%      cg_mem=    104 MB (1.4%)  real_cpu=  0.0%      real_rss=    160 MB
+  judge0-grading_worker-1              cg_cpu=  6.1%      cg_mem=     49 MB (0.6%)  real_cpu=  5.0%      real_rss=     63 MB
+  judge0-reconciler-1                  cg_cpu=  0.1%      cg_mem=     22 MB (0.3%)  real_cpu=  0.0%      real_rss=     36 MB
+  judge0-workers-1                     cg_cpu=124.8% !!!  cg_mem=    888 MB (86.7%)  real_cpu= 16.2%      real_rss=    998 MB
+  judge0-workers-3                     cg_cpu=116.2% !!!  cg_mem=    838 MB (81.8%)  real_cpu=  5.0%      real_rss=    912 MB
+  judge0-server-1                      cg_cpu=  4.0%      cg_mem=    301 MB (3.9%)  real_cpu=  5.0%      real_rss=    423 MB
+  judge0-workers-2                     cg_cpu=120.9% !!!  cg_mem=    804 MB (78.5%)  real_cpu= 17.8%      real_rss=    914 MB
+  judge0-db-1                          cg_cpu= 21.1%      cg_mem=    130 MB (32.4%)  real_cpu=  1.6%      real_rss=    621 MB
+  judge0-redis-1                       cg_cpu=  1.2%      cg_mem=      8 MB (1.6%)  real_cpu=  0.0%      real_rss=     16 MB
+
+✓ Done.  8 snapshots written to Reports/Jsons/A_100u_flat_metrics.jsonl
+  Generating Excel report: python3 generate_ec2_report.py Reports/Jsons/A_100u_flat.json --metrics Reports/Jsons/A_100u_flat_metrics.jsonl --workers 3 --runners 2 --out Reports/A_100u_flat.xlsx
+Reading report  : Reports/Jsons/A_100u_flat.json
+Workers         : 3  runners/worker: 2  (sandboxes: 6)
+Reading metrics : Reports/Jsons/A_100u_flat_metrics.jsonl
+  8 metric snapshots loaded
+Building Excel workbook…
+
+✓  Report saved : Reports/A_100u_flat.xlsx
+   Sheet 1  — System Info
+   Sheet 2  — Load Test Metrics  (8 live-metric snapshots)
+   Sheet 3  — User Test Case Results  (100 submissions)
+  Excel report saved to  : Reports/A_100u_flat.xlsx
+
+[0;32m[12:42:36] ✔ Done: A_100u_flat → Reports/Jsons/A_100u_flat.json[0m
+[0;36m[12:42:36][0m Cooldown 45s (queue drain + system settle)...
