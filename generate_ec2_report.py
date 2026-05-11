@@ -974,69 +974,90 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
 
     # ── Section: Container CPU & Memory ───────────────────────────────────────
     # Extract per-container series from snapshots that have docker stats
-    container_series: dict = {}   # name → {cpu_pcts, mem_mbs, mem_pcts}
+    container_series: dict = {}   # name → {cg_cpu, mem_mbs, mem_pcts, real_cpu, real_rss}
     container_order: list = []    # first-seen insertion order
 
     for m in metrics_data:
         for c in m.get("containers", []):
             name = c.get("name", "?")
             if name not in container_series:
-                container_series[name] = {"cpu_pcts": [], "mem_mbs": [], "mem_pcts": []}
+                container_series[name] = {
+                    "cg_cpu_pcts": [], "mem_mbs": [], "mem_pcts": [],
+                    "real_cpu_pcts": [], "real_rss_mbs": [],
+                }
                 container_order.append(name)
-            container_series[name]["cpu_pcts"].append(c.get("cpu_pct", 0))
+            container_series[name]["cg_cpu_pcts"].append(c.get("cg_cpu_pct", c.get("cpu_pct", 0)))
             container_series[name]["mem_mbs"].append(c.get("mem_mb", 0))
             container_series[name]["mem_pcts"].append(c.get("mem_pct", 0))
+            if c.get("real_cpu_pct_norm") is not None:
+                container_series[name]["real_cpu_pcts"].append(c["real_cpu_pct_norm"])
+            if c.get("real_rss_mb") is not None:
+                container_series[name]["real_rss_mbs"].append(c["real_rss_mb"])
 
     if container_series:
         sorted_names = sorted(container_order)
 
         # ── Container peak summary ─────────────────────────────────────────
-        N_CSUMM = 6
+        N_CSUMM = 9
         _write_section(ws, row, "CONTAINER PERFORMANCE SUMMARY  (peaks & averages during test)", N_CSUMM)
         row += 1
 
-        for ci, h in enumerate(
-            ["Container", "Avg CPU %", "Max CPU %", "Avg Mem (MB)", "Max Mem (MB)", "Max Mem %"], 1
-        ):
+        for ci, h in enumerate([
+            "Container",
+            "Avg cg CPU%", "Max cg CPU%",      # docker/cgroup relative
+            "Avg Real CPU%", "Max Real CPU%",   # actual host normalised 0-100%
+            "Avg Mem MB (cg)", "Max Mem MB (cg)",
+            "Avg RSS MB (real)", "Max RSS MB (real)",
+        ], 1):
             _write_col_header(ws, row, ci, h, bg=_C["hdr_light"], fg=_C["hdr_dark"])
         row += 1
 
         for i, name in enumerate(sorted_names):
-            series = container_series[name]
-            avg_cpu     = sum(series["cpu_pcts"]) / max(len(series["cpu_pcts"]), 1)
-            max_cpu     = max(series["cpu_pcts"], default=0)
-            avg_mem     = sum(series["mem_mbs"])  / max(len(series["mem_mbs"]),  1)
-            max_mem     = max(series["mem_mbs"],  default=0)
-            max_mem_pct = max(series["mem_pcts"], default=0)
-
+            series  = container_series[name]
             alt_bg  = _C["alt_row"] if i % 2 else _C["white"]
-            cpu_bg  = (_C["cpu_crit"] if max_cpu     >= 90 else
-                       _C["cpu_warn"] if max_cpu     >= 70 else _C["cpu_ok"])
-            mem_bg  = (_C["cpu_crit"] if max_mem_pct >= 90 else
-                       _C["cpu_warn"] if max_mem_pct >= 75 else _C["cpu_ok"])
 
-            for ci, (val, bg) in enumerate([
-                (name,                    alt_bg),
-                (f"{avg_cpu:.1f}%",       alt_bg),
-                (f"{max_cpu:.1f}%",       cpu_bg),
-                (f"{avg_mem:.0f} MB",     alt_bg),
-                (f"{max_mem:.0f} MB",     mem_bg),
-                (f"{max_mem_pct:.1f}%",   mem_bg),
-            ], 1):
+            def _avg(lst): return sum(lst) / max(len(lst), 1) if lst else None
+            def _max(lst): return max(lst) if lst else None
+
+            avg_cg   = _avg(series["cg_cpu_pcts"]);  max_cg   = _max(series["cg_cpu_pcts"])
+            avg_rc   = _avg(series["real_cpu_pcts"]); max_rc   = _max(series["real_cpu_pcts"])
+            avg_mem  = _avg(series["mem_mbs"]);       max_mem  = _max(series["mem_mbs"])
+            avg_rss  = _avg(series["real_rss_mbs"]);  max_rss  = _max(series["real_rss_mbs"])
+            max_memp = _max(series["mem_pcts"]) or 0
+
+            def _cpu_bg(v):
+                if v is None: return alt_bg
+                return _C["cpu_crit"] if v >= 90 else (_C["cpu_warn"] if v >= 70 else _C["cpu_ok"])
+            def _mem_bg(v):
+                if v is None: return alt_bg
+                return _C["cpu_crit"] if max_memp >= 90 else (_C["cpu_warn"] if max_memp >= 75 else _C["cpu_ok"])
+
+            vals = [
+                (name,                                              alt_bg),
+                (f"{avg_cg:.1f}%" if avg_cg is not None else "–",  alt_bg),
+                (f"{max_cg:.1f}%" if max_cg is not None else "–",  _cpu_bg(max_cg)),
+                (f"{avg_rc:.1f}%" if avg_rc is not None else "–",  alt_bg),
+                (f"{max_rc:.1f}%" if max_rc is not None else "–",  _cpu_bg(max_rc)),
+                (f"{avg_mem:.0f}" if avg_mem is not None else "–", alt_bg),
+                (f"{max_mem:.0f}" if max_mem is not None else "–", _mem_bg(max_mem)),
+                (f"{avg_rss:.0f}" if avg_rss is not None else "–", alt_bg),
+                (f"{max_rss:.0f}" if max_rss is not None else "–", _mem_bg(max_rss)),
+            ]
+            for ci, (val, bg) in enumerate(vals, 1):
                 c = ws.cell(row=row, column=ci, value=val)
                 _style(c, bg=bg, bold=(ci == 1))
-            row += 1
+        row += 1
         row += 1
 
-        # ── Container CPU % timeline ───────────────────────────────────────
+        # ── Container cgroup CPU % timeline ───────────────────────────────
         N_CTIMELINE = 1 + len(sorted_names)
-        _write_section(ws, row, "CONTAINER CPU %  TIMELINE", N_CTIMELINE)
+        _write_section(ws, row, "CONTAINER CPU %  —  cgroup-relative  (docker stats, can exceed 100% per core)", N_CTIMELINE)
         row += 1
 
-        c0 = ws.cell(row=row, column=1, value="Timestamp")
-        _style(c0, bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
+        ws.cell(row=row, column=1, value="Timestamp")
+        _style(ws.cell(row=row, column=1), bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
         for ci, name in enumerate(sorted_names, 2):
-            c = ws.cell(row=row, column=ci, value=f"{name}\nCPU %")
+            c = ws.cell(row=row, column=ci, value=f"{name}\ncg CPU %")
             _style(c, bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
         ws.row_dimensions[row].height = 28
         row += 1
@@ -1049,9 +1070,8 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
             for ci, name in enumerate(sorted_names, 2):
                 cdata = by_name.get(name)
                 if cdata:
-                    cpu = cdata.get("cpu_pct", 0)
-                    cpu_bg = (_C["cpu_crit"] if cpu >= 90 else
-                              _C["cpu_warn"] if cpu >= 70 else _C["cpu_ok"])
+                    cpu = cdata.get("cg_cpu_pct", cdata.get("cpu_pct", 0))
+                    cpu_bg = (_C["cpu_crit"] if cpu >= 90 else _C["cpu_warn"] if cpu >= 70 else _C["cpu_ok"])
                     c = ws.cell(row=row, column=ci, value=f"{cpu:.1f}%")
                     _style(c, bg=cpu_bg, halign="center")
                 else:
@@ -1060,14 +1080,44 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
             row += 1
         row += 1
 
-        # ── Container Memory (MB) timeline ────────────────────────────────
-        _write_section(ws, row, "CONTAINER MEMORY (MB)  TIMELINE", N_CTIMELINE)
+        # ── Container real host CPU % timeline (normalised 0-100%) ────────
+        _write_section(ws, row, "CONTAINER CPU %  —  actual host  (psutil process tree, normalised 0-100%)", N_CTIMELINE)
         row += 1
 
-        c0 = ws.cell(row=row, column=1, value="Timestamp")
-        _style(c0, bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
+        ws.cell(row=row, column=1, value="Timestamp")
+        _style(ws.cell(row=row, column=1), bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
         for ci, name in enumerate(sorted_names, 2):
-            c = ws.cell(row=row, column=ci, value=f"{name}\nMem MB")
+            c = ws.cell(row=row, column=ci, value=f"{name}\nReal CPU %")
+            _style(c, bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
+        ws.row_dimensions[row].height = 28
+        row += 1
+
+        for i, m in enumerate(metrics_data):
+            bg = _C["alt_row"] if i % 2 else _C["white"]
+            ws.cell(row=row, column=1, value=m.get("timestamp", ""))
+            _style(ws.cell(row=row, column=1), bg=bg)
+            by_name = {cdata["name"]: cdata for cdata in m.get("containers", [])}
+            for ci, name in enumerate(sorted_names, 2):
+                cdata = by_name.get(name)
+                val = cdata.get("real_cpu_pct_norm") if cdata else None
+                if val is not None:
+                    cpu_bg = (_C["cpu_crit"] if val >= 90 else _C["cpu_warn"] if val >= 70 else _C["cpu_ok"])
+                    c = ws.cell(row=row, column=ci, value=f"{val:.1f}%")
+                    _style(c, bg=cpu_bg, halign="center")
+                else:
+                    c = ws.cell(row=row, column=ci, value="–")
+                    _style(c, bg=bg, halign="center")
+            row += 1
+        row += 1
+
+        # ── Container cgroup memory (MB) timeline ─────────────────────────
+        _write_section(ws, row, "CONTAINER MEMORY MB  —  cgroup  (docker stats)", N_CTIMELINE)
+        row += 1
+
+        ws.cell(row=row, column=1, value="Timestamp")
+        _style(ws.cell(row=row, column=1), bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
+        for ci, name in enumerate(sorted_names, 2):
+            c = ws.cell(row=row, column=ci, value=f"{name}\ncg Mem MB")
             _style(c, bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
         ws.row_dimensions[row].height = 28
         row += 1
@@ -1082,10 +1132,39 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
                 if cdata:
                     mem     = cdata.get("mem_mb", 0)
                     mem_pct = cdata.get("mem_pct", 0)
-                    mem_bg  = (_C["cpu_crit"] if mem_pct >= 90 else
-                               _C["cpu_warn"] if mem_pct >= 75 else _C["cpu_ok"])
+                    mem_bg  = (_C["cpu_crit"] if mem_pct >= 90 else _C["cpu_warn"] if mem_pct >= 75 else _C["cpu_ok"])
                     c = ws.cell(row=row, column=ci, value=int(mem))
                     _style(c, bg=mem_bg, halign="center")
+                else:
+                    c = ws.cell(row=row, column=ci, value="–")
+                    _style(c, bg=bg, halign="center")
+            row += 1
+        row += 1
+
+        # ── Container real RSS memory (MB) timeline ────────────────────────
+        _write_section(ws, row, "CONTAINER MEMORY MB  —  actual RSS  (psutil process tree)", N_CTIMELINE)
+        row += 1
+
+        ws.cell(row=row, column=1, value="Timestamp")
+        _style(ws.cell(row=row, column=1), bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
+        for ci, name in enumerate(sorted_names, 2):
+            c = ws.cell(row=row, column=ci, value=f"{name}\nReal RSS MB")
+            _style(c, bg=_C["hdr_light"], fg=_C["hdr_dark"], bold=True, halign="center")
+        ws.row_dimensions[row].height = 28
+        row += 1
+
+        for i, m in enumerate(metrics_data):
+            bg = _C["alt_row"] if i % 2 else _C["white"]
+            ws.cell(row=row, column=1, value=m.get("timestamp", ""))
+            _style(ws.cell(row=row, column=1), bg=bg)
+            by_name = {cdata["name"]: cdata for cdata in m.get("containers", [])}
+            for ci, name in enumerate(sorted_names, 2):
+                cdata = by_name.get(name)
+                val = cdata.get("real_rss_mb") if cdata else None
+                if val is not None:
+                    rss_bg = (_C["cpu_crit"] if val >= 1500 else _C["cpu_warn"] if val >= 900 else _C["cpu_ok"])
+                    c = ws.cell(row=row, column=ci, value=int(val))
+                    _style(c, bg=rss_bg, halign="center")
                 else:
                     c = ws.cell(row=row, column=ci, value="–")
                     _style(c, bg=bg, halign="center")
@@ -1429,6 +1508,175 @@ def build_sheet3(wb: openpyxl.Workbook, report: dict):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  Metrics helpers for Sheet 4
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _load_run_metrics(json_path: str) -> list:
+    """Auto-detect and load the sibling _metrics.jsonl for a given JSON report path.
+    Returns a list of snapshot dicts (may be empty if not found)."""
+    p = Path(json_path)
+    candidates = [
+        p.parent / (p.stem + "_metrics.jsonl"),
+        p.parent / (p.stem + ".metrics.jsonl"),
+    ]
+    for cand in candidates:
+        if cand.exists():
+            snapshots = []
+            with open(cand, encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if line:
+                        try:
+                            snapshots.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            pass
+            print(f"  Metrics loaded : {cand}  ({len(snapshots)} snapshots)")
+            return snapshots
+    return []
+
+
+def _safe_avg(vals):
+    """Return rounded average or 'N/A' for an empty list."""
+    nums = [v for v in vals if isinstance(v, (int, float))]
+    if not nums:
+        return "N/A"
+    return round(sum(nums) / len(nums), 1)
+
+
+def _safe_peak(vals):
+    """Return rounded max or 'N/A' for an empty list."""
+    nums = [v for v in vals if isinstance(v, (int, float))]
+    if not nums:
+        return "N/A"
+    return round(max(nums), 1)
+
+
+def _extract_metrics_summary(metrics_data: list) -> dict:
+    """Compute peak / avg stats from a list of JSONL snapshots.
+
+    Returns a dict with the following keys (value is 'N/A' when not available):
+
+      HOST (psutil — actual host):
+        host_cpu_avg, host_cpu_peak             — cpu_pct (%)
+        host_ram_avg_gb, host_ram_peak_gb       — mem_used_gb
+        host_ram_avg_pct, host_ram_peak_pct     — mem_pct (%)
+        redis_queue_avg, redis_queue_peak       — redis_queue_depth
+
+      CONTAINER — cgroup (docker stats):
+        worker_cg_cpu_avg, worker_cg_cpu_peak   — sum of worker cg_cpu_pct per snapshot
+        worker_cg_mem_avg_mb, worker_cg_mem_peak_mb
+        server_cg_cpu_avg, server_cg_cpu_peak
+        server_cg_mem_avg_mb, server_cg_mem_peak_mb
+
+      CONTAINER — real host (psutil):
+        worker_real_cpu_avg, worker_real_cpu_peak   — sum of worker real_cpu_pct_norm
+        worker_rss_avg_mb, worker_rss_peak_mb
+        server_real_cpu_avg, server_real_cpu_peak
+        server_rss_avg_mb, server_rss_peak_mb
+
+      snapshots — number of snapshots loaded
+    """
+    if not metrics_data:
+        na = "N/A"
+        return {k: na for k in [
+            "host_cpu_avg","host_cpu_peak",
+            "host_ram_avg_gb","host_ram_peak_gb",
+            "host_ram_avg_pct","host_ram_peak_pct",
+            "redis_queue_avg","redis_queue_peak",
+            "worker_cg_cpu_avg","worker_cg_cpu_peak",
+            "worker_cg_mem_avg_mb","worker_cg_mem_peak_mb",
+            "worker_real_cpu_avg","worker_real_cpu_peak",
+            "worker_rss_avg_mb","worker_rss_peak_mb",
+            "server_cg_cpu_avg","server_cg_cpu_peak",
+            "server_cg_mem_avg_mb","server_cg_mem_peak_mb",
+            "server_real_cpu_avg","server_real_cpu_peak",
+            "server_rss_avg_mb","server_rss_peak_mb",
+            "snapshots",
+        ]}
+
+    # ── Host-level series ──────────────────────────────────────────────────
+    host_cpu   = [m["cpu_pct"]      for m in metrics_data if "cpu_pct"      in m]
+    host_ram_g = [m["mem_used_gb"]  for m in metrics_data if "mem_used_gb"  in m]
+    host_ram_p = [m["mem_pct"]      for m in metrics_data if "mem_pct"      in m]
+    redis_q    = [m["redis_queue_depth"] for m in metrics_data
+                  if "redis_queue_depth" in m and isinstance(m["redis_queue_depth"], (int, float))]
+
+    # ── Per-snapshot container aggregates ──────────────────────────────────
+    # worker = container name contains "worker"
+    # server = everything else (judge0 API / server containers)
+    worker_cg_cpu_per_snap   = []
+    worker_cg_mem_per_snap   = []
+    worker_real_cpu_per_snap = []
+    worker_rss_per_snap      = []
+    server_cg_cpu_per_snap   = []
+    server_cg_mem_per_snap   = []
+    server_real_cpu_per_snap = []
+    server_rss_per_snap      = []
+
+    for m in metrics_data:
+        w_cg_cpu = w_cg_mem = w_real_cpu = w_rss = 0.0
+        s_cg_cpu = s_cg_mem = s_real_cpu = s_rss = 0.0
+        for c in m.get("containers", []):
+            name = c.get("name", "")
+            is_worker = "worker" in name.lower()
+            cg_cpu  = c.get("cg_cpu_pct",      c.get("cpu_pct", 0)) or 0
+            cg_mem  = c.get("mem_mb",           0) or 0
+            r_cpu   = c.get("real_cpu_pct_norm", None)
+            r_rss   = c.get("real_rss_mb",       None)
+            if is_worker:
+                w_cg_cpu  += cg_cpu
+                w_cg_mem  += cg_mem
+                if r_cpu is not None: w_real_cpu += r_cpu
+                if r_rss is not None: w_rss      += r_rss
+            else:
+                s_cg_cpu  += cg_cpu
+                s_cg_mem  += cg_mem
+                if r_cpu is not None: s_real_cpu += r_cpu
+                if r_rss is not None: s_rss      += r_rss
+
+        if m.get("containers"):
+            worker_cg_cpu_per_snap.append(w_cg_cpu)
+            worker_cg_mem_per_snap.append(w_cg_mem)
+            worker_real_cpu_per_snap.append(w_real_cpu)
+            worker_rss_per_snap.append(w_rss)
+            server_cg_cpu_per_snap.append(s_cg_cpu)
+            server_cg_mem_per_snap.append(s_cg_mem)
+            server_real_cpu_per_snap.append(s_real_cpu)
+            server_rss_per_snap.append(s_rss)
+
+    return {
+        # Host
+        "host_cpu_avg":          _safe_avg(host_cpu),
+        "host_cpu_peak":         _safe_peak(host_cpu),
+        "host_ram_avg_gb":       _safe_avg(host_ram_g),
+        "host_ram_peak_gb":      _safe_peak(host_ram_g),
+        "host_ram_avg_pct":      _safe_avg(host_ram_p),
+        "host_ram_peak_pct":     _safe_peak(host_ram_p),
+        "redis_queue_avg":       _safe_avg(redis_q),
+        "redis_queue_peak":      _safe_peak(redis_q),
+        # Containers — cgroup (docker stats)
+        "worker_cg_cpu_avg":     _safe_avg(worker_cg_cpu_per_snap),
+        "worker_cg_cpu_peak":    _safe_peak(worker_cg_cpu_per_snap),
+        "worker_cg_mem_avg_mb":  _safe_avg(worker_cg_mem_per_snap),
+        "worker_cg_mem_peak_mb": _safe_peak(worker_cg_mem_per_snap),
+        "server_cg_cpu_avg":     _safe_avg(server_cg_cpu_per_snap),
+        "server_cg_cpu_peak":    _safe_peak(server_cg_cpu_per_snap),
+        "server_cg_mem_avg_mb":  _safe_avg(server_cg_mem_per_snap),
+        "server_cg_mem_peak_mb": _safe_peak(server_cg_mem_per_snap),
+        # Containers — real host (psutil)
+        "worker_real_cpu_avg":   _safe_avg(worker_real_cpu_per_snap),
+        "worker_real_cpu_peak":  _safe_peak(worker_real_cpu_per_snap),
+        "worker_rss_avg_mb":     _safe_avg(worker_rss_per_snap),
+        "worker_rss_peak_mb":    _safe_peak(worker_rss_per_snap),
+        "server_real_cpu_avg":   _safe_avg(server_real_cpu_per_snap),
+        "server_real_cpu_peak":  _safe_peak(server_real_cpu_per_snap),
+        "server_rss_avg_mb":     _safe_avg(server_rss_per_snap),
+        "server_rss_peak_mb":    _safe_peak(server_rss_per_snap),
+        "snapshots":             len(metrics_data),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  Sheet 4 — Scenario Comparison
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1443,6 +1691,12 @@ def build_sheet4_comparison(wb: openpyxl.Workbook, reports: list):
     n_reports = len(reports)
     # Metric column + one column per report
     NCOLS = 1 + n_reports
+
+    # ── Auto-load per-run metrics JSONL (sibling of each JSON file) ───────────
+    run_metrics: list = []  # one _extract_metrics_summary dict per report
+    for fname, _ in reports:
+        snaps = _load_run_metrics(fname)
+        run_metrics.append(_extract_metrics_summary(snaps))
 
     _write_title(ws, 1, "MULTI-RUN SCENARIO COMPARISON", NCOLS, fontsize=14)
 
@@ -1659,8 +1913,75 @@ def build_sheet4_comparison(wb: openpyxl.Workbook, reports: list):
     metric_row("Queue Reduction Factor",
                [r.get("summary",{}).get("queue_reduction","N/A") for _,r in reports])
 
+    # ── Section: Host System Resources (psutil — actual host) ─────────────────
+    any_host_metrics = any(ms["snapshots"] != "N/A" and ms["snapshots"] > 0
+                           for ms in run_metrics)
+    if any_host_metrics:
+        section("HOST SYSTEM RESOURCES  (psutil — actual EC2 host, not cgroup)")
+
+        def hm(key): return [ms[key] for ms in run_metrics]
+
+        metric_row("Snapshots collected",
+                   [ms["snapshots"] for ms in run_metrics])
+        metric_row("Peak Host CPU %",
+                   hm("host_cpu_peak"),    highlight_best=True, lower_is_better=True)
+        metric_row("Avg  Host CPU %",
+                   hm("host_cpu_avg"),     highlight_best=True, lower_is_better=True)
+        metric_row("Peak RAM Used (GB)",
+                   hm("host_ram_peak_gb"), highlight_best=True, lower_is_better=True)
+        metric_row("Avg  RAM Used (GB)",
+                   hm("host_ram_avg_gb"),  highlight_best=True, lower_is_better=True)
+        metric_row("Peak RAM Used %",
+                   hm("host_ram_peak_pct"),highlight_best=True, lower_is_better=True)
+        metric_row("Avg  RAM Used %",
+                   hm("host_ram_avg_pct"), highlight_best=True, lower_is_better=True)
+        metric_row("Peak Redis Queue Depth",
+                   hm("redis_queue_peak"), highlight_best=True, lower_is_better=True)
+        metric_row("Avg  Redis Queue Depth",
+                   hm("redis_queue_avg"),  highlight_best=True, lower_is_better=True)
+
+        # ── Section: Container Resources — cgroup / docker stats ──────────────
+        section("CONTAINER RESOURCES — cgroup  (docker stats, NOT real host)")
+
+        metric_row("Workers: Peak cg CPU %  (sum across workers, can exceed 100%×N)",
+                   hm("worker_cg_cpu_peak"), highlight_best=True, lower_is_better=True)
+        metric_row("Workers: Avg  cg CPU %",
+                   hm("worker_cg_cpu_avg"),  highlight_best=True, lower_is_better=True)
+        metric_row("Workers: Peak cg Mem MB",
+                   hm("worker_cg_mem_peak_mb"), highlight_best=True, lower_is_better=True)
+        metric_row("Workers: Avg  cg Mem MB",
+                   hm("worker_cg_mem_avg_mb"),  highlight_best=True, lower_is_better=True)
+        metric_row("Server:  Peak cg CPU %",
+                   hm("server_cg_cpu_peak"), highlight_best=True, lower_is_better=True)
+        metric_row("Server:  Avg  cg CPU %",
+                   hm("server_cg_cpu_avg"),  highlight_best=True, lower_is_better=True)
+        metric_row("Server:  Peak cg Mem MB",
+                   hm("server_cg_mem_peak_mb"), highlight_best=True, lower_is_better=True)
+        metric_row("Server:  Avg  cg Mem MB",
+                   hm("server_cg_mem_avg_mb"),  highlight_best=True, lower_is_better=True)
+
+        # ── Section: Container Resources — real host / psutil ─────────────────
+        section("CONTAINER RESOURCES — actual host  (psutil process tree, 0–100% normalised)")
+
+        metric_row("Workers: Peak real CPU %  (normalised 0–100%)",
+                   hm("worker_real_cpu_peak"), highlight_best=True, lower_is_better=True)
+        metric_row("Workers: Avg  real CPU %",
+                   hm("worker_real_cpu_avg"),  highlight_best=True, lower_is_better=True)
+        metric_row("Workers: Peak RSS MB",
+                   hm("worker_rss_peak_mb"), highlight_best=True, lower_is_better=True)
+        metric_row("Workers: Avg  RSS MB",
+                   hm("worker_rss_avg_mb"),  highlight_best=True, lower_is_better=True)
+        metric_row("Server:  Peak real CPU %",
+                   hm("server_real_cpu_peak"), highlight_best=True, lower_is_better=True)
+        metric_row("Server:  Avg  real CPU %",
+                   hm("server_real_cpu_avg"),  highlight_best=True, lower_is_better=True)
+        metric_row("Server:  Peak RSS MB",
+                   hm("server_rss_peak_mb"), highlight_best=True, lower_is_better=True)
+        metric_row("Server:  Avg  RSS MB",
+                   hm("server_rss_avg_mb"),  highlight_best=True, lower_is_better=True)
+
     # ── Column widths ─────────────────────────────────────────────────────────
-    ws.column_dimensions["A"].width = 32
+    ws.column_dimensions["A"].width = 52  # wider for new resource metric labels
     col_w = max(20, int(90 / n_reports))
     for ri in range(2, n_reports + 2):
         ws.column_dimensions[get_column_letter(ri)].width = col_w

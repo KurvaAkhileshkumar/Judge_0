@@ -99,7 +99,7 @@ def _parse_docker_mem(mem_str: str):
 
 
 def _collect_docker_stats() -> list:
-    """Run `docker stats --no-stream` and return per-container stats list."""
+    """Run `docker stats --no-stream` — returns cgroup-relative CPU% and cgroup mem."""
     try:
         result = subprocess.run(
             ["docker", "stats", "--no-stream", "--format", "{{json .}}"],
@@ -117,16 +117,87 @@ def _collect_docker_stats() -> list:
                 mem_pct = float(d.get("MemPerc", "0%").rstrip('%'))
                 containers.append({
                     "name":         d.get("Name", d.get("Container", "?")),
-                    "cpu_pct":      round(cpu, 2),
+                    "cg_cpu_pct":   round(cpu, 2),      # cgroup-relative (can exceed 100% on multi-core)
                     "mem_mb":       round(used_mb, 1),
                     "mem_limit_mb": round(limit_mb, 1),
-                    "mem_pct":      round(mem_pct, 2),
+                    "mem_pct":      round(mem_pct, 2),  # cgroup mem %
                 })
             except Exception:
                 pass
         return containers
     except Exception:
         return []
+
+
+def _collect_container_psutil_stats() -> dict:
+    """
+    For each running container get its root PID via docker inspect, then walk
+    the full process tree with psutil to measure actual host-level utilisation:
+      real_cpu_pct      — sum of cpu_percent() across all container PIDs
+                          (0-400% on a 4-core host, same scale as `top`)
+      real_cpu_pct_norm — real_cpu_pct / cpu_count  (0-100% normalised)
+      real_rss_mb       — sum of RSS across all container PIDs (MB)
+    Returns dict keyed by container name.
+    """
+    result = {}
+    try:
+        ps_result = subprocess.run(
+            ["docker", "ps", "--format", "{{.Names}}"],
+            capture_output=True, text=True, timeout=10,
+        )
+        names = [n.strip() for n in ps_result.stdout.strip().splitlines() if n.strip()]
+        if not names:
+            return result
+
+        inspect_result = subprocess.run(
+            ["docker", "inspect", "--format", "{{.Name}} {{.State.Pid}}"] + names,
+            capture_output=True, text=True, timeout=10,
+        )
+        n_cpus = psutil.cpu_count(logical=True) or 1
+
+        for line in inspect_result.stdout.strip().splitlines():
+            parts = line.strip().lstrip('/').split()
+            if len(parts) != 2:
+                continue
+            cname, pid_str = parts
+            try:
+                root_pid = int(pid_str)
+                if root_pid == 0:
+                    continue
+                try:
+                    root_proc = psutil.Process(root_pid)
+                    procs = [root_proc] + root_proc.children(recursive=True)
+                except psutil.NoSuchProcess:
+                    continue
+
+                # Prime CPU counters (first call always returns 0.0)
+                for p in procs:
+                    try:
+                        p.cpu_percent(interval=None)
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+
+                time.sleep(0.15)  # short window for delta measurement
+
+                total_cpu = 0.0
+                total_rss = 0
+                for p in procs:
+                    try:
+                        total_cpu += p.cpu_percent(interval=None)
+                        total_rss += p.memory_info().rss
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+
+                result[cname] = {
+                    "real_cpu_pct":      round(total_cpu, 2),
+                    "real_cpu_pct_norm": round(total_cpu / n_cpus, 2),
+                    "real_rss_mb":       round(total_rss / 1e6, 1),
+                }
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return result
 
 
 # ── Redis connection ──────────────────────────────────────────────────────────
@@ -209,6 +280,12 @@ def _collect_snapshot(prev_disk, prev_net, prev_time, rc, docker_enabled: bool =
     # ── Docker container stats ────────────────────────────────────────────────
     if docker_enabled:
         containers = _collect_docker_stats()
+        psutil_by_name = _collect_container_psutil_stats()
+        for c in containers:
+            ps = psutil_by_name.get(c["name"], {})
+            c["real_cpu_pct"]      = ps.get("real_cpu_pct")       # actual host CPU% (summed)
+            c["real_cpu_pct_norm"] = ps.get("real_cpu_pct_norm")  # normalised 0-100%
+            c["real_rss_mb"]       = ps.get("real_rss_mb")        # actual RSS (MB)
         if containers:
             snap["containers"] = containers
 
@@ -289,12 +366,22 @@ def main():
             )
             # Per-container stats
             for c in snap.get('containers', []):
-                cpu_flag = ' !!!' if c['cpu_pct'] >= 90 else (' !' if c['cpu_pct'] >= 70 else '')
-                mem_flag = ' !!!' if c['mem_pct'] >= 90 else (' !' if c['mem_pct'] >= 75 else '')
+                cg_cpu   = c.get('cg_cpu_pct', 0)
+                rc_cpu   = c.get('real_cpu_pct_norm')
+                rc_rss   = c.get('real_rss_mb')
+                cg_flag  = ' !!!' if cg_cpu >= 90 else (' ! ' if cg_cpu >= 70 else '    ')
+                rc_flag  = ''
+                if rc_cpu is not None:
+                    rc_flag = ' !!!' if rc_cpu >= 90 else (' ! ' if rc_cpu >= 70 else '    ')
+                real_str = (
+                    f"  real_cpu={rc_cpu:>5.1f}%{rc_flag}  real_rss={rc_rss:>7.0f} MB"
+                    if rc_cpu is not None else ""
+                )
                 print(
-                    f"  {c['name']:<38}"
-                    f" cpu={c['cpu_pct']:>5.1f}%{cpu_flag:<4}"
-                    f" mem={c['mem_mb']:>7.0f} MB ({c['mem_pct']:.1f}%){mem_flag}"
+                    f"  {c['name']:<35}"
+                    f"  cg_cpu={cg_cpu:>5.1f}%{cg_flag}"
+                    f"  cg_mem={c['mem_mb']:>7.0f} MB ({c['mem_pct']:.1f}%)"
+                    f"{real_str}"
                 )
 
     print(f"\n✓ Done.  {count} snapshots written to {args.out}")

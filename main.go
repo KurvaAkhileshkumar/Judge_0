@@ -1889,6 +1889,35 @@ func main() {
 	}
 }
 
+// loadDotEnv reads key=value pairs from a .env file and returns them as a map.
+// Lines starting with # and blank lines are ignored. Values may be quoted.
+func loadDotEnv(path string) map[string]string {
+	result := make(map[string]string)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return result
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		idx := strings.IndexByte(line, '=')
+		if idx < 1 {
+			continue
+		}
+		key := strings.TrimSpace(line[:idx])
+		val := strings.TrimSpace(line[idx+1:])
+		// Strip surrounding quotes if present
+		if len(val) >= 2 && ((val[0] == '"' && val[len(val)-1] == '"') ||
+			(val[0] == '\'' && val[len(val)-1] == '\'')) {
+			val = val[1 : len(val)-1]
+		}
+		result[key] = val
+	}
+	return result
+}
+
 // startMetricsCollector launches collect_ec2_metrics.py in the background.
 // It returns the path to the JSONL file it will write and a stop() function
 // that sends SIGINT to the subprocess (triggering its graceful shutdown).
@@ -1906,12 +1935,33 @@ func startMetricsCollector(outFile string, intervalSec float64) (metricsPath str
 	intervalStr := fmt.Sprintf("%.1f", intervalSec)
 	args := []string{script, "--out", outFile, "--interval", intervalStr}
 
+	// Build subprocess environment: inherit current env, then inject any
+	// missing variables from .env so REDIS_PASSWORD etc. are available
+	// without requiring the user to manually export them first.
+	env := os.Environ()
+	envMap := make(map[string]string)
+	for _, e := range env {
+		if idx := strings.IndexByte(e, '='); idx > 0 {
+			envMap[e[:idx]] = e[idx+1:]
+		}
+	}
+	dotEnvPaths := []string{".env", "../.env"}
+	for _, p := range dotEnvPaths {
+		for k, v := range loadDotEnv(p) {
+			if _, already := envMap[k]; !already {
+				env = append(env, fmt.Sprintf("%s=%s", k, v))
+				fmt.Printf("  Injected %s from %s into metrics collector env\n", k, p)
+			}
+		}
+	}
+
 	interpreters := []string{"python3", "python"}
 	var cmd *exec.Cmd
 	for _, py := range interpreters {
 		cmd = exec.Command(py, args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		cmd.Env = env
 		if err := cmd.Start(); err == nil {
 			fmt.Printf("  Metrics collector started  (PID %d) → %s  (interval=%ss)\n",
 				cmd.Process.Pid, outFile, intervalStr)
