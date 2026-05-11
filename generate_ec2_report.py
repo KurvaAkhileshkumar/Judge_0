@@ -268,6 +268,32 @@ def _result_delivery_label(cfg: dict) -> str:
     return f"Polling  (interval {cfg.get('poll_interval', '400ms')})"
 
 
+_PASCAL_TO_SNAKE = {
+    "UserID":        "user_id",
+    "ProblemID":     "problem_id",
+    "SolutionID":    "solution_id",
+    "SolutionType":  "solution_type",
+    "HarnessStatus": "harness_status",
+    "SourceCode":    "source_code",
+    "TCDetails":     "tc_details",
+    "LatencyMs":     "latency_ms",
+    "Judge0Status":  "judge0_status",
+    "Error":         "error",
+    "GlobalTLE":     "global_tle",
+    "Score":         "score",
+    "TotalTCs":      "total_tcs",
+}
+
+def _normalise_result(r: dict) -> dict:
+    """Return a copy of a result dict with PascalCase keys mapped to snake_case.
+    Old JSON files (pre-tag) used Go's default PascalCase; new files use proper
+    json tags and already have snake_case.  This makes the report handle both."""
+    out = {}
+    for k, v in r.items():
+        out[_PASCAL_TO_SNAKE.get(k, k)] = v
+    return out
+
+
 def _score_distribution(all_subs: list) -> tuple:
     """Returns (full_marks_count, partial_count, zero_count)."""
     full = partial = zero = 0
@@ -471,7 +497,7 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
     type_counts   = report.get("type_counts", {})
     batches       = report.get("batches", [])
     per_problem   = report.get("per_problem_report", [])
-    all_results   = report.get("results", [])
+    all_results   = [_normalise_result(r) for r in report.get("results", [])]
 
     NCOLS = 6
     row   = 1

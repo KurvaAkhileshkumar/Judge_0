@@ -71,6 +71,7 @@ type Config struct {
 	AutoReport     bool   // auto-run generate_ec2_report.py after the test
 	CompareReports bool   // pass --compare to the Python generator
 	MetricsFile    string // optional metrics.jsonl path for the Python generator
+	Workers        int    // Judge0 worker containers (--scale workers=N) for the report
 }
 
 // ── Question Bank Types ───────────────────────────────────────────────────
@@ -196,19 +197,19 @@ type FlaskTCResult struct {
 // ── Result Types ──────────────────────────────────────────────────────────
 
 type SubmissionResult struct {
-	UserID        int
-	ProblemID     string
-	SolutionID    string
-	SolutionType  string
-	HarnessStatus string // PASS/FAIL/TLE/ERROR/BLOCKED/JUDGE0_ERROR/SYSTEM_ERROR/RATE_LIMITED
-	SourceCode    string // actual code the student submitted
-	TCDetails     []TCResult
-	LatencyMs     int64
-	Judge0Status  string
-	Error         string
-	GlobalTLE     bool
-	Score         int
-	TotalTCs      int
+	UserID        int        `json:"user_id"`
+	ProblemID     string     `json:"problem_id"`
+	SolutionID    string     `json:"solution_id"`
+	SolutionType  string     `json:"solution_type"`
+	HarnessStatus string     `json:"harness_status"` // PASS/FAIL/TLE/ERROR/BLOCKED/JUDGE0_ERROR/SYSTEM_ERROR/RATE_LIMITED
+	SourceCode    string     `json:"source_code"`    // actual code the student submitted
+	TCDetails     []TCResult `json:"tc_details"`
+	LatencyMs     int64      `json:"latency_ms"`
+	Judge0Status  string     `json:"judge0_status"`
+	Error         string     `json:"error"`
+	GlobalTLE     bool       `json:"global_tle"`
+	Score         int        `json:"score"`
+	TotalTCs      int        `json:"total_tcs"`
 }
 
 // ── Metrics ───────────────────────────────────────────────────────────────
@@ -1709,6 +1710,7 @@ func main() {
 	flag.BoolVar(&cfg.AutoReport, "auto-report", true, "Automatically generate Excel report (generate_ec2_report.py) after the test")
 	flag.BoolVar(&cfg.CompareReports, "compare", false, "Pass --compare to the Python generator to auto-detect sibling JSON reports for Sheet 4")
 	flag.StringVar(&cfg.MetricsFile, "metrics", "", "Path to metrics.jsonl from collect_ec2_metrics.py to embed in the Excel report")
+	flag.IntVar(&cfg.Workers, "report-workers", 4, "Number of Judge0 worker containers to show in the Excel report (--scale workers=N)")
 	flag.Parse()
 
 	// Auto-generate RunID if not provided so every run is cache-free by default
@@ -1874,6 +1876,9 @@ func generateExcelReport(cfg Config) {
 	if cfg.CompareReports {
 		args = append(args, "--compare")
 	}
+	if cfg.Workers > 0 {
+		args = append(args, "--workers", fmt.Sprintf("%d", cfg.Workers))
+	}
 
 	// Determine xlsx output path (same stem as JSON file)
 	xlsxPath := strings.TrimSuffix(cfg.OutputFile, ".json") + ".xlsx"
@@ -1894,5 +1899,5 @@ func generateExcelReport(cfg Config) {
 		}
 	}
 	log.Printf("WARNING: Could not auto-generate Excel report: %v", lastErr)
-	log.Printf("  Run manually: python3 generate_ec2_report.py %s --out %s", cfg.OutputFile, xlsxPath)
+	log.Printf("  Run manually: python3 generate_ec2_report.py %s --workers %d --out %s", cfg.OutputFile, cfg.Workers, xlsxPath)
 }

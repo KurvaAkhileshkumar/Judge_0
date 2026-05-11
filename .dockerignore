@@ -8,8 +8,6 @@ secrets/rails_secret_key
 main.go
 go.mod
 go.sum
-load_test_report.json
-question_bank.json
 
 # Documentation and chat logs
 full_conversation.txt
