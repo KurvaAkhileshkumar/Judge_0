@@ -1551,14 +1551,16 @@ def main():
     parser.add_argument(
         "--workers",
         type=int,
-        default=3,
-        help="Number of Judge0 worker containers (--scale workers=N)",
+        default=None,
+        help="Judge0 worker containers (--scale workers=N). "
+             "Auto-read from the JSON report if not specified.",
     )
     parser.add_argument(
         "--runners",
         type=int,
-        default=2,
-        help="MAX_RUNNERS per worker container",
+        default=None,
+        help="MAX_RUNNERS per worker container. "
+             "Auto-read from the JSON report if not specified.",
     )
     parser.add_argument(
         "--compare",
@@ -1583,8 +1585,13 @@ def main():
     with open(report_path, encoding="utf-8") as fh:
         report = json.load(fh)
 
-    report["_workers"] = args.workers
-    report["_runners"] = args.runners
+    # workers/runners: CLI flag overrides JSON config; JSON config overrides default.
+    cfg_block = report.get("config", {})
+    workers = args.workers if args.workers is not None else cfg_block.get("workers", 3)
+    runners = args.runners if args.runners is not None else cfg_block.get("runners", 2)
+    report["_workers"] = workers
+    report["_runners"] = runners
+    print(f"Workers         : {workers}  runners/worker: {runners}  (sandboxes: {workers*runners})")
 
     # ── Load optional live metrics ────────────────────────────────────────────
     metrics_data: list[dict] = []

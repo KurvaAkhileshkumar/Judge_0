@@ -1620,6 +1620,8 @@ func writeJSONReport(metrics *Metrics, cfg Config, outputFile string, batchResul
 			"ramp_up_sec": cfg.RampUpSec,
 			"batch_size":  cfg.BatchSize,
 			"dry_run":     cfg.DryRun,
+			"workers":     cfg.Workers,
+			"runners":     2,
 		},
 		"summary": map[string]interface{}{
 			"total_submissions":   metrics.TotalSubmissions,
@@ -1710,7 +1712,7 @@ func main() {
 	flag.BoolVar(&cfg.AutoReport, "auto-report", true, "Automatically generate Excel report (generate_ec2_report.py) after the test")
 	flag.BoolVar(&cfg.CompareReports, "compare", false, "Pass --compare to the Python generator to auto-detect sibling JSON reports for Sheet 4")
 	flag.StringVar(&cfg.MetricsFile, "metrics", "", "Path to metrics.jsonl from collect_ec2_metrics.py to embed in the Excel report")
-	flag.IntVar(&cfg.Workers, "report-workers", 4, "Number of Judge0 worker containers to show in the Excel report (--scale workers=N)")
+	flag.IntVar(&cfg.Workers, "report-workers", 3, "Number of Judge0 worker containers (--scale workers=N); stored in the JSON report and forwarded to the Excel generator")
 	flag.Parse()
 
 	// Auto-generate RunID if not provided so every run is cache-free by default
