@@ -1384,7 +1384,27 @@ def build_sheet4_comparison(wb: openpyxl.Workbook, reports: list):
     metric_row("Concurrency Mode",     [_concurrency_label(r.get("config",{})) for _,r in reports])
     metric_row("Dry Run",              [r.get("config",{}).get("dry_run",False) for _,r in reports])
 
-    # ── Section: Throughput & Duration ────────────────────────────────────────
+    # ── Section: Infrastructure Configuration ─────────────────────────────────
+    section("INFRASTRUCTURE CONFIGURATION")
+
+    def _workers(rpt):
+        return rpt.get("config", {}).get("workers", rpt.get("_workers", 3))
+
+    def _runners(rpt):
+        return rpt.get("config", {}).get("runners", rpt.get("_runners", 2))
+
+    metric_row("Judge0 Workers (--scale workers=N)",
+               [_workers(r) for _, r in reports],
+               highlight_best=True)
+    metric_row("MAX_RUNNERS per worker",
+               [_runners(r) for _, r in reports],
+               highlight_best=True)
+    metric_row("Total Concurrent Sandboxes",
+               [_workers(r) * _runners(r) for _, r in reports],
+               highlight_best=True)
+    metric_row("Puma HTTP slots (WEB_CONCURRENCY × THREADS)",
+               [r.get("config", {}).get("puma_slots", "–") for _, r in reports])
+
     section("THROUGHPUT & DURATION")
 
     metric_row("Test Duration (s)",

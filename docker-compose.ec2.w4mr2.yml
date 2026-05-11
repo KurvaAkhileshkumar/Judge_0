@@ -1,0 +1,28 @@
+# ── Config C override: workers=4, MAX_RUNNERS=2, 8 sandboxes ──────────────────
+#
+# Memory budget:
+#   Fixed (OS+PG+Redis+Flask+Reconciler)  ~2.4 GB
+#   Puma (WEB_CONCURRENCY=2 × THREADS=20) ~0.5 GB  →  40 HTTP slots
+#   4 × workers (mem_limit=850m)           3.4 GB   (2 runners×30forks×12MB=720MB/container)
+#   Total                                 ~6.3 GB / 7.6 GB  ✓
+#
+# Puma slots: 2×20=40  (8 sandboxes + 24 grading_worker = 32 needed → OK)
+# DB max_connections: (2×20)+(4×5)+20 = 100 → 200 sufficient
+# judge0.ec2.conf (MAX_RUNNERS=2) — no volume override needed
+#
+# Apply:
+#   docker compose -f docker-compose.ec2.yml -f docker-compose.ec2.w4mr2.yml \
+#     up -d --scale workers=4
+
+services:
+  server:
+    environment:
+      - RAILS_MAX_THREADS=20
+      - WEB_CONCURRENCY=2
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - SECRET_KEY_BASE=${RAILS_SECRET_KEY_BASE}
+
+  workers:
+    mem_limit: 850m
+    mem_reservation: 256m

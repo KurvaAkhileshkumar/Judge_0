@@ -1,20 +1,45 @@
-# EC2 c5.xlarge tuning — 4 vCPU / 8 GB RAM / Ubuntu 22.04.5 LTS / ap-south-1
+# EC2 c5.xlarge tuning — 4 vCPU / 7.6 GB RAM / Ubuntu 22.04.5 LTS / ap-south-1
 #
-# Deploy:
-#   docker compose -f docker-compose.ec2.yml up -d --scale workers=3
+# ══════════════════════════════════════════════════════════════════════════════
+#  CONFIG A — BASELINE  (workers=3, MAX_RUNNERS=2, 6 sandboxes)
+#  This is the base file.  For other configs apply an override file:
 #
-# Memory budget (workers=3, MAX_RUNNERS=2):
-#   OS + overhead          ~1.0 GB
+#    Config B (w3,mr3, 9 sandboxes):
+#      docker compose -f docker-compose.ec2.yml -f docker-compose.ec2.w3mr3.yml \
+#        up -d --scale workers=3
+#
+#    Config C (w4,mr2, 8 sandboxes):
+#      docker compose -f docker-compose.ec2.yml -f docker-compose.ec2.w4mr2.yml \
+#        up -d --scale workers=4
+#
+#    Config D (w4,mr3, 12 sandboxes) ⚠ borderline RAM:
+#      docker compose -f docker-compose.ec2.yml -f docker-compose.ec2.w4mr3.yml \
+#        up -d --scale workers=4
+#
+#    Config E (w5,mr2, 10 sandboxes):
+#      docker compose -f docker-compose.ec2.yml -f docker-compose.ec2.w5mr2.yml \
+#        up -d --scale workers=5
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Memory budget — Config A (workers=3, MAX_RUNNERS=2):
+#   OS + overhead          ~1.0 GB  (fixed)
 #   PostgreSQL             ≤0.4 GB  (mem_limit=400m, shared_buffers=128MB)
 #   Redis                  ≤0.5 GB  (mem_limit=512m, maxmemory=512mb)
-#   Judge0 server (Puma)   ~0.4 GB  (WEB_CONCURRENCY=2 × RAILS_MAX_THREADS=16)
-#   3 × workers            ≤3.0 GB  (mem_limit=1g; 2 harnesses × 30 forks + Rails overhead)
-#   Flask API + graders    ~0.3 GB
-#   Total                  ~5.6 GB  ← ~1.7 GB headroom vs previous 7.3 GB
+#   Flask API + reconciler ~0.4 GB  (fixed)
+#   Judge0 server (Puma)   ~0.4 GB  (WEB_CONCURRENCY=2 × RAILS_MAX_THREADS=16 = 32 slots)
+#   3 × workers            ≤3.0 GB  (mem_limit=1g; 2 runners × 30 forks × ~12MB = ~720MB/container)
+#   Total                  ~5.7 GB  ← ~1.9 GB headroom on 7.6 GB
 #
-# Sandbox capacity: --scale workers=3 × MAX_RUNNERS=2 = 6 concurrent sandboxes
-# NOTE: MAX_RUNNERS=3 was tested and caused OOM kills on all 3 worker containers.
-# Root cause: 3 harnesses × 30 forks = 90 Python processes exceeds 900m mem_limit.
+# Sandbox capacity:  workers=3 × MAX_RUNNERS=2 = 6 concurrent sandboxes
+# Puma HTTP slots:   WEB_CONCURRENCY=2 × RAILS_MAX_THREADS=16 = 32 slots
+#                    (6 sandboxes + 24 grading_worker threads = 30 needed → OK)
+# DB max_connections: (2×16) + (3×5) + 20 = 87 → 200 is safe headroom
+#
+# Per-process memory model (30 TCs):
+#   Each harness forks 1 child per TC → MAX_RUNNERS runners × 30 forks
+#   Each Python child: ~12 MB RSS
+#   MAX_RUNNERS=2: 2×30×12 = 720 MB per container → fits in 1g ✓
+#   MAX_RUNNERS=3: 3×30×12 = 1.08 GB per container → needs 1.1-1.3g (see override files)
 
 services:
 
@@ -44,8 +69,9 @@ services:
         condition: service_started
 
   # ── Judge0 Resque workers (isolate sandboxes) ─────────────────────────────
-  # Scale: --scale workers=3 → 3 containers × MAX_RUNNERS=2 = 6 sandboxes
-  # mem_limit=700m: 2 × 256 MB sandboxes + Rails + Resque overhead
+  # Config A: --scale workers=3 → 3 containers × MAX_RUNNERS=2 = 6 sandboxes
+  # mem_limit=1g: 2 runners × 30 forks × ~12MB = ~720MB + Rails/Resque overhead
+  # Override mem_limit via docker-compose.ec2.w*.yml for other configs.
   workers:
     image: judge0/judge0:1.13.1
     command: ["./scripts/workers"]
@@ -129,13 +155,9 @@ services:
     restart: always
 
   # ── PostgreSQL ─────────────────────────────────────────────────────────────
-  # max_connections: (WEB_CONCURRENCY×RAILS_MAX_THREADS) + (workers×5) + 20
-  # At --scale workers=3: (2×16) + (3×5) + 20 = 87 → 200 is safe headroom
-  # shared_buffers=128MB: sufficient for simple token inserts/lookups + auto-delete keeps table tiny.
-  # effective_cache_size=1GB: planner hint only, no actual allocation.
-  # wal_buffers=16MB: reduces WAL write syscalls under heavy INSERT load.
-  # work_mem=4MB: sufficient for Judge0's simple token-lookup queries.
-  # checkpoint_completion_target=0.9: spreads checkpoint I/O over longer window.
+  # max_connections formula: (WEB_CONCURRENCY×RAILS_MAX_THREADS) + (workers×5) + 20
+  # Config A: (2×16) + (3×5) + 20 = 87  → 200 safe headroom (all configs fit ≤125)
+  # Config E: (3×16) + (5×5) + 20 = 113 → 200 still sufficient
   db:
     image: postgres:13
     env_file: judge0.ec2.conf

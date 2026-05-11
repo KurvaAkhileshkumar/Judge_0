@@ -72,6 +72,8 @@ type Config struct {
 	CompareReports bool   // pass --compare to the Python generator
 	MetricsFile    string // optional metrics.jsonl path for the Python generator
 	Workers        int    // Judge0 worker containers (--scale workers=N) for the report
+	Runners        int    // MAX_RUNNERS per worker container for the report
+	PumaSlots      int    // Puma HTTP slots (WEB_CONCURRENCY × RAILS_MAX_THREADS) for the report
 }
 
 // ── Question Bank Types ───────────────────────────────────────────────────
@@ -1621,7 +1623,8 @@ func writeJSONReport(metrics *Metrics, cfg Config, outputFile string, batchResul
 			"batch_size":  cfg.BatchSize,
 			"dry_run":     cfg.DryRun,
 			"workers":     cfg.Workers,
-			"runners":     2,
+			"runners":     cfg.Runners,
+			"puma_slots":  cfg.PumaSlots,
 		},
 		"summary": map[string]interface{}{
 			"total_submissions":   metrics.TotalSubmissions,
@@ -1713,6 +1716,8 @@ func main() {
 	flag.BoolVar(&cfg.CompareReports, "compare", false, "Pass --compare to the Python generator to auto-detect sibling JSON reports for Sheet 4")
 	flag.StringVar(&cfg.MetricsFile, "metrics", "", "Path to metrics.jsonl from collect_ec2_metrics.py to embed in the Excel report")
 	flag.IntVar(&cfg.Workers, "report-workers", 3, "Number of Judge0 worker containers (--scale workers=N); stored in the JSON report and forwarded to the Excel generator")
+	flag.IntVar(&cfg.Runners, "report-runners", 2, "MAX_RUNNERS per worker container; stored in the JSON report")
+	flag.IntVar(&cfg.PumaSlots, "report-puma-slots", 32, "Puma HTTP slots (WEB_CONCURRENCY × RAILS_MAX_THREADS); stored in the JSON report")
 	flag.Parse()
 
 	// Auto-generate RunID if not provided so every run is cache-free by default
@@ -1881,6 +1886,9 @@ func generateExcelReport(cfg Config) {
 	if cfg.Workers > 0 {
 		args = append(args, "--workers", fmt.Sprintf("%d", cfg.Workers))
 	}
+	if cfg.Runners > 0 {
+		args = append(args, "--runners", fmt.Sprintf("%d", cfg.Runners))
+	}
 
 	// Determine xlsx output path (same stem as JSON file)
 	xlsxPath := strings.TrimSuffix(cfg.OutputFile, ".json") + ".xlsx"
@@ -1901,5 +1909,5 @@ func generateExcelReport(cfg Config) {
 		}
 	}
 	log.Printf("WARNING: Could not auto-generate Excel report: %v", lastErr)
-	log.Printf("  Run manually: python3 generate_ec2_report.py %s --workers %d --out %s", cfg.OutputFile, cfg.Workers, xlsxPath)
+	log.Printf("  Run manually: python3 generate_ec2_report.py %s --workers %d --runners %d --out %s", cfg.OutputFile, cfg.Workers, cfg.Runners, xlsxPath)
 }

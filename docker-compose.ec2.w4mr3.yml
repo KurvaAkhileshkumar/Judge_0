@@ -1,0 +1,35 @@
+# ── Config D override: workers=4, MAX_RUNNERS=3, 12 sandboxes ─────────────────
+#
+# ⚠ BORDERLINE RAM — monitor with: watch -n2 free -h
+#
+# Memory budget:
+#   Fixed (OS+PG+Redis+Flask+Reconciler)  ~2.4 GB
+#   Puma (WEB_CONCURRENCY=2 × THREADS=20) ~0.5 GB  →  40 HTTP slots
+#   4 × workers (mem_limit=1.1g)           4.4 GB   (3 runners×30forks×12MB=1.08GB/container)
+#   Total                                 ~7.3 GB / 7.6 GB  ⚠ ~300 MB headroom
+#
+# If OOM kills occur on workers, either:
+#   a) Reduce to workers=3 + MAX_RUNNERS=3 (Config B), or
+#   b) Reduce to workers=4 + MAX_RUNNERS=2 (Config C)
+#
+# Puma slots: 2×20=40  (12 sandboxes + 24 grading_worker = 36 needed → OK)
+# DB max_connections: (2×20)+(4×5)+20 = 100 → 200 sufficient
+#
+# Apply:
+#   docker compose -f docker-compose.ec2.yml -f docker-compose.ec2.w4mr3.yml \
+#     up -d --scale workers=4
+
+services:
+  server:
+    environment:
+      - RAILS_MAX_THREADS=20
+      - WEB_CONCURRENCY=2
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - SECRET_KEY_BASE=${RAILS_SECRET_KEY_BASE}
+
+  workers:
+    mem_limit: 1.1g
+    mem_reservation: 400m
+    volumes:
+      - ./judge0.ec2.mr3.conf:/judge0.conf:ro
