@@ -2510,3 +2510,23 @@ Timestamp                CPU%   RAM%   RAM Used   Disk R   Disk W   Net TX   Net
 
 ✓ Done.  39 snapshots written to Reports/Jsons/A_1000u_pipe100_metrics.jsonl
   Generating Excel report: python3 generate_ec2_report.py Reports/Jsons/A_1000u_pipe100.json --metrics Reports/Jsons/A_1000u_pipe100_metrics.jsonl --workers 3 --runners 2 --out Reports/A_1000u_pipe100.xlsx
+Reading report  : Reports/Jsons/A_1000u_pipe100.json
+Workers         : 3  runners/worker: 2  (sandboxes: 6)
+Reading metrics : Reports/Jsons/A_1000u_pipe100_metrics.jsonl
+  39 metric snapshots loaded
+Building Excel workbook…
+
+✓  Report saved : Reports/A_1000u_pipe100.xlsx
+   Sheet 1  — System Info
+   Sheet 2  — Load Test Metrics  (39 live-metric snapshots)
+   Sheet 3  — User Test Case Results  (1000 submissions)
+  Excel report saved to  : Reports/A_1000u_pipe100.xlsx
+
+[0;32m[16:57:30] ✔ Done: A_1000u_pipe100 → Reports/Jsons/A_1000u_pipe100.json[0m
+[0;32m[16:57:30] ✔ Phase A complete[0m
+
+[1m[0;36m╔══════════════════════════════════════════════════════════════╗[0m
+[1m[0;36m║  All done  |  Started: 2026-05-11 16:22:25  |  Finished: 2026-05-11 16:57:30║[0m
+[1m[0;36m╚══════════════════════════════════════════════════════════════╝[0m
+
+[0;36m[16:57:30][0m Full log saved to: run_load_tests_20260511_162225.log
