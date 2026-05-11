@@ -76,12 +76,47 @@ log "Logging to $LOG_FILE"
 [[ -d "$DEPLOY_DIR" ]] || die "Deploy dir $DEPLOY_DIR not found. Run deploy-ec2.sh first."
 cd "$DEPLOY_DIR"
 
-[[ -f ".env" ]]                    || die ".env file not found."
+[[ -f ".env" ]]                    || die ".env file not found. Run deploy-ec2.sh first."
 [[ -f "$BANK" ]]                   || die "Question bank '$BANK' not found."
 [[ -f "docker-compose.ec2.yml" ]]  || die "docker-compose.ec2.yml not found."
 command -v docker  &>/dev/null     || die "docker not found."
 command -v python3 &>/dev/null     || die "python3 not found."
 command -v go      &>/dev/null     || die "go not found."
+
+# ── Source .env and validate required secrets ─────────────────────────────────
+# docker-compose auto-reads .env from cwd, but sourcing it here ensures the
+# vars are also available in THIS shell (for any direct CLI docker invocations)
+# and lets us validate them before wasting time starting containers.
+#
+# Why this matters for Redis: Redis 6.0 treats --requirepass "" as "no password"
+# (sets USER_FLAG_NOPASS). redis-rb 4.1.4 treats an empty Ruby string as truthy
+# and still sends AUTH "", which Redis rejects with:
+#   "ERR AUTH <password> called without any password configured for the default user."
+# Ensuring REDIS_PASSWORD is non-empty prevents this mismatch.
+set -a   # auto-export all variables defined below
+# shellcheck source=.env
+source .env
+set +a
+
+for _secret_var in REDIS_PASSWORD POSTGRES_PASSWORD RAILS_SECRET_KEY_BASE; do
+  _val="${!_secret_var:-}"
+  if [[ -z "$_val" ]]; then
+    warn "$_secret_var is empty in .env — generating a new random value..."
+    case "$_secret_var" in
+      REDIS_PASSWORD|POSTGRES_PASSWORD) _new=$(openssl rand -base64 32) ;;
+      *)                                _new=$(openssl rand -hex 64)     ;;
+    esac
+    # Update (or append) the var in .env
+    if grep -q "^${_secret_var}=" .env 2>/dev/null; then
+      sed -i "s|^${_secret_var}=.*|${_secret_var}=${_new}|" .env
+    else
+      echo "${_secret_var}=${_new}" >> .env
+    fi
+    export "${_secret_var}=${_new}"
+    ok "$_secret_var regenerated and saved to .env"
+  fi
+done
+unset _secret_var _val _new
 
 mkdir -p Reports/Jsons
 

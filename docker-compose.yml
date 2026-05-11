@@ -187,17 +187,20 @@ services:
   # Memory budget at 1000-submission peak:
   #   Queued jobs: ~5 MB | Results: ~100 MB | Inflight/idem keys: ~10 MB
   #   Total: ~115 MB — 4 GB gives 35× headroom for large TC payloads.
+  #
+  # Shell-form command so --requirepass is only passed when REDIS_PASSWORD is
+  # non-empty (Redis 6.0 with --requirepass "" sets USER_FLAG_NOPASS and redis-rb
+  # still sends AUTH "" → "ERR AUTH called without any password configured").
   redis:
     image: redis:6.0
-    command:
-      [
-        "redis-server",
-        "--appendonly", "yes",
-        "--maxmemory",        "4gb",
-        "--maxmemory-policy", "allkeys-lru",
-        # ${REDIS_PASSWORD} is substituted from the .env file by Docker Compose.
-        "--requirepass",      "${REDIS_PASSWORD}"
-      ]
+    command: >-
+      sh -c "
+        ARGS='--appendonly yes --maxmemory 4gb --maxmemory-policy allkeys-lru';
+        [ -n \"$$REDIS_PASSWORD\" ] && ARGS=\"$$ARGS --requirepass $$REDIS_PASSWORD\";
+        exec redis-server $$ARGS
+      "
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
       - redis-data:/data
     restart: always

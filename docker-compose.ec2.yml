@@ -179,16 +179,22 @@ services:
 
   # ── Redis ──────────────────────────────────────────────────────────────────
   # 512 MB cap: results TTL 2h, peak ~500 results × 5KB = 2.5MB actual → 200× headroom
+  #
+  # Shell-form command so we can conditionally add --requirepass only when
+  # REDIS_PASSWORD is non-empty.  Redis 6.0 treats --requirepass "" as no-auth
+  # (sets USER_FLAG_NOPASS), but redis-rb 4.1.4 still sends AUTH "" for an empty
+  # password (empty string is truthy in Ruby) → "ERR AUTH called without any
+  # password configured".  The conditional avoids this mismatch.
   redis:
     image: redis:6.0
-    command:
-      [
-        "redis-server",
-        "--appendonly", "yes",
-        "--maxmemory",        "512mb",
-        "--maxmemory-policy", "allkeys-lru",
-        "--requirepass",      "${REDIS_PASSWORD}"
-      ]
+    command: >-
+      sh -c "
+        ARGS='--appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru';
+        [ -n \"$$REDIS_PASSWORD\" ] && ARGS=\"$$ARGS --requirepass $$REDIS_PASSWORD\";
+        exec redis-server $$ARGS
+      "
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     mem_limit: 512m
     ports:
       - "127.0.0.1:6379:6379"
