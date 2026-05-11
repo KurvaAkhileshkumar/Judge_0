@@ -338,6 +338,16 @@ def main():
               f"{'TCP':>6} {'RQueue':>8} {'RMem':>8}")
         print("-" * 105)
 
+        # Write one snapshot immediately so short tests (< interval) still
+        # get at least one data point captured during the run.
+        snap, prev_disk, prev_net, prev_time = _collect_snapshot(
+            prev_disk, prev_net, prev_time, rc,
+            docker_enabled=not args.no_docker,
+        )
+        fh.write(json.dumps(snap) + "\n")
+        fh.flush()
+        count += 1
+
         while running:
             time.sleep(args.interval)
 

@@ -1731,13 +1731,15 @@ func main() {
 	}
 
 	// ── Auto-start metrics collector ──────────────────────────────────────────
+	// stopMetrics is called explicitly before generateExcelReport so all
+	// snapshots are flushed to disk before the Python generator reads the file.
+	stopMetrics := func() {}
 	if cfg.AutoMetrics && cfg.MetricsFile == "" && !cfg.DryRun {
-		// Derive metrics path alongside the JSON output
 		metricsPath := strings.TrimSuffix(cfg.OutputFile, ".json") + "_metrics.jsonl"
-		actualPath, stopMetrics := startMetricsCollector(metricsPath, cfg.MetricsInterval)
+		actualPath, stop := startMetricsCollector(metricsPath, cfg.MetricsInterval)
 		if actualPath != "" {
 			cfg.MetricsFile = actualPath
-			defer stopMetrics()
+			stopMetrics = stop
 		}
 	}
 
@@ -1882,6 +1884,10 @@ func main() {
 			fmt.Printf("  JSON report written to: %s\n\n", cfg.OutputFile)
 
 			// ── Auto-generate Excel report ─────────────────────────────────────
+			// Stop the metrics collector first so all snapshots are written
+			// to disk before the Python generator opens the JSONL file.
+			stopMetrics()
+			stopMetrics = func() {} // prevent double-stop
 			if cfg.AutoReport {
 				generateExcelReport(cfg)
 			}
