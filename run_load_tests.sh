@@ -81,18 +81,16 @@ cd "$DEPLOY_DIR"
 [[ -f "docker-compose.ec2.yml" ]]  || die "docker-compose.ec2.yml not found."
 command -v docker  &>/dev/null     || die "docker not found."
 command -v python3 &>/dev/null     || die "python3 not found."
-
-# Build the load tester binary if missing or stale
-if [[ ! -f "load_tester" ]] || [[ "main.go" -nt "load_tester" ]]; then
-  log "Building load tester binary..."
-  go build -o load_tester main.go || die "go build failed"
-  ok "load_tester built"
-fi
+command -v go      &>/dev/null     || die "go not found."
 
 mkdir -p Reports/Jsons
 
 # ── Helper: wait for Flask health ────────────────────────────────────────────
+# Usage: wait_healthy <expected_worker_count>
 wait_healthy() {
+  local expected_workers="${1:-1}"
+
+  # 1. Flask API
   local url="$FLASK_URL/health"
   local deadline=$(( $(date +%s) + 120 ))
   log "Waiting for Flask health at $url ..."
@@ -102,38 +100,119 @@ wait_healthy() {
   done
   ok "Flask healthy"
 
-  # Also check Judge0 /system_info to confirm workers are connected
-  local j0url="${FLASK_URL%:5001}:2358"  # Judge0 is on :2358
-  deadline=$(( $(date +%s) + 60 ))
-  log "Waiting for Judge0 /system_info at $j0url ..."
-  until curl -sf "$j0url/system_info" | python3 -c "import sys,json; d=json.load(sys.stdin); assert int(d.get('workers',0))>0" 2>/dev/null; do
-    [[ $(date +%s) -lt $deadline ]] || { warn "Judge0 /system_info check timed out — proceeding anyway"; break; }
+  # 2. Judge0 /system_info — verify EXACT expected worker count is connected
+  local j0url="${FLASK_URL%:5001}:2358"
+  deadline=$(( $(date +%s) + 90 ))
+  log "Waiting for Judge0 to report $expected_workers worker(s) at $j0url ..."
+  until curl -sf "$j0url/system_info" \
+    | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+got = int(d.get('workers', 0))
+want = $expected_workers
+if got < want:
+    print(f'  workers={got}/{want} — waiting...', flush=True)
+    sys.exit(1)
+print(f'  workers={got}/{want} — OK')
+" 2>/dev/null; do
+    [[ $(date +%s) -lt $deadline ]] || {
+      warn "Judge0 /system_info: expected $expected_workers workers but not all connected after 90s — proceeding anyway"
+      break
+    }
     sleep 5
   done
-  ok "Judge0 reports workers online"
+  ok "Judge0 workers verified ($expected_workers)"
+
+  # 3. Verify all expected containers are actually running (not restarting/exited)
+  log "Verifying container health (docker ps) ..."
+  local not_running
+  not_running=$(docker compose -f docker-compose.ec2.yml ps --format json 2>/dev/null \
+    | python3 -c "
+import sys, json
+lines = sys.stdin.read().strip().splitlines()
+bad = []
+for line in lines:
+    try:
+        c = json.loads(line)
+        state = c.get('State','').lower()
+        name  = c.get('Name', c.get('Service','?'))
+        if state not in ('running',):
+            bad.append(f'{name}={state}')
+    except: pass
+if bad:
+    print(' '.join(bad))
+" 2>/dev/null || true)
+  if [[ -n "$not_running" ]]; then
+    warn "Some containers are not in 'running' state: $not_running"
+    log "Container statuses:"
+    docker compose -f docker-compose.ec2.yml ps
+    die "Aborting — fix container issues before running load tests"
+  fi
+  ok "All containers running"
 }
 
 # ── Helper: bring up a config ─────────────────────────────────────────────────
 #   Usage: bring_up  <SCALE>  [override_file]
+#   Always tears down with the BASE file only (project-scoped, catches all
+#   services regardless of which override was previously active).
 bring_up() {
   local scale="$1"
   local override="${2:-}"
-  log "Stopping existing containers..."
-  docker compose -f docker-compose.ec2.yml ${override:+-f "$override"} down --remove-orphans 2>/dev/null || true
+
+  log "Stopping ALL existing containers (base project teardown)..."
+  # Use base file only for down — project name is the same regardless of override,
+  # so this always stops everything cleanly without needing to know the old override.
+  docker compose -f docker-compose.ec2.yml down --remove-orphans --timeout 30 2>/dev/null || true
   sleep "$COMPOSE_DOWN_WAIT"
 
-  log "Starting containers (--scale workers=$scale)..."
+  log "Starting containers (--scale workers=$scale) ..."
   if [[ -n "$override" ]]; then
     docker compose -f docker-compose.ec2.yml -f "$override" \
-      up -d --scale workers="$scale" --force-recreate
+      up -d --scale workers="$scale" --force-recreate --remove-orphans
   else
     docker compose -f docker-compose.ec2.yml \
-      up -d --scale workers="$scale" --force-recreate
+      up -d --scale workers="$scale" --force-recreate --remove-orphans
   fi
 
   log "Waiting ${COOLDOWN_PHASE_START}s for containers to warm up..."
   sleep "$COOLDOWN_PHASE_START"
-  wait_healthy
+  wait_healthy "$scale"
+}
+
+# ── Helper: pre-scenario container check (between runs in same phase) ─────────
+#   Verifies no workers crashed/OOMed since the last run.
+#   Usage: check_containers_still_healthy <expected_worker_count>
+check_containers_still_healthy() {
+  local expected_workers="$1"
+  log "Pre-scenario health check (workers expected: $expected_workers) ..."
+
+  # Count running worker containers
+  local running_workers
+  running_workers=$(docker compose -f docker-compose.ec2.yml ps --format json 2>/dev/null \
+    | python3 -c "
+import sys, json
+lines = sys.stdin.read().strip().splitlines()
+count = 0
+for line in lines:
+    try:
+        c = json.loads(line)
+        svc   = c.get('Service','')
+        state = c.get('State','').lower()
+        if svc == 'workers' and state == 'running':
+            count += 1
+    except: pass
+print(count)
+" 2>/dev/null || echo "0")
+
+  if [[ "$running_workers" -lt "$expected_workers" ]]; then
+    warn "Only $running_workers/$expected_workers worker(s) still running — possible OOM or crash"
+    log "Container states:"
+    docker compose -f docker-compose.ec2.yml ps
+    log "Recent worker logs (last 20 lines each):"
+    docker compose -f docker-compose.ec2.yml logs --tail=20 workers 2>/dev/null || true
+    die "Worker count degraded. Aborting phase to avoid corrupt results."
+  fi
+  ok "All $running_workers/$expected_workers worker(s) still running"
 }
 
 # ── Helper: run one load test scenario ───────────────────────────────────────
@@ -162,7 +241,7 @@ run_scenario() {
   local auto_report_flag="--auto-report"
   $SKIP_EXCEL && auto_report_flag="-auto-report=false"
 
-  ./load_tester \
+  go run main.go \
     -flask-url  "$FLASK_URL" \
     -bank       "$BANK" \
     -users      "$users" \
@@ -193,19 +272,19 @@ run_phase_A() {
   bring_up 3  # no override file
 
   run_scenario "A_100u_flat"    3 2 32  100  0  0
-  cooldown
+  cooldown; check_containers_still_healthy 3
 
   run_scenario "A_500u_ramp10"  3 2 32  500  10 0
-  cooldown
+  cooldown; check_containers_still_healthy 3
 
   run_scenario "A_1000u_ramp20" 3 2 32  1000 20 0
-  cooldown
+  cooldown; check_containers_still_healthy 3
 
   run_scenario "A_1000u_spike"  3 2 32  1000 0  0
-  cooldown
+  cooldown; check_containers_still_healthy 3
 
   run_scenario "A_1000u_pipe50" 3 2 32  1000 20 50
-  cooldown
+  cooldown; check_containers_still_healthy 3
 
   run_scenario "A_1000u_pipe100" 3 2 32 1000 20 100
 
@@ -220,10 +299,10 @@ run_phase_B() {
   bring_up 3 "docker-compose.ec2.w3mr3.yml"
 
   run_scenario "B_1000u_ramp20" 3 3 40  1000 20 0
-  cooldown
+  cooldown; check_containers_still_healthy 3
 
   run_scenario "B_1000u_spike"  3 3 40  1000 0  0
-  cooldown
+  cooldown; check_containers_still_healthy 3
 
   run_scenario "B_1000u_pipe50" 3 3 40  1000 20 50
 
@@ -238,10 +317,10 @@ run_phase_C() {
   bring_up 4 "docker-compose.ec2.w4mr2.yml"
 
   run_scenario "C_1000u_ramp20" 4 2 40  1000 20 0
-  cooldown
+  cooldown; check_containers_still_healthy 4
 
   run_scenario "C_1000u_spike"  4 2 40  1000 0  0
-  cooldown
+  cooldown; check_containers_still_healthy 4
 
   run_scenario "C_1000u_pipe50" 4 2 40  1000 20 50
 
@@ -260,6 +339,20 @@ run_phase_D() {
   # Non-fatal: if a run fails with OOM, log a warning and continue
   run_scenario "D_500u_ramp10"  4 3 40  500  10 0 || warn "D_500u_ramp10 failed (possible OOM) — continuing"
   cooldown
+  # After cooldown, check if workers survived — Phase D may OOM so downgrade
+  # to a warning (not die) to still attempt the second scenario.
+  local d_workers
+  d_workers=$(docker compose -f docker-compose.ec2.yml ps --format json 2>/dev/null \
+    | python3 -c "
+import sys, json
+lines = sys.stdin.read().strip().splitlines()
+count = sum(1 for l in lines if json.loads(l).get('Service')=='workers' and json.loads(l).get('State','').lower()=='running')
+print(count)
+" 2>/dev/null || echo "0")
+  if [[ "$d_workers" -lt 4 ]]; then
+    warn "Phase D: only $d_workers/4 workers running after first scenario (OOM likely). Attempting restart before next run..."
+    bring_up 4 "docker-compose.ec2.w4mr3.yml"
+  fi
 
   run_scenario "D_1000u_ramp20" 4 3 40  1000 20 0 || warn "D_1000u_ramp20 failed (possible OOM) — continuing"
 
@@ -274,10 +367,10 @@ run_phase_E() {
   bring_up 5 "docker-compose.ec2.w5mr2.yml"
 
   run_scenario "E_1000u_ramp20" 5 2 48  1000 20 0
-  cooldown
+  cooldown; check_containers_still_healthy 5
 
   run_scenario "E_1000u_spike"  5 2 48  1000 0  0
-  cooldown
+  cooldown; check_containers_still_healthy 5
 
   run_scenario "E_1000u_pipe50" 5 2 48  1000 20 50
 
