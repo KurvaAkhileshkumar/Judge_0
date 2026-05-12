@@ -1096,8 +1096,8 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
             row += 1
         row += 1
 
-        # ── Container real host CPU % timeline (normalised 0-100%) ────────
-        _write_section(ws, row, "CONTAINER CPU %  —  actual host  (psutil process tree, normalised 0-100%)", N_CTIMELINE)
+        # ── Container real host CPU % timeline (legacy psutil field, shown when present) ────────
+        _write_section(ws, row, "CONTAINER CPU %  —  actual host real_cpu_pct_norm  (legacy; populated by older collector)", N_CTIMELINE)
         row += 1
 
         ws.cell(row=row, column=1, value="Timestamp")
@@ -1157,8 +1157,8 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
             row += 1
         row += 1
 
-        # ── Container real RSS memory (MB) timeline ────────────────────────
-        _write_section(ws, row, "CONTAINER MEMORY MB  —  actual RSS  (psutil process tree)", N_CTIMELINE)
+        # ── Container real RSS memory (MB) timeline (legacy psutil field) ────────────────────────
+        _write_section(ws, row, "CONTAINER MEMORY MB  —  actual RSS  (legacy; populated by older collector)", N_CTIMELINE)
         row += 1
 
         ws.cell(row=row, column=1, value="Timestamp")
@@ -1570,125 +1570,138 @@ def _safe_peak(vals):
 def _extract_metrics_summary(metrics_data: list) -> dict:
     """Compute peak / avg stats from a list of JSONL snapshots.
 
+    Host metrics (cpu_pct, mem_*) come from kernel /proc files.
+    Container metrics come from docker stats (cgroup-based).
+
     Returns a dict with the following keys (value is 'N/A' when not available):
 
-      HOST (psutil — actual host):
-        host_cpu_avg, host_cpu_peak             — cpu_pct (%)
-        host_ram_avg_gb, host_ram_peak_gb       — mem_used_gb
-        host_ram_avg_pct, host_ram_peak_pct     — mem_pct (%)
-        redis_queue_avg, redis_queue_peak       — redis_queue_depth
+      HOST (kernel /proc/stat, /proc/meminfo):
+        host_cpu_avg, host_cpu_peak               — cpu_pct (%)  [avg skips first snapshot]
+        host_ram_avg_gb, host_ram_peak_gb         — mem_used_gb
+        host_ram_avg_pct, host_ram_peak_pct       — mem_pct (%)
+        redis_queue_avg, redis_queue_peak         — redis_queue_depth
 
-      CONTAINER — cgroup (docker stats):
-        worker_cg_cpu_avg, worker_cg_cpu_peak   — sum of worker cg_cpu_pct per snapshot
+      CONTAINER — cgroup (docker stats, Judge0 sandbox workers only):
+        worker_cg_cpu_avg, worker_cg_cpu_peak     — sum of judge0-workers-* cg_cpu_pct
+        worker_cg_cpu_norm_avg, _norm_peak        — above ÷ n_cpus  (0–100% of host)
         worker_cg_mem_avg_mb, worker_cg_mem_peak_mb
+
+      CONTAINER — cgroup (grading worker, separate from J0 sandboxes):
+        grading_cg_cpu_avg, grading_cg_cpu_peak
+        grading_cg_mem_avg_mb, grading_cg_mem_peak_mb
+
+      CONTAINER — cgroup (all other containers: API, db, redis, reconciler):
         server_cg_cpu_avg, server_cg_cpu_peak
         server_cg_mem_avg_mb, server_cg_mem_peak_mb
 
-      CONTAINER — real host (psutil):
-        worker_real_cpu_avg, worker_real_cpu_peak   — sum of worker real_cpu_pct_norm
-        worker_rss_avg_mb, worker_rss_peak_mb
-        server_real_cpu_avg, server_real_cpu_peak
-        server_rss_avg_mb, server_rss_peak_mb
-
       snapshots — number of snapshots loaded
     """
+    _ALL_KEYS = [
+        "host_cpu_avg","host_cpu_peak",
+        "host_ram_avg_gb","host_ram_peak_gb",
+        "host_ram_avg_pct","host_ram_peak_pct",
+        "redis_queue_avg","redis_queue_peak",
+        "worker_cg_cpu_avg","worker_cg_cpu_peak",
+        "worker_cg_cpu_norm_avg","worker_cg_cpu_norm_peak",
+        "worker_cg_mem_avg_mb","worker_cg_mem_peak_mb",
+        "grading_cg_cpu_avg","grading_cg_cpu_peak",
+        "grading_cg_mem_avg_mb","grading_cg_mem_peak_mb",
+        "server_cg_cpu_avg","server_cg_cpu_peak",
+        "server_cg_mem_avg_mb","server_cg_mem_peak_mb",
+        "snapshots",
+    ]
     if not metrics_data:
-        na = "N/A"
-        return {k: na for k in [
-            "host_cpu_avg","host_cpu_peak",
-            "host_ram_avg_gb","host_ram_peak_gb",
-            "host_ram_avg_pct","host_ram_peak_pct",
-            "redis_queue_avg","redis_queue_peak",
-            "worker_cg_cpu_avg","worker_cg_cpu_peak",
-            "worker_cg_mem_avg_mb","worker_cg_mem_peak_mb",
-            "worker_real_cpu_avg","worker_real_cpu_peak",
-            "worker_rss_avg_mb","worker_rss_peak_mb",
-            "server_cg_cpu_avg","server_cg_cpu_peak",
-            "server_cg_mem_avg_mb","server_cg_mem_peak_mb",
-            "server_real_cpu_avg","server_real_cpu_peak",
-            "server_rss_avg_mb","server_rss_peak_mb",
-            "snapshots",
-        ]}
+        return {k: "N/A" for k in _ALL_KEYS}
+
+    # Snapshot[0] CPU delta covers only the seed→first-read window (milliseconds).
+    # Use _first_snapshot flag when present; otherwise skip index 0 for averages.
+    snaps_for_avg = [m for m in metrics_data if not m.get("_first_snapshot", False)]
+    if not snaps_for_avg:
+        snaps_for_avg = metrics_data  # no flag on any snapshot — use all
 
     # ── Host-level series ──────────────────────────────────────────────────
-    host_cpu   = [m["cpu_pct"]      for m in metrics_data if "cpu_pct"      in m]
-    host_ram_g = [m["mem_used_gb"]  for m in metrics_data if "mem_used_gb"  in m]
-    host_ram_p = [m["mem_pct"]      for m in metrics_data if "mem_pct"      in m]
-    redis_q    = [m["redis_queue_depth"] for m in metrics_data
-                  if "redis_queue_depth" in m and isinstance(m["redis_queue_depth"], (int, float))]
+    # Peak uses ALL snapshots; avg uses snaps_for_avg (excludes warmup snap)
+    host_cpu_all  = [m["cpu_pct"]     for m in metrics_data   if "cpu_pct"     in m]
+    host_cpu_avg  = [m["cpu_pct"]     for m in snaps_for_avg  if "cpu_pct"     in m]
+    host_ram_g    = [m["mem_used_gb"] for m in snaps_for_avg  if "mem_used_gb" in m]
+    host_ram_p    = [m["mem_pct"]     for m in snaps_for_avg  if "mem_pct"     in m]
+    redis_q       = [m["redis_queue_depth"] for m in metrics_data
+                     if "redis_queue_depth" in m
+                     and isinstance(m["redis_queue_depth"], (int, float))]
 
     # ── Per-snapshot container aggregates ──────────────────────────────────
-    # worker = container name contains "worker"
-    # server = everything else (judge0 API / server containers)
-    worker_cg_cpu_per_snap   = []
-    worker_cg_mem_per_snap   = []
-    worker_real_cpu_per_snap = []
-    worker_rss_per_snap      = []
-    server_cg_cpu_per_snap   = []
-    server_cg_mem_per_snap   = []
-    server_real_cpu_per_snap = []
-    server_rss_per_snap      = []
+    # Classify containers by name:
+    #   judge0-workers-1/2/3  → "workers" in name  → J0 sandbox workers
+    #   judge0-grading_*      → "grading" in name  → Flask grading worker
+    #   everything else       → server group (API, db, redis, reconciler…)
+    _N_CPUS_DEFAULT = 4  # c5.xlarge fallback for snapshots without n_cpus field
+
+    j0_cg_cpu_per_snap      = []
+    j0_cg_cpu_norm_per_snap = []  # ÷ n_cpus → 0–100% of host capacity
+    j0_cg_mem_per_snap      = []
+    gr_cg_cpu_per_snap      = []
+    gr_cg_mem_per_snap      = []
+    sv_cg_cpu_per_snap      = []
+    sv_cg_mem_per_snap      = []
 
     for m in metrics_data:
-        w_cg_cpu = w_cg_mem = w_real_cpu = w_rss = 0.0
-        s_cg_cpu = s_cg_mem = s_real_cpu = s_rss = 0.0
+        n_cpus = m.get("n_cpus", _N_CPUS_DEFAULT) or _N_CPUS_DEFAULT
+        j0_cg_cpu = j0_cg_mem = 0.0
+        gr_cg_cpu = gr_cg_mem = 0.0
+        sv_cg_cpu = sv_cg_mem = 0.0
         for c in m.get("containers", []):
-            name = c.get("name", "")
-            is_worker = "worker" in name.lower()
-            cg_cpu  = c.get("cg_cpu_pct",      c.get("cpu_pct", 0)) or 0
-            cg_mem  = c.get("mem_mb",           0) or 0
-            r_cpu   = c.get("real_cpu_pct_norm", None)
-            r_rss   = c.get("real_rss_mb",       None)
-            if is_worker:
-                w_cg_cpu  += cg_cpu
-                w_cg_mem  += cg_mem
-                if r_cpu is not None: w_real_cpu += r_cpu
-                if r_rss is not None: w_rss      += r_rss
+            name_lower   = c.get("name", "").lower()
+            is_j0_worker = "workers" in name_lower
+            is_grading   = not is_j0_worker and "grading" in name_lower
+            cg_cpu = c.get("cg_cpu_pct", c.get("cpu_pct", 0)) or 0
+            cg_mem = c.get("mem_mb", 0) or 0
+            if is_j0_worker:
+                j0_cg_cpu += cg_cpu
+                j0_cg_mem += cg_mem
+            elif is_grading:
+                gr_cg_cpu += cg_cpu
+                gr_cg_mem += cg_mem
             else:
-                s_cg_cpu  += cg_cpu
-                s_cg_mem  += cg_mem
-                if r_cpu is not None: s_real_cpu += r_cpu
-                if r_rss is not None: s_rss      += r_rss
+                sv_cg_cpu += cg_cpu
+                sv_cg_mem += cg_mem
 
         if m.get("containers"):
-            worker_cg_cpu_per_snap.append(w_cg_cpu)
-            worker_cg_mem_per_snap.append(w_cg_mem)
-            worker_real_cpu_per_snap.append(w_real_cpu)
-            worker_rss_per_snap.append(w_rss)
-            server_cg_cpu_per_snap.append(s_cg_cpu)
-            server_cg_mem_per_snap.append(s_cg_mem)
-            server_real_cpu_per_snap.append(s_real_cpu)
-            server_rss_per_snap.append(s_rss)
+            j0_cg_cpu_per_snap.append(j0_cg_cpu)
+            j0_cg_cpu_norm_per_snap.append(round(j0_cg_cpu / n_cpus, 2))
+            j0_cg_mem_per_snap.append(j0_cg_mem)
+            gr_cg_cpu_per_snap.append(gr_cg_cpu)
+            gr_cg_mem_per_snap.append(gr_cg_mem)
+            sv_cg_cpu_per_snap.append(sv_cg_cpu)
+            sv_cg_mem_per_snap.append(sv_cg_mem)
 
     return {
-        # Host
-        "host_cpu_avg":          _safe_avg(host_cpu),
-        "host_cpu_peak":         _safe_peak(host_cpu),
-        "host_ram_avg_gb":       _safe_avg(host_ram_g),
-        "host_ram_peak_gb":      _safe_peak(host_ram_g),
-        "host_ram_avg_pct":      _safe_avg(host_ram_p),
-        "host_ram_peak_pct":     _safe_peak(host_ram_p),
-        "redis_queue_avg":       _safe_avg(redis_q),
-        "redis_queue_peak":      _safe_peak(redis_q),
-        # Containers — cgroup (docker stats)
-        "worker_cg_cpu_avg":     _safe_avg(worker_cg_cpu_per_snap),
-        "worker_cg_cpu_peak":    _safe_peak(worker_cg_cpu_per_snap),
-        "worker_cg_mem_avg_mb":  _safe_avg(worker_cg_mem_per_snap),
-        "worker_cg_mem_peak_mb": _safe_peak(worker_cg_mem_per_snap),
-        "server_cg_cpu_avg":     _safe_avg(server_cg_cpu_per_snap),
-        "server_cg_cpu_peak":    _safe_peak(server_cg_cpu_per_snap),
-        "server_cg_mem_avg_mb":  _safe_avg(server_cg_mem_per_snap),
-        "server_cg_mem_peak_mb": _safe_peak(server_cg_mem_per_snap),
-        # Containers — real host (psutil)
-        "worker_real_cpu_avg":   _safe_avg(worker_real_cpu_per_snap),
-        "worker_real_cpu_peak":  _safe_peak(worker_real_cpu_per_snap),
-        "worker_rss_avg_mb":     _safe_avg(worker_rss_per_snap),
-        "worker_rss_peak_mb":    _safe_peak(worker_rss_per_snap),
-        "server_real_cpu_avg":   _safe_avg(server_real_cpu_per_snap),
-        "server_real_cpu_peak":  _safe_peak(server_real_cpu_per_snap),
-        "server_rss_avg_mb":     _safe_avg(server_rss_per_snap),
-        "server_rss_peak_mb":    _safe_peak(server_rss_per_snap),
-        "snapshots":             len(metrics_data),
+        # Host — kernel /proc (avg excludes warmup first snapshot; peak covers all)
+        "host_cpu_avg":            _safe_avg(host_cpu_avg),
+        "host_cpu_peak":           _safe_peak(host_cpu_all),
+        "host_ram_avg_gb":         _safe_avg(host_ram_g),
+        "host_ram_peak_gb":        _safe_peak(host_ram_g),
+        "host_ram_avg_pct":        _safe_avg(host_ram_p),
+        "host_ram_peak_pct":       _safe_peak(host_ram_p),
+        "redis_queue_avg":         _safe_avg(redis_q),
+        "redis_queue_peak":        _safe_peak(redis_q),
+        # J0 workers — cgroup (sum across 3 workers; raw can exceed 100%×N)
+        "worker_cg_cpu_avg":       _safe_avg(j0_cg_cpu_per_snap),
+        "worker_cg_cpu_peak":      _safe_peak(j0_cg_cpu_per_snap),
+        "worker_cg_cpu_norm_avg":  _safe_avg(j0_cg_cpu_norm_per_snap),
+        "worker_cg_cpu_norm_peak": _safe_peak(j0_cg_cpu_norm_per_snap),
+        "worker_cg_mem_avg_mb":    _safe_avg(j0_cg_mem_per_snap),
+        "worker_cg_mem_peak_mb":   _safe_peak(j0_cg_mem_per_snap),
+        # Grading worker — cgroup (Flask async worker, NOT a J0 sandbox)
+        "grading_cg_cpu_avg":      _safe_avg(gr_cg_cpu_per_snap),
+        "grading_cg_cpu_peak":     _safe_peak(gr_cg_cpu_per_snap),
+        "grading_cg_mem_avg_mb":   _safe_avg(gr_cg_mem_per_snap),
+        "grading_cg_mem_peak_mb":  _safe_peak(gr_cg_mem_per_snap),
+        # Server group — cgroup (API, db, redis, reconciler…)
+        "server_cg_cpu_avg":       _safe_avg(sv_cg_cpu_per_snap),
+        "server_cg_cpu_peak":      _safe_peak(sv_cg_cpu_per_snap),
+        "server_cg_mem_avg_mb":    _safe_avg(sv_cg_mem_per_snap),
+        "server_cg_mem_peak_mb":   _safe_peak(sv_cg_mem_per_snap),
+        "snapshots":               len(metrics_data),
     }
 
 
@@ -1932,7 +1945,7 @@ def build_sheet4_comparison(wb: openpyxl.Workbook, reports: list):
     any_host_metrics = any(ms["snapshots"] != "N/A" and ms["snapshots"] > 0
                            for ms in run_metrics)
     if any_host_metrics:
-        section("HOST SYSTEM RESOURCES  (psutil — actual EC2 host, not cgroup)")
+        section("HOST SYSTEM RESOURCES  (kernel /proc/stat + /proc/meminfo — actual EC2 host)")
 
         def hm(key): return [ms[key] for ms in run_metrics]
 
@@ -1958,42 +1971,35 @@ def build_sheet4_comparison(wb: openpyxl.Workbook, reports: list):
         # ── Section: Container Resources — cgroup / docker stats ──────────────
         section("CONTAINER RESOURCES — cgroup  (docker stats, NOT real host)")
 
-        metric_row("Workers: Peak cg CPU %  (sum across workers, can exceed 100%×N)",
+        metric_row("J0 Workers: Peak cg CPU %  (raw sum, can exceed 100%×N)",
                    hm("worker_cg_cpu_peak"), highlight_best=True, lower_is_better=True)
-        metric_row("Workers: Avg  cg CPU %",
+        metric_row("J0 Workers: Avg  cg CPU %  (raw sum)",
                    hm("worker_cg_cpu_avg"),  highlight_best=True, lower_is_better=True)
-        metric_row("Workers: Peak cg Mem MB",
+        metric_row("J0 Workers: Peak cg CPU % of host  (sum÷n_cpus, 0–100%)",
+                   hm("worker_cg_cpu_norm_peak"), highlight_best=True, lower_is_better=True)
+        metric_row("J0 Workers: Avg  cg CPU % of host  (sum÷n_cpus, 0–100%)",
+                   hm("worker_cg_cpu_norm_avg"),  highlight_best=True, lower_is_better=True)
+        metric_row("J0 Workers: Peak cg Mem MB",
                    hm("worker_cg_mem_peak_mb"), highlight_best=True, lower_is_better=True)
-        metric_row("Workers: Avg  cg Mem MB",
+        metric_row("J0 Workers: Avg  cg Mem MB",
                    hm("worker_cg_mem_avg_mb"),  highlight_best=True, lower_is_better=True)
-        metric_row("Server:  Peak cg CPU %",
+        metric_row("Grading Worker: Peak cg CPU %  (Flask async, not a J0 sandbox)",
+                   hm("grading_cg_cpu_peak"), highlight_best=True, lower_is_better=True)
+        metric_row("Grading Worker: Avg  cg CPU %",
+                   hm("grading_cg_cpu_avg"),  highlight_best=True, lower_is_better=True)
+        metric_row("Grading Worker: Peak cg Mem MB",
+                   hm("grading_cg_mem_peak_mb"), highlight_best=True, lower_is_better=True)
+        metric_row("Grading Worker: Avg  cg Mem MB",
+                   hm("grading_cg_mem_avg_mb"),  highlight_best=True, lower_is_better=True)
+        metric_row("Server Group:  Peak cg CPU %  (API, db, redis, reconciler)",
                    hm("server_cg_cpu_peak"), highlight_best=True, lower_is_better=True)
-        metric_row("Server:  Avg  cg CPU %",
+        metric_row("Server Group:  Avg  cg CPU %",
                    hm("server_cg_cpu_avg"),  highlight_best=True, lower_is_better=True)
-        metric_row("Server:  Peak cg Mem MB",
+        metric_row("Server Group:  Peak cg Mem MB",
                    hm("server_cg_mem_peak_mb"), highlight_best=True, lower_is_better=True)
-        metric_row("Server:  Avg  cg Mem MB",
+        metric_row("Server Group:  Avg  cg Mem MB",
                    hm("server_cg_mem_avg_mb"),  highlight_best=True, lower_is_better=True)
 
-        # ── Section: Container Resources — real host / psutil ─────────────────
-        section("CONTAINER RESOURCES — actual host  (psutil process tree, 0–100% normalised)")
-
-        metric_row("Workers: Peak real CPU %  (normalised 0–100%)",
-                   hm("worker_real_cpu_peak"), highlight_best=True, lower_is_better=True)
-        metric_row("Workers: Avg  real CPU %",
-                   hm("worker_real_cpu_avg"),  highlight_best=True, lower_is_better=True)
-        metric_row("Workers: Peak RSS MB",
-                   hm("worker_rss_peak_mb"), highlight_best=True, lower_is_better=True)
-        metric_row("Workers: Avg  RSS MB",
-                   hm("worker_rss_avg_mb"),  highlight_best=True, lower_is_better=True)
-        metric_row("Server:  Peak real CPU %",
-                   hm("server_real_cpu_peak"), highlight_best=True, lower_is_better=True)
-        metric_row("Server:  Avg  real CPU %",
-                   hm("server_real_cpu_avg"),  highlight_best=True, lower_is_better=True)
-        metric_row("Server:  Peak RSS MB",
-                   hm("server_rss_peak_mb"), highlight_best=True, lower_is_better=True)
-        metric_row("Server:  Avg  RSS MB",
-                   hm("server_rss_avg_mb"),  highlight_best=True, lower_is_better=True)
 
     # ── Column widths ─────────────────────────────────────────────────────────
     ws.column_dimensions["A"].width = 52  # wider for new resource metric labels

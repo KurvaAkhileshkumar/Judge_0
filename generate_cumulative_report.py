@@ -402,8 +402,22 @@ def main():
     build_sheet1_cumulative(wb, merged, named_reports)
     print("  Sheet 1 done")
 
-    # Sheet 2 — aggregated metrics (uses merged summary / status_counts / results)
-    G.build_sheet2(wb, merged, metrics_data=[])
+    # Sheet 2 — aggregated metrics: load all per-run metrics jsonl files
+    all_metrics: list[dict] = []
+    for stem in [s for s, _ in named_reports]:
+        mpath = JSONS_DIR / f"{stem}_metrics.jsonl"
+        if mpath.exists():
+            count_before = len(all_metrics)
+            with open(mpath, encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if line:
+                        try:
+                            all_metrics.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            pass
+            print(f"  Metrics loaded : {mpath}  ({len(all_metrics) - count_before} snapshots)")
+    G.build_sheet2(wb, merged, metrics_data=all_metrics)
     print("  Sheet 2 done")
 
     # Sheet 3 — all submissions from all runs
