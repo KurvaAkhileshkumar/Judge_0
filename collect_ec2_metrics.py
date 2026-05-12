@@ -92,18 +92,20 @@ def _read_proc_cpu_stat() -> dict:
     return {}
 
 
-def _cpu_pct_from_delta(prev: dict, curr: dict) -> float | None:
+def _cpu_pct_from_delta(prev: dict, curr: dict):
     """
     CPU utilisation % between two /proc/stat tick snapshots.
     Counts all non-idle modes: user + nice + system + iowait + irq + softirq + steal.
+    iowait is NOT treated as idle — a CPU blocked on I/O is a loaded CPU.
     Returns None when either snapshot is empty (e.g. first reading has no prev).
     """
     if not prev or not curr:
         return None
-    prev_idle  = prev.get("idle", 0) + prev.get("iowait", 0)
-    curr_idle  = curr.get("idle", 0) + curr.get("iowait", 0)
-    prev_total = sum(prev.values())
-    curr_total = sum(curr.values())
+    # Pure idle only — iowait counts toward utilisation, not idle
+    prev_idle   = prev.get("idle", 0)
+    curr_idle   = curr.get("idle", 0)
+    prev_total  = sum(prev.values())
+    curr_total  = sum(curr.values())
     delta_total = curr_total - prev_total
     delta_idle  = curr_idle  - prev_idle
     if delta_total <= 0:

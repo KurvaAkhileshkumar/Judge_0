@@ -1620,14 +1620,15 @@ def _extract_metrics_summary(metrics_data: list) -> dict:
         snaps_for_avg = metrics_data  # no flag on any snapshot — use all
 
     # ── Host-level series ──────────────────────────────────────────────────
-    # Peak uses ALL snapshots; avg uses snaps_for_avg (excludes warmup snap)
-    host_cpu_all  = [m["cpu_pct"]     for m in metrics_data   if "cpu_pct"     in m]
-    host_cpu_avg  = [m["cpu_pct"]     for m in snaps_for_avg  if "cpu_pct"     in m]
-    host_ram_g    = [m["mem_used_gb"] for m in snaps_for_avg  if "mem_used_gb" in m]
-    host_ram_p    = [m["mem_pct"]     for m in snaps_for_avg  if "mem_pct"     in m]
-    redis_q       = [m["redis_queue_depth"] for m in metrics_data
-                     if "redis_queue_depth" in m
-                     and isinstance(m["redis_queue_depth"], (int, float))]
+    # CPU % is a delta metric — first snapshot covers a millisecond window, excluded from avg.
+    # RAM, Redis queue are absolute point-in-time readings — all snapshots are valid.
+    host_cpu_all = [m["cpu_pct"]     for m in metrics_data  if "cpu_pct"     in m]
+    host_cpu_avg = [m["cpu_pct"]     for m in snaps_for_avg if "cpu_pct"     in m]
+    host_ram_g   = [m["mem_used_gb"] for m in metrics_data  if "mem_used_gb" in m]
+    host_ram_p   = [m["mem_pct"]     for m in metrics_data  if "mem_pct"     in m]
+    redis_q      = [m["redis_queue_depth"] for m in metrics_data
+                    if "redis_queue_depth" in m
+                    and isinstance(m["redis_queue_depth"], (int, float))]
 
     # ── Per-snapshot container aggregates ──────────────────────────────────
     # Classify containers by name:
