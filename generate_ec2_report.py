@@ -237,6 +237,9 @@ def _pct(numerator, denominator):
 
 def _concurrency_label(cfg: dict) -> str:
     """Human-readable concurrency mode derived from config."""
+    if cfg.get("_cumulative"):
+        return (f"Multiple modes — {cfg.get('_n_runs', 'N')} scenarios aggregated "
+                f"(flat / ramp / pipelined-batch — see Sheet 4 for per-run breakdown)")
     batch = cfg.get("batch_size", 0) or 0
     ramp  = cfg.get("ramp_up_sec", 0) or 0
     users = cfg.get("users", 0) or 0
@@ -521,15 +524,17 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
     def _pctile(p: float) -> int:
         if not lats:
             return summary.get(f"latency_p{int(p)}_ms", 0)
-        idx = max(0, int(math.ceil(len(lats) * p / 100)) - 1)
+        # Use same nearest-rank formula as Go: idx = int((n-1) * p / 100)
+        idx = int((len(lats) - 1) * p / 100.0)
         return lats[idx]
 
     avg_lat = (sum(lats) / len(lats)) if lats else 0.0
     min_lat = lats[0]  if lats else 0
     max_lat = lats[-1] if lats else 0
-    p50     = summary.get("latency_p50_ms", _pctile(50))
-    p95     = summary.get("latency_p95_ms", _pctile(95))
-    p99     = summary.get("latency_p99_ms", _pctile(99))
+    # Compute all percentiles consistently via _pctile (Go-compatible formula)
+    p50     = _pctile(50)
+    p95     = _pctile(95)
+    p99     = _pctile(99)
 
     completed   = summary.get("completed", 0)
     total_subs  = summary.get("total_submissions", completed) or 1
@@ -554,8 +559,8 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
         ("Ramp-up Duration",        f"{cfg.get('ramp_up_sec', 0)} s"),
         ("Batch Size",              cfg.get("batch_size") or "flat concurrent"),
         ("Test Duration",           f"{duration:.1f} s"),
-        ("Total Submissions",       summary.get("total_submissions", 0)),
-        ("Completed",               completed),
+        ("Total Finalized",         completed),
+        ("PASS Count",              status_counts.get("PASS", 0)),
         ("Throughput",              f"{throughput:.2f} req/s"),
         ("Peak In-Flight Jobs",     summary.get("peak_in_flight_jobs", 0)),
     ]
@@ -603,7 +608,7 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
     ]
     lat_right = [
         ("Throughput (req/s)",      f"{throughput:.2f}"),
-        ("Total Completed",         completed),
+        ("Total Finalized",         completed),
         ("Test Duration",           f"{duration:.1f} s"),
         ("Harness Jobs (actual)",   summary.get("harness_jobs", 0)),
         ("Batch-Equivalent Jobs",   summary.get("batch_equivalent", 0)),
@@ -864,12 +869,22 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
         row += 1
 
     # Accepted-solutions-only analysis
-    accept_count = sum(type_counts.values()) if type_counts else 0
-    if cfg.get("accept_only") or (accept_count > 0 and all(t == "accepted" for t in type_counts)):
-        c = ws.cell(row=row, column=1,
-                    value="NOTE: Accept-only run — solution mix limited to 'accepted' solutions; "
-                          "expected PASS rate ≈ 100% (unless infra error).")
-        _style(c, bg=_C["tle"], bold=True)
+    if cfg.get("accept_only") or (type_counts and all(t == "accepted" for t in type_counts)):
+        actual_pass  = status_counts.get("PASS", 0)
+        infra_errors = (status_counts.get("JUDGE0_ERROR", 0)
+                        + status_counts.get("SYSTEM_ERROR", 0))
+        tle_count    = status_counts.get("TLE", 0)
+        pass_pct     = _pct(actual_pass, completed) if completed else "–"
+        note = (
+            f"NOTE: All {completed} submissions used 'accepted' solutions "
+            f"(correct code — expected 100% PASS).  "
+            f"Actual PASS: {actual_pass} ({pass_pct}).  "
+            f"Infrastructure errors (JUDGE0_ERROR + SYSTEM_ERROR): {infra_errors}.  "
+            f"Queue TLEs: {tle_count}."
+        )
+        c = ws.cell(row=row, column=1, value=note)
+        bg = _C["fail"] if (completed and actual_pass / completed < 0.9) else _C["tle"]
+        _style(c, bg=bg, bold=True)
         ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=NCOLS)
         row += 1
 
@@ -1201,7 +1216,7 @@ def build_sheet3(wb: openpyxl.Workbook, report: dict):
             entry = dict(sub)
             entry["_problem_id"] = pid
             all_subs.append(entry)
-            max_tcs = max(max_tcs, len(sub.get("test_cases", [])))
+            max_tcs = max(max_tcs, len(sub.get("test_cases") or []))
 
     # ── Column layout ─────────────────────────────────────────────────────────
     STATIC = [
@@ -1440,7 +1455,7 @@ def build_sheet3(wb: openpyxl.Workbook, report: dict):
                 c.alignment = _center_align(wrap=False)
 
         # ── TC columns ────────────────────────────────────────────────────────
-        test_cases = sub.get("test_cases", [])
+        test_cases = sub.get("test_cases") or []
         for tc_idx, tc in enumerate(test_cases):
             col    = N_STATIC + tc_idx * TC_COLS + 1
             status = tc.get("status", "")
@@ -1822,18 +1837,20 @@ def build_sheet4_comparison(wb: openpyxl.Workbook, reports: list):
 
     def _pct_val(lats, p):
         if not lats: return 0
-        idx = max(0, int(math.ceil(len(lats) * p / 100)) - 1)
+        # Go-compatible nearest-rank: idx = int((n-1) * p / 100)
+        idx = int((len(lats) - 1) * p / 100.0)
         return lats[idx]
 
+    # All percentiles computed consistently from raw results (same Go formula)
     metric_row("P50  (median)",  lat_from_results(lambda l: _pct_val(l, 50)),
                highlight_best=True, lower_is_better=True)
     metric_row("P75",            lat_from_results(lambda l: _pct_val(l, 75)),
                highlight_best=True, lower_is_better=True)
     metric_row("P90",            lat_from_results(lambda l: _pct_val(l, 90)),
                highlight_best=True, lower_is_better=True)
-    metric_row("P95",            lat_vals("latency_p95_ms"),
+    metric_row("P95",            lat_from_results(lambda l: _pct_val(l, 95)),
                highlight_best=True, lower_is_better=True)
-    metric_row("P99",            lat_vals("latency_p99_ms"),
+    metric_row("P99",            lat_from_results(lambda l: _pct_val(l, 99)),
                highlight_best=True, lower_is_better=True)
     metric_row("P99.9",          lat_from_results(lambda l: _pct_val(l, 99.9)),
                highlight_best=True, lower_is_better=True)
@@ -1889,20 +1906,17 @@ def build_sheet4_comparison(wb: openpyxl.Workbook, reports: list):
     # ── Section: Score Distribution ───────────────────────────────────────────
     section("SCORE DISTRIBUTION")
 
-    def score_dist_col(key_idx):
-        out = []
-        for _, rpt in reports:
-            all_r = rpt.get("results", [])
-            f, p, z = _score_distribution(all_r)
-            out.append([f, p, z][key_idx])
-        return out
-
+    # Compute score distributions once (normalise to handle both snake_case and PascalCase JSONs)
+    score_dists = [
+        _score_distribution([_normalise_result(r) for r in rpt.get("results", [])])
+        for _, rpt in reports
+    ]
     completed_list = [r.get("summary",{}).get("completed",1) for _,r in reports]
-    metric_row("Full Marks  (100%)",    score_dist_col(0), highlight_best=True)
+    metric_row("Full Marks  (100%)",    [d[0] for d in score_dists], highlight_best=True)
     metric_row("Full Marks  % of completed",
-               [_pct(score_dist_col(0)[i], completed_list[i]) for i in range(n_reports)])
-    metric_row("Partial Marks  (1–99%)", score_dist_col(1))
-    metric_row("Zero Marks  (0%)",      score_dist_col(2), highlight_best=True, lower_is_better=True)
+               [_pct(d[0], completed_list[i]) for i, d in enumerate(score_dists)])
+    metric_row("Partial Marks  (1–99%)", [d[1] for d in score_dists])
+    metric_row("Zero Marks  (0%)",      [d[2] for d in score_dists], highlight_best=True, lower_is_better=True)
 
     # ── Section: Infrastructure Capacity ──────────────────────────────────────
     section("INFRASTRUCTURE CAPACITY")
