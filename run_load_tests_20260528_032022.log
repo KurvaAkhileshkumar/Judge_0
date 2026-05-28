@@ -1,0 +1,19 @@
+[0;36m[03:20:22][0m Logging to run_load_tests_20260528_032022.log
+
+[1m[0;36m╔══════════════════════════════════════════════════════════════╗[0m
+[1m[0;36m║  Judge0 Automated Load Test Suite  |  2026-05-28 03:20:22      ║[0m
+[1m[0;36m╚══════════════════════════════════════════════════════════════╝[0m
+
+[0;36m[03:20:22][0m Deploy dir  : /home/ubuntu/judge0
+[0;36m[03:20:22][0m Flask URL   : http://localhost:5001
+[0;36m[03:20:22][0m Question bank: question_bank_mixed.json
+[0;36m[03:20:22][0m Resume mode : false
+[0;36m[03:20:22][0m Skip Excel  : false
+[0;36m[03:20:22][0m Only phase  : all
+
+
+[1m[0;36m╔══════════════════════════════════════════════════════════════╗[0m
+[1m[0;36m║  PHASE A — workers=3  MAX_RUNNERS=2  (6 sandboxes)  puma_slots=32║[0m
+[1m[0;36m╚══════════════════════════════════════════════════════════════╝[0m
+
+[0;36m[03:20:22][0m Stopping ALL existing containers (base project teardown)...
