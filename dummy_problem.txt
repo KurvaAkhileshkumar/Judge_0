@@ -1,0 +1,610 @@
+-- Question 1 -- 
+Problem: Hull Edge Energy
+
+You are given N points on a 2D plane. Points may be repeated.
+
+Consider only the distinct points and construct their convex hull. The hull boundary must contain only the corner vertices of the convex hull. If multiple points lie on the same hull edge, keep only the two extreme endpoints of that edge and discard all intermediate collinear points.
+
+Let the resulting convex hull have vertices v0, v1, ..., v(m−1) arranged in counterclockwise order.
+
+Define the Hull Edge Energy E as the sum of the squared Euclidean lengths of all hull edges:
+
+E = Σ dist²(vi, v(i+1 mod m))
+
+where
+
+dist²((x1, y1), (x2, y2)) = (x1 − x2)² + (y1 − y2)²
+
+If the convex hull contains fewer than 3 vertices (for example, when all points are identical or all points are collinear), the energy is defined as 0.
+
+Input Format
+
+The first line contains an integer N.
+
+The next N lines each contain two integers xi and yi representing the coordinates of a point.
+
+Output Format
+
+Print a single integer representing the Hull Edge Energy E.
+
+Constraints
+
+1 ≤ N ≤ 200000
+
+|xi|, |yi| ≤ 10^9
+
+Points may be repeated.
+
+Examples
+
+Example 1
+
+Input
+4
+0 0
+2 0
+0 1
+1 0
+
+Output
+10
+
+Explanation
+
+The distinct points are (0,0), (2,0), (0,1), and (1,0). Point (1,0) lies on a hull edge and is not a corner vertex. The convex hull vertices are (0,0), (2,0), and (0,1). The squared edge lengths are 4, 5, and 1, giving a total energy of 10.
+
+Example 2
+
+Input
+6
+0 0
+0 2
+2 2
+2 0
+1 1
+0 0
+
+Output
+16
+
+Explanation
+
+The convex hull is the square with vertices (0,0), (2,0), (2,2), and (0,2). Each edge has squared length 4, so the total energy is 16.
+
+Example 3
+
+Input
+4
+0 0
+1 0
+2 0
+3 0
+
+Output
+0
+
+Explanation
+
+All points are collinear, so the convex hull does not form a polygon. Therefore, the energy is 0.
+
+
+
+
+-- Question 2 --
+
+Problem: Largest Collinear Group
+
+You are given N distinct points on a 2D plane.
+
+Your task is to determine the maximum number of points that lie on the same straight line.
+
+Print the size of the largest such group.
+
+Input Format
+
+The first line contains an integer N.
+
+The next N lines each contain two integers xi and yi representing the coordinates of a point.
+
+Output Format
+
+Print a single integer — the maximum number of collinear points.
+
+Constraints
+
+1 ≤ N ≤ 2000
+
+|xi|, |yi| ≤ 10^9
+
+All points are distinct.
+
+Examples
+
+Example 1
+
+Input
+5
+0 0
+1 1
+2 2
+0 2
+2 0
+
+Output
+3
+
+Explanation
+
+The points (0,0), (1,1), and (2,2) lie on the same line. No line contains more than 3 points.
+
+Example 2
+
+Input
+4
+0 0
+0 1
+1 0
+1 1
+
+Output
+2
+
+Explanation
+
+No three points are collinear. Any line determined by two points contains exactly 2 points.
+
+Example 3
+
+Input
+1
+7 -3
+
+Output
+1
+
+Explanation
+
+With only one point, the largest collinear group contains that point itself.
+
+Example 4
+
+Input
+7
+2 -1
+2 0
+2 3
+2 5
+0 0
+1 2
+3 1
+
+Output
+4
+
+Explanation
+
+The four points (2,-1), (2,0), (2,3), and (2,5) lie on the vertical line x = 2. No other line contains more points.
+
+Notes
+
+Two points determine a line. To correctly identify points lying on the same line, slopes should be represented in a normalized form. A common approach is to represent each direction as a reduced fraction (dy/g, dx/g), where g = gcd(|dy|, |dx|), and enforce a consistent sign convention so that equivalent slopes are treated as identical.
+
+The output will always be an integer between 1 and N.
+
+
+
+
+-- Question 3 --
+
+Problem: Hull Boundary Count
+
+You are given N points on a 2D plane. Points may be repeated.
+
+Consider the set of distinct points and construct its convex hull.
+
+Your task is to determine how many distinct points lie on the boundary of the convex hull.
+
+A point is considered to be on the boundary if it is:
+
+- A vertex of the convex hull, or
+- Located on any edge of the convex hull (including points strictly between two hull vertices)
+
+Points that lie strictly inside the convex hull must not be counted.
+
+Output the number of distinct points that belong to the convex hull boundary.
+
+Input Format
+
+The first line contains an integer N.
+
+The next N lines each contain two integers xi and yi representing the coordinates of a point.
+
+Output Format
+
+Print a single integer K — the number of distinct points that lie on the convex hull boundary.
+
+Constraints
+
+1 ≤ N ≤ 200000
+
+|xi|, |yi| ≤ 10^9
+
+Points may be repeated.
+
+Examples
+
+Example 1
+
+Input
+5
+0 0
+2 0
+2 2
+0 2
+1 1
+
+Output
+4
+
+Explanation
+
+The convex hull is the square formed by the four corner points. The point (1,1) lies strictly inside the hull and is not counted.
+
+Example 2
+
+Input
+5
+0 0
+1 1
+2 2
+3 3
+1 1
+
+Output
+4
+
+Explanation
+
+After removing duplicates, the distinct points are (0,0), (1,1), (2,2), and (3,3). All points lie on the same line, which forms the boundary of the convex hull. Therefore, all four distinct points are counted.
+
+Example 3
+
+Input
+6
+0 0
+6 0
+0 6
+3 0
+0 3
+3 3
+
+Output
+6
+
+Explanation
+
+The convex hull is the triangle with vertices (0,0), (6,0), and (0,6). Points (3,0) and (0,3) lie on hull edges, while (3,3) lies on the hypotenuse x + y = 6. Therefore, all six distinct points lie on the hull boundary.
+
+Notes
+
+- Duplicate points should be counted only once.
+- Points lying on hull edges must be included in the answer.
+- Points strictly inside the convex hull must not be counted.
+- If all distinct points are collinear, every distinct point lies on the convex hull boundary and should be counted.
+
+
+
+-- Question 4 --
+
+
+Problem: Signed Double Area
+
+You are given N points on a 2D plane that define a closed walk.
+
+Connect point i to point i + 1 for all 1 ≤ i < N, and connect point N back to point 1. The resulting closed walk may intersect itself.
+
+Your task is to compute the signed value
+
+S = 2 × (algebraic area enclosed by the walk)
+
+The value S is:
+
+- Positive if the walk is oriented counterclockwise overall.
+- Negative if the walk is oriented clockwise overall.
+- Zero if the algebraic area is zero.
+
+Input Format
+
+The first line contains an integer N.
+
+The next N lines each contain two integers xi and yi representing the coordinates of the points in the order they are visited.
+
+Output Format
+
+Print a single integer S.
+
+Constraints
+
+3 ≤ N ≤ 200000
+
+|xi|, |yi| ≤ 10^9
+
+Examples
+
+Example 1
+
+Input
+3
+0 0
+4 0
+0 3
+
+Output
+12
+
+Explanation
+
+The points form a counterclockwise triangle with area 6.
+
+Therefore,
+
+S = 2 × 6 = 12
+
+Example 2
+
+Input
+3
+0 0
+0 3
+4 0
+
+Output
+-12
+
+Explanation
+
+The same triangle is traversed in clockwise order.
+
+Its area is still 6, but the signed value becomes
+
+S = -12
+
+Example 3
+
+Input
+4
+0 0
+2 2
+0 2
+2 0
+
+Output
+0
+
+Explanation
+
+The walk forms a self-intersecting bow-tie shape. The positive and negative contributions to the algebraic area cancel out, resulting in S = 0.
+
+Notes
+
+Let the points be (x0, y0), (x1, y1), ..., (xN−1, yN−1), with point (xN−1, yN−1) connected back to (x0, y0).
+
+The signed double area can be computed using the shoelace formula:
+
+S = Σ [xi · y(i+1) − yi · x(i+1)]
+
+where indices are taken modulo N.
+
+This formula works for both simple polygons and self-intersecting closed walks, producing the algebraic (signed) area.
+
+
+
+
+
+-- Question 5 --
+Problem: Maximum Spread
+
+You are given N distinct points on a 2D plane.
+
+Your task is to find the maximum squared Euclidean distance between any pair of points.
+
+For two points (x1, y1) and (x2, y2), the squared Euclidean distance is defined as:
+
+dist² = (x1 − x2)² + (y1 − y2)²
+
+Print the maximum squared distance among all pairs of points.
+
+Input Format
+
+The first line contains an integer N.
+
+The next N lines each contain two integers xi and yi representing the coordinates of a point.
+
+Output Format
+
+Print a single integer — the maximum squared Euclidean distance between any two points.
+
+Constraints
+
+1 ≤ N ≤ 200000
+
+All points are distinct.
+
+−10^9 ≤ xi, yi ≤ 10^9
+
+Examples
+
+Example 1
+
+Input
+2
+0 0
+3 4
+
+Output
+25
+
+Explanation
+
+The only pair of points has squared distance:
+
+(3 − 0)² + (4 − 0)² = 9 + 16 = 25
+
+Example 2
+
+Input
+4
+0 0
+0 2
+2 0
+2 2
+
+Output
+8
+
+Explanation
+
+The maximum distance is achieved by opposite corners of the square:
+
+(0,0) and (2,2), or (0,2) and (2,0)
+
+Squared distance:
+
+2² + 2² = 8
+
+Example 3
+
+Input
+4
+0 0
+5 0
+2 0
+10 0
+
+Output
+100
+
+Explanation
+
+The farthest pair is (0,0) and (10,0).
+
+Squared distance:
+
+(10 − 0)² = 100
+
+Notes
+
+- The answer should be printed as an integer.
+- Only points on the convex hull can be part of the farthest pair.
+- An efficient solution typically computes the convex hull first and then finds the farthest pair among hull vertices using rotating calipers.
+- The answer can be as large as:
+
+(2 × 10^9)² + (2 × 10^9)² = 8 × 10^18
+
+so 64-bit integer arithmetic is required.
+
+
+
+
+-- Question 6 --
+
+Problem: Maximum Spread
+
+You are given N distinct points on a 2D plane.
+
+Your task is to find the maximum squared Euclidean distance between any pair of points.
+
+For two points (x1, y1) and (x2, y2), the squared Euclidean distance is defined as:
+
+dist² = (x1 − x2)² + (y1 − y2)²
+
+Print the maximum squared distance among all pairs of points.
+
+Input Format
+
+The first line contains an integer N.
+
+The next N lines each contain two integers xi and yi representing the coordinates of a point.
+
+Output Format
+
+Print a single integer — the maximum squared Euclidean distance between any two points.
+
+Constraints
+
+1 ≤ N ≤ 200000
+
+All points are distinct.
+
+−10^9 ≤ xi, yi ≤ 10^9
+
+Examples
+
+Example 1
+
+Input
+2
+0 0
+3 4
+
+Output
+25
+
+Explanation
+
+The only pair of points has squared distance:
+
+(3 − 0)² + (4 − 0)² = 9 + 16 = 25
+
+Example 2
+
+Input
+4
+0 0
+0 2
+2 0
+2 2
+
+Output
+8
+
+Explanation
+
+The maximum distance is achieved by opposite corners of the square:
+
+(0,0) and (2,2), or (0,2) and (2,0)
+
+Squared distance:
+
+2² + 2² = 8
+
+Example 3
+
+Input
+4
+0 0
+5 0
+2 0
+10 0
+
+Output
+100
+
+Explanation
+
+The farthest pair is (0,0) and (10,0).
+
+Squared distance:
+
+(10 − 0)² = 100
+
+Notes
+
+- The answer should be printed as an integer.
+- Only points on the convex hull can be part of the farthest pair.
+- An efficient solution typically computes the convex hull first and then finds the farthest pair among hull vertices using rotating calipers.
+- The answer can be as large as:
+
+(2 × 10^9)² + (2 × 10^9)² = 8 × 10^18
+
+so 64-bit integer arithmetic is required.
