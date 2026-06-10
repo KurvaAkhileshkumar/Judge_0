@@ -27,8 +27,8 @@
 #   Redis                  ≤0.5 GB  (mem_limit=512m, maxmemory=512mb)
 #   Flask API + reconciler ~0.4 GB  (fixed)
 #   Judge0 server (Puma)   ~0.4 GB  (WEB_CONCURRENCY=2 × RAILS_MAX_THREADS=16 = 32 slots)
-#   3 × workers            ≤3.0 GB  (mem_limit=1g; 2 runners × 30 forks × ~12MB = ~720MB/container)
-#   Total                  ~5.7 GB  ← ~1.9 GB headroom on 7.6 GB
+#   3 × workers            ≤4.5 GB  (mem_limit=1500m; actual ~50MB/child × 2×30 = 3GB/container)
+#   Total                  ~7.2 GB  ← ~0.4 GB headroom on 7.6 GB
 #
 # Sandbox capacity:  workers=3 × MAX_RUNNERS=2 = 6 concurrent sandboxes
 # Puma HTTP slots:   WEB_CONCURRENCY=2 × RAILS_MAX_THREADS=16 = 32 slots
@@ -37,9 +37,9 @@
 #
 # Per-process memory model (30 TCs):
 #   Each harness forks 1 child per TC → MAX_RUNNERS runners × 30 forks
-#   Each Python child: ~12 MB RSS
-#   MAX_RUNNERS=2: 2×30×12 = 720 MB per container → fits in 1g ✓
-#   MAX_RUNNERS=3: 3×30×12 = 1.08 GB per container → needs 1.1-1.3g (see override files)
+#   Actual Python child RSS: ~30-50 MB (Python + loaded modules, COW copies)
+#   MAX_RUNNERS=2: 2×30×50 = 3000 MB per container → needs 1500m mem_limit ✓
+#   MAX_RUNNERS=3: 3×30×50 = 4500 MB per container → needs 1600m+ (see override files)
 
 services:
 
@@ -70,7 +70,7 @@ services:
 
   # ── Judge0 Resque workers (isolate sandboxes) ─────────────────────────────
   # Config A: --scale workers=3 → 3 containers × MAX_RUNNERS=2 = 6 sandboxes
-  # mem_limit=1g: 2 runners × 30 forks × ~12MB = ~720MB + Rails/Resque overhead
+  # mem_limit=1500m: 2 runners × 30 forks × ~50MB = ~3GB + Rails/Resque overhead
   # Override mem_limit via docker-compose.ec2.w*.yml for other configs.
   workers:
     image: judge0/judge0:1.13.1
@@ -79,7 +79,7 @@ services:
       - ./judge0.ec2.conf:/judge0.conf:ro
     privileged: true
     restart: always
-    mem_limit: 1g
+    mem_limit: 1500m
     mem_reservation: 256m
     ulimits:
       nproc: 65536

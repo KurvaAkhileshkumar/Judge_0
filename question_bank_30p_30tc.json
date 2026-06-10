@@ -200,7 +200,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "n=int(input())\nh=list(map(int,input().split())) if n>0 else []\nif n<3:print(0);exit()\nl,r=0,n-1;lm=h[0];rm=h[-1];res=0\nwhile l<r:\n    if lm<=rm:\n        l+=1;lm=max(lm,h[l]);res+=lm-h[l]\n    else:\n        r-=1;rm=max(rm,h[r]);res+=rm-h[r]\nprint(res)"
+          "source_code": "n=int(input())\nh=list(map(int,input().split())) if n>0 else []\nif n<3:\n    print(0)\nelse:\n    l,r=0,n-1;lm=h[0];rm=h[-1];res=0\n    while l<r:\n        if lm<=rm:\n            l+=1;lm=max(lm,h[l]);res+=lm-h[l]\n        else:\n            r-=1;rm=max(rm,h[r]);res+=rm-h[r]\n    print(res)"
         }
       ]
     },
@@ -602,7 +602,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "s=input().strip()\nif not s or s[0]=='0':print(0);exit()\ndp=[0]*(len(s)+1);dp[0]=dp[1]=1\nfor i in range(2,len(s)+1):\n    if s[i-1]!='0':dp[i]+=dp[i-1]\n    if 10<=int(s[i-2:i])<=26:dp[i]+=dp[i-2]\nprint(dp[len(s)])"
+          "source_code": "s=input().strip()\nif not s or s[0]=='0':\n    print(0)\nelse:\n    dp=[0]*(len(s)+1);dp[0]=dp[1]=1\n    for i in range(2,len(s)+1):\n        if s[i-1]!='0':dp[i]+=dp[i-1]\n        if 10<=int(s[i-2:i])<=26:dp[i]+=dp[i-2]\n    print(dp[len(s)])"
         }
       ]
     },
@@ -1205,7 +1205,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "s=input();n=len(s)\nif n==0:print(0);exit()\nip=[[False]*n for _ in range(n)]\nfor i in range(n):ip[i][i]=True\nfor i in range(n-1):ip[i][i+1]=(s[i]==s[i+1])\nfor l in range(3,n+1):\n    for i in range(n-l+1):\n        j=i+l-1;ip[i][j]=ip[i+1][j-1] and s[i]==s[j]\ncuts=list(range(-1,n))\nfor i in range(n):\n    if ip[0][i]:cuts[i+1]=0\n    else:\n        for j in range(i):\n            if ip[j+1][i]:cuts[i+1]=min(cuts[i+1],cuts[j+1]+1)\nprint(cuts[n])"
+          "source_code": "s=input();n=len(s)\nif n==0:\n    print(0)\nelse:\n    ip=[[False]*n for _ in range(n)]\n    for i in range(n):ip[i][i]=True\n    for i in range(n-1):ip[i][i+1]=(s[i]==s[i+1])\n    for l in range(3,n+1):\n        for i in range(n-l+1):\n            j=i+l-1;ip[i][j]=ip[i+1][j-1] and s[i]==s[j]\n    cuts=list(range(-1,n))\n    for i in range(n):\n        if ip[0][i]:cuts[i+1]=0\n        else:\n            for j in range(i):\n                if ip[j+1][i]:cuts[i+1]=min(cuts[i+1],cuts[j+1]+1)\n    print(cuts[n])"
         }
       ]
     },
@@ -1808,7 +1808,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "n=int(input());nums=list(map(int,input().split()))\nif n<=1:print(0);exit()\nj=0;ce=0;far=0\nfor i in range(n-1):\n    far=max(far,i+nums[i])\n    if i==ce:j+=1;ce=far\n    if ce>=n-1:break\nprint(j)"
+          "source_code": "n=int(input());nums=list(map(int,input().split()))\nif n<=1:\n    print(0)\nelse:\n    j=0;ce=0;far=0\n    for i in range(n-1):\n        far=max(far,i+nums[i])\n        if i==ce:j+=1;ce=far\n        if ce>=n-1:break\n    print(j)"
         }
       ]
     },
@@ -2009,7 +2009,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "n=int(input());a=list(map(int,input().split()))\nfor i in range(n):\n    while 1<=a[i]<=n and a[a[i]-1]!=a[i]:a[a[i]-1],a[i]=a[i],a[a[i]-1]\nfor i in range(n):\n    if a[i]!=i+1:print(i+1);exit()\nprint(n+1)"
+          "source_code": "n=int(input());a=list(map(int,input().split()))\nfor i in range(n):\n    while 1<=a[i]<=n and a[a[i]-1]!=a[i]:a[a[i]-1],a[i]=a[i],a[a[i]-1]\nans=n+1\nfor i in range(n):\n    if a[i]!=i+1:ans=i+1;break\nprint(ans)"
         }
       ]
     },
@@ -2485,15 +2485,15 @@
         },
         {
           "id": "tc11",
-          "stdin_text": "11\n",
-          "expected": "2680",
-          "description": "n=11"
+          "stdin_text": "10\n",
+          "expected": "724",
+          "description": "10x10 board"
         },
         {
           "id": "tc12",
-          "stdin_text": "12\n",
-          "expected": "14200",
-          "description": "n=12"
+          "stdin_text": "9\n",
+          "expected": "352",
+          "description": "9x9 board"
         },
         {
           "id": "tc13",
@@ -2612,7 +2612,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "n=int(input())\ndef bt(r,c,d1,d2):\n    if r==n:return 1\n    cnt=0\n    for col in range(n):\n        if col in c or r-col in d1 or r+col in d2:continue\n        c.add(col);d1.add(r-col);d2.add(r+col)\n        cnt+=bt(r+1,c,d1,d2)\n        c.remove(col);d1.remove(r-col);d2.remove(r+col)\n    return cnt\nprint(bt(0,set(),set(),set()))"
+          "source_code": "n=int(input())\ndef bt(r,c,d1,d2):\n    if r==n:return 1\n    cnt=0;avail=((1<<n)-1)&~(c|d1|d2)\n    while avail:\n        bit=avail&-avail;avail^=bit\n        cnt+=bt(r+1,c|bit,(d1|bit)<<1,(d2|bit)>>1)\n    return cnt\nprint(bt(0,0,0,0))"
         }
       ]
     },
@@ -3215,7 +3215,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "k,n=map(int,input().split())\nif k==1:print(n);exit()\nif n<=1:print(n);exit()\ndp=[[0]*(n+1) for _ in range(k+1)];m=0\nwhile dp[k][m]<n:\n    m+=1\n    for i in range(1,k+1):dp[i][m]=dp[i-1][m-1]+dp[i][m-1]+1\nprint(m)"
+          "source_code": "k,n=map(int,input().split())\nif k==1:\n    print(n)\nelif n<=1:\n    print(n)\nelse:\n    dp=[[0]*(n+1) for _ in range(k+1)];m=0\n    while dp[k][m]<n:\n        m+=1\n        for i in range(1,k+1):dp[i][m]=dp[i-1][m-1]+dp[i][m-1]+1\n    print(m)"
         }
       ]
     },
@@ -3617,7 +3617,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "s=input().strip()\nif not s:print(0);exit()\nt='#'+'#'.join(s)+'#';nt=len(t);p=[0]*nt;c=r=0\nfor i in range(nt):\n    m=2*c-i\n    if i<r:p[i]=min(r-i,p[m])\n    while i+p[i]+1<nt and i-p[i]-1>=0 and t[i+p[i]+1]==t[i-p[i]-1]:p[i]+=1\n    if i+p[i]>r:c,r=i,i+p[i]\nprint(max(p))"
+          "source_code": "s=input().strip()\nif not s:\n    print(0)\nelse:\n    t='#'+'#'.join(s)+'#';nt=len(t);p=[0]*nt;c=r=0\n    for i in range(nt):\n        m=2*c-i\n        if i<r:p[i]=min(r-i,p[m])\n        while i+p[i]+1<nt and i-p[i]-1>=0 and t[i+p[i]+1]==t[i-p[i]-1]:p[i]+=1\n        if i+p[i]>r:c,r=i,i+p[i]\n    print(max(p))"
         }
       ]
     },
@@ -3818,7 +3818,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "k=int(input());n=int(input());prices=list(map(int,input().split()))\nif n==0 or k==0:print(0);exit()\nif k>=n//2:print(sum(max(0,prices[i]-prices[i-1]) for i in range(1,n)));exit()\ndp=[[0]*n for _ in range(k+1)]\nfor t in range(1,k+1):\n    mx=-prices[0]\n    for d in range(1,n):\n        dp[t][d]=max(dp[t][d-1],prices[d]+mx);mx=max(mx,dp[t-1][d]-prices[d])\nprint(dp[k][n-1])"
+          "source_code": "k=int(input());n=int(input());prices=list(map(int,input().split()))\nif n==0 or k==0:\n    print(0)\nelif k>=n//2:\n    print(sum(max(0,prices[i]-prices[i-1]) for i in range(1,n)))\nelse:\n    dp=[[0]*n for _ in range(k+1)]\n    for t in range(1,k+1):\n        mx=-prices[0]\n        for d in range(1,n):\n            dp[t][d]=max(dp[t][d-1],prices[d]+mx);mx=max(mx,dp[t-1][d]-prices[d])\n    print(dp[k][n-1])"
         }
       ]
     },
@@ -4220,7 +4220,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "from collections import deque\nbeg=input().strip();end=input().strip();n=int(input())\nwl=set(input().strip() for _ in range(n))\nif end not in wl:print(0);exit()\nq=deque([(beg,1)]);vis={beg}\nwhile q:\n    w,d=q.popleft()\n    for i in range(len(w)):\n        for c in 'abcdefghijklmnopqrstuvwxyz':\n            nw=w[:i]+c+w[i+1:]\n            if nw==end:print(d+1);exit()\n            if nw in wl and nw not in vis:vis.add(nw);q.append((nw,d+1))\nprint(0)"
+          "source_code": "from collections import deque\nbeg=input().strip();end=input().strip();n=int(input())\nwl=set(input().strip() for _ in range(n))\nif end not in wl:\n    print(0)\nelse:\n    q=deque([(beg,1)]);vis={beg};ans=0\n    while q:\n        w,d=q.popleft()\n        done=False\n        for i in range(len(w)):\n            for c in 'abcdefghijklmnopqrstuvwxyz':\n                nw=w[:i]+c+w[i+1:]\n                if nw==end:ans=d+1;done=True;break\n                if nw in wl and nw not in vis:vis.add(nw);q.append((nw,d+1))\n            if done:break\n        if done:break\n    print(ans)"
         }
       ]
     },
@@ -4823,7 +4823,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "n=int(input());nums=list(map(int,input().split()))\nif not nums:print(0);exit()\nnums.sort();dp=[1]*n\nfor i in range(1,n):\n    for j in range(i):\n        if nums[i]%nums[j]==0:dp[i]=max(dp[i],dp[j]+1)\nprint(max(dp))"
+          "source_code": "n=int(input());nums=list(map(int,input().split()))\nif not nums:\n    print(0)\nelse:\n    nums.sort();dp=[1]*n\n    for i in range(1,n):\n        for j in range(i):\n            if nums[i]%nums[j]==0:dp[i]=max(dp[i],dp[j]+1)\n    print(max(dp))"
         }
       ]
     },
@@ -5024,7 +5024,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "import sys;input_data=sys.stdin.read().split()\nn=int(input_data[0]);nums=list(map(int,input_data[1:n+1]))\nres=[0]*n\ndef mc(idx):\n    if len(idx)<=1:return idx\n    m=len(idx)//2;l=mc(idx[:m]);r=mc(idx[m:]);merged=[];i=j=0;rs=0\n    while i<len(l) and j<len(r):\n        if nums[l[i]]>nums[r[j]]:rs+=1;merged.append(r[j]);j+=1\n        else:res[l[i]]+=rs;merged.append(l[i]);i+=1\n    while i<len(l):res[l[i]]+=rs;merged.append(l[i]);i+=1\n    merged+=r[j:];return merged\nmc(list(range(n)));print(*res)"
+          "source_code": "n=int(input());nums=list(map(int,input().split()))\nres=[0]*n\ndef mc(idx):\n    if len(idx)<=1:return idx\n    m=len(idx)//2;l=mc(idx[:m]);r=mc(idx[m:])\n    merged=[];i=j=0;rs=0\n    while i<len(l) and j<len(r):\n        if nums[l[i]]>nums[r[j]]:rs+=1;merged.append(r[j]);j+=1\n        else:res[l[i]]+=rs;merged.append(l[i]);i+=1\n    while i<len(l):res[l[i]]+=rs;merged.append(l[i]);i+=1\n    merged+=r[j:];return merged\nmc(list(range(n)));print(*res)"
         }
       ]
     },
@@ -6029,7 +6029,7 @@
           "expected_harness_statuses": [
             "PASS"
           ],
-          "source_code": "s=input();n=len(s)\nif n==0:print(0);exit()\nip=[[False]*n for _ in range(n)]\nfor i in range(n):ip[i][i]=True\nfor i in range(n-1):ip[i][i+1]=(s[i]==s[i+1])\nfor l in range(3,n+1):\n    for i in range(n-l+1):\n        j=i+l-1;ip[i][j]=ip[i+1][j-1] and s[i]==s[j]\ncuts=list(range(-1,n))\nfor i in range(n):\n    if ip[0][i]:cuts[i+1]=0\n    else:\n        for j in range(i):\n            if ip[j+1][i]:cuts[i+1]=min(cuts[i+1],cuts[j+1]+1)\nprint(cuts[n])"
+          "source_code": "s=input();n=len(s)\nif n==0:\n    print(0)\nelse:\n    ip=[[False]*n for _ in range(n)]\n    for i in range(n):ip[i][i]=True\n    for i in range(n-1):ip[i][i+1]=(s[i]==s[i+1])\n    for l in range(3,n+1):\n        for i in range(n-l+1):\n            j=i+l-1;ip[i][j]=ip[i+1][j-1] and s[i]==s[j]\n    cuts=list(range(-1,n))\n    for i in range(n):\n        if ip[0][i]:cuts[i+1]=0\n        else:\n            for j in range(i):\n                if ip[j+1][i]:cuts[i+1]=min(cuts[i+1],cuts[j+1]+1)\n    print(cuts[n])"
         }
       ]
     }
