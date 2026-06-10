@@ -431,7 +431,7 @@ def build_sheet1(wb: openpyxl.Workbook, report: dict, workers: int, runners: int
 
     # ── Grading Worker ────────────────────────────────────────────────────────
     section("Grading Worker (worker_async.py)")
-    kv("WORKER_CONCURRENCY",     24)
+    kv("WORKER_CONCURRENCY",     32)
     kv("MAX_RETRY_COUNT",        3)
     kv("Retry strategy",         "Natural queue drain  —  no sleep between retries")
     kv("Result TTL",             "2 h in Redis")
@@ -615,7 +615,7 @@ def build_sheet2(wb: openpyxl.Workbook, report: dict, metrics_data: list):
         ("Queue Reduction",         summary.get("queue_reduction", "N/A")),
         ("Peak In-Flight",          summary.get("peak_in_flight_jobs", 0)),
         ("Workers × Runners",       f"{report.get('_workers',3)} × {report.get('_runners',2)} = {report.get('_workers',3)*report.get('_runners',2)} sandboxes"),
-        ("WORKER_CONCURRENCY",      24),
+        ("WORKER_CONCURRENCY",      32),
     ]
 
     nrows = max(len(lat_left), len(lat_right))

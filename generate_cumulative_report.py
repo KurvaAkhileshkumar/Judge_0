@@ -283,7 +283,7 @@ def build_sheet1_cumulative(wb: openpyxl.Workbook, merged: dict,
     kv("Idempotency TTL",             "2 h  (SHA-256 key stored in Redis)")
 
     section("Grading Worker (worker_async.py)")
-    kv("WORKER_CONCURRENCY",          24)
+    kv("WORKER_CONCURRENCY",          32)
     kv("MAX_RETRY_COUNT",             3)
 
     section("PostgreSQL 13")
