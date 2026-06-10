@@ -293,21 +293,27 @@ class Judge0Client:
         #   N≤200 → 1×2+5=7s  |  N=500 → 3×2+5=11s  |  N=1000 → 5×2+5=15s
         global_limit_s = math.ceil(max(tc_count, 1) / MAX_PARALLEL_TCS) * per_tc_limit_s + overhead_s
 
-        # Fix 1.5: scale sandbox memory for parallel harness children.
-        # In cgroup mode the memory_limit applies to the entire sandbox cgroup.
-        # With MAX_PARALLEL_TCS children each needing up to memory_limit_mb,
-        # the cgroup budget must cover all children + the harness process itself.
-        # Cap at 3,500 MB to stay within the 4 GB container mem_limit.
-        # In --no-cg mode (Mac/dev) this value is set per-child via RLIMIT_AS
-        # inside the harness, so oversetting here is harmless.
-        # On Mac Docker Desktop (Rosetta 2 / cgroup v2 only):
-        # cgroup v1 is not available, so memory limits must use RLIMIT_AS
-        # (enable_per_process_and_thread_memory_limit=True).
-        # Rosetta 2's JIT cache requires gigabytes of virtual address space;
-        # setting RLIMIT_AS to 4 GB gives it enough room without cgroups.
-        # Physical memory is still bounded by the Docker container mem_limit=8g.
-        # Judge0 MAX_MEMORY_LIMIT must be set to 4194304 in judge0.conf.
-        _RLIMIT_AS_KB = 4194304  # 4 GB — enough for Rosetta 2 JIT + Python
+        # RLIMIT_AS (virtual address space) sent to Judge0 — language-specific.
+        #
+        # On Mac Docker Desktop (Rosetta 2 / no cgroup v1):
+        #   enable_per_process_and_thread_memory_limit=True tells isolate to use
+        #   RLIMIT_AS per-process instead of cgroups (which don't work on Mac).
+        #   Rosetta 2's JIT cache consumes 2-3 GB of VA space before the harness
+        #   process even starts, so the limit must be large enough for both.
+        #
+        #   Python / C / C++: 4 GB is sufficient (lightweight process startup).
+        #   Java: The JVM itself needs ~2 GB VA (heap + metaspace + code cache)
+        #         on top of Rosetta's JIT cache → must exceed 4 GB.
+        #         We use 8 GB; judge0.conf MAX_MEMORY_LIMIT raised to 16 GB.
+        #
+        # On EC2 / Linux (cgroup v1 available):
+        #   Physical memory is bounded by the container mem_limit regardless of
+        #   RLIMIT_AS, so a large RLIMIT_AS is safe — the kernel OOM-kills if
+        #   physical usage exceeds the container limit.
+        if language.lower() == "java":
+            _RLIMIT_AS_KB = 8 * 1024 * 1024   # 8 GB — JVM + Rosetta 2 JIT
+        else:
+            _RLIMIT_AS_KB = 4 * 1024 * 1024   # 4 GB — Python/C/C++ + Rosetta 2 JIT
         payload = {
             "source_code":     self._b64(source_code),
             "language_id":     lang_id,

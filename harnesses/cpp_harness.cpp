@@ -120,13 +120,13 @@ static bool compare_result(const std::string &got, const char *expected) {{
  */
 static void run_tc_child(int pipe_fd, {tc_params_comma}int per_tc_limit_s, int memory_limit_mb) {{
 
-    /* Memory limit */
-    if (memory_limit_mb > 0) {{
-        struct rlimit rl;
-        rl.rlim_cur = (rlim_t)memory_limit_mb * 1024 * 1024;
-        rl.rlim_max = rl.rlim_cur;
-        setrlimit(RLIMIT_AS, &rl);
-    }}
+    /* Memory is enforced by the Judge0 sandbox (RLIMIT_AS set by isolate).
+     * Do NOT re-set RLIMIT_AS here: on Mac/Rosetta 2, the JIT code cache
+     * needs several GB of VA space and a 256 MB per-child limit causes
+     * mmap failures (Signal 5).  Physical memory is bounded by the
+     * container's mem_limit in docker-compose.yml.
+     * (void)memory_limit_mb; — kept as parameter for API compatibility */
+    (void)memory_limit_mb;
 
     /* Block fork() in student code */
     struct rlimit nproc_rl {{ 1, 1 }};

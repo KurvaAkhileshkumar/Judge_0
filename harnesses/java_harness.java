@@ -36,7 +36,7 @@ import java.lang.reflect.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 
-public class Harness {
+public class Main {
 
     static final String DELIM = "{delim}";
     static final String MODE  = "{mode}";
@@ -119,8 +119,8 @@ public class Harness {
     static {
         byte[] _bytes = null;
         try {
-            InputStream _is = Harness.class.getClassLoader()
-                    .getResourceAsStream("Harness$Student.class");
+            InputStream _is = Main.class.getClassLoader()
+                    .getResourceAsStream("Main$Student.class");
             if (_is != null) {
                 ByteArrayOutputStream _buf = new ByteArrayOutputStream();
                 byte[] _tmp = new byte[4096];
@@ -137,12 +137,12 @@ public class Harness {
         if (STUDENT_CLASS_BYTES == null || STUDENT_CLASS_BYTES.length == 0)
             return Student.class;
         try {
-            ClassLoader _parent = Harness.class.getClassLoader();
+            ClassLoader _parent = Main.class.getClassLoader();
             ClassLoader _loader = new ClassLoader(_parent) {
                 @Override
                 protected Class<?> loadClass(String name, boolean resolve)
                         throws ClassNotFoundException {
-                    if ("Harness$Student".equals(name)) {
+                    if ("Main$Student".equals(name)) {
                         Class<?> _c = defineClass(name, STUDENT_CLASS_BYTES,
                                 0, STUDENT_CLASS_BYTES.length);
                         if (resolve) resolveClass(_c);
@@ -151,7 +151,7 @@ public class Harness {
                     return super.loadClass(name, resolve);
                 }
             };
-            return _loader.loadClass("Harness$Student");
+            return _loader.loadClass("Main$Student");
         } catch (Exception _e) {
             return Student.class;
         }
@@ -287,6 +287,7 @@ public class Harness {
             try {
                 Class<?> _studentClass = freshStudentClass();
                 Method m = _studentClass.getMethod("main", String[].class);
+                m.setAccessible(true);   // required in Java 9+ for module access
                 m.invoke(null, (Object) new String[]{});
 
                 result.got    = baos.toString().trim();

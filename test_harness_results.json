@@ -1,0 +1,280 @@
+{
+  "run_at": "2026-06-10 08:57:35 UTC",
+  "api_url": "http://localhost:5001",
+  "total": 30,
+  "passed": 30,
+  "failed": 0,
+  "duration_s": 55.7,
+  "tests": [
+    {
+      "index": 1,
+      "name": "Python / function / correct \u2014 add two ints",
+      "language": "python",
+      "mode": "function",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 1.45
+    },
+    {
+      "index": 2,
+      "name": "Python / function / wrong answer \u2014 subtract instead of add",
+      "language": "python",
+      "mode": "function",
+      "expect": "HAS_FAIL",
+      "passed": true,
+      "elapsed_s": 1.25
+    },
+    {
+      "index": 3,
+      "name": "Python / function / syntax error",
+      "language": "python",
+      "mode": "function",
+      "expect": "ALL_ERROR",
+      "passed": true,
+      "elapsed_s": 0.01
+    },
+    {
+      "index": 4,
+      "name": "Python / function / infinite loop (static TLE)",
+      "language": "python",
+      "mode": "function",
+      "expect": "ALL_TLE",
+      "passed": true,
+      "elapsed_s": 0.0
+    },
+    {
+      "index": 5,
+      "name": "Python / function / runtime error (division by zero)",
+      "language": "python",
+      "mode": "function",
+      "expect": "MIXED",
+      "passed": true,
+      "elapsed_s": 1.2
+    },
+    {
+      "index": 6,
+      "name": "Python / stdio / correct \u2014 fibonacci iterative",
+      "language": "python",
+      "mode": "stdio",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 1.27
+    },
+    {
+      "index": 7,
+      "name": "Python / stdio / wrong answer",
+      "language": "python",
+      "mode": "stdio",
+      "expect": "HAS_FAIL",
+      "passed": true,
+      "elapsed_s": 1.2
+    },
+    {
+      "index": 8,
+      "name": "Python / stdio / blocked import",
+      "language": "python",
+      "mode": "stdio",
+      "expect": "SECURITY_BLOCKED",
+      "passed": true,
+      "elapsed_s": 0.0
+    },
+    {
+      "index": 9,
+      "name": "C / function / correct \u2014 add two ints",
+      "language": "c",
+      "mode": "function",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 1.97
+    },
+    {
+      "index": 10,
+      "name": "C / function / wrong answer",
+      "language": "c",
+      "mode": "function",
+      "expect": "HAS_FAIL",
+      "passed": true,
+      "elapsed_s": 1.85
+    },
+    {
+      "index": 11,
+      "name": "C / function / compilation error",
+      "language": "c",
+      "mode": "function",
+      "expect": "ALL_ERROR",
+      "passed": true,
+      "elapsed_s": 1.69
+    },
+    {
+      "index": 12,
+      "name": "C / function / correct \u2014 double return type",
+      "language": "c",
+      "mode": "function",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 1.91
+    },
+    {
+      "index": 13,
+      "name": "C / stdio / correct \u2014 fibonacci with printf",
+      "language": "c",
+      "mode": "stdio",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 1.9
+    },
+    {
+      "index": 14,
+      "name": "C / stdio / correct \u2014 fibonacci with cout-equivalent (printf only)",
+      "language": "c",
+      "mode": "stdio",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 1.9
+    },
+    {
+      "index": 15,
+      "name": "C / stdio / runtime error \u2014 segfault",
+      "language": "c",
+      "mode": "stdio",
+      "expect": "HAS_ERROR_OR_SEGV",
+      "passed": true,
+      "elapsed_s": 2.02
+    },
+    {
+      "index": 16,
+      "name": "C / stdio / blocked call \u2014 system()",
+      "language": "c",
+      "mode": "stdio",
+      "expect": "SECURITY_BLOCKED",
+      "passed": true,
+      "elapsed_s": 0.01
+    },
+    {
+      "index": 17,
+      "name": "C++ / function / correct \u2014 add two ints",
+      "language": "cpp",
+      "mode": "function",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 2.24
+    },
+    {
+      "index": 18,
+      "name": "C++ / function / correct \u2014 string length (auto return)",
+      "language": "cpp",
+      "mode": "function",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 2.21
+    },
+    {
+      "index": 19,
+      "name": "C++ / function / wrong answer",
+      "language": "cpp",
+      "mode": "function",
+      "expect": "HAS_FAIL",
+      "passed": true,
+      "elapsed_s": 2.16
+    },
+    {
+      "index": 20,
+      "name": "C++ / function / runtime exception \u2014 std::out_of_range",
+      "language": "cpp",
+      "mode": "function",
+      "expect": "HAS_ERROR_OR_SEGV",
+      "passed": true,
+      "elapsed_s": 2.31
+    },
+    {
+      "index": 21,
+      "name": "C++ / stdio / correct \u2014 fibonacci with cout",
+      "language": "cpp",
+      "mode": "stdio",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 2.16
+    },
+    {
+      "index": 22,
+      "name": "C++ / stdio / correct \u2014 fibonacci with printf (Bug 1 regression test)",
+      "language": "cpp",
+      "mode": "stdio",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 2.32
+    },
+    {
+      "index": 23,
+      "name": "C++ / stdio / blocked call \u2014 system()",
+      "language": "cpp",
+      "mode": "stdio",
+      "expect": "SECURITY_BLOCKED",
+      "passed": true,
+      "elapsed_s": 0.0
+    },
+    {
+      "index": 24,
+      "name": "Java / function / correct \u2014 add two ints",
+      "language": "java",
+      "mode": "function",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 3.71
+    },
+    {
+      "index": 25,
+      "name": "Java / function / wrong answer",
+      "language": "java",
+      "mode": "function",
+      "expect": "HAS_FAIL",
+      "passed": true,
+      "elapsed_s": 3.73
+    },
+    {
+      "index": 26,
+      "name": "Java / function / correct \u2014 string reverse",
+      "language": "java",
+      "mode": "function",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 3.92
+    },
+    {
+      "index": 27,
+      "name": "Java / function / runtime error \u2014 ArrayIndexOutOfBounds",
+      "language": "java",
+      "mode": "function",
+      "expect": "MIXED",
+      "passed": true,
+      "elapsed_s": 3.82
+    },
+    {
+      "index": 28,
+      "name": "Java / stdio / correct \u2014 fibonacci",
+      "language": "java",
+      "mode": "stdio",
+      "expect": "ALL_PASS",
+      "passed": true,
+      "elapsed_s": 3.75
+    },
+    {
+      "index": 29,
+      "name": "Java / stdio / wrong answer",
+      "language": "java",
+      "mode": "stdio",
+      "expect": "HAS_FAIL",
+      "passed": true,
+      "elapsed_s": 3.75
+    },
+    {
+      "index": 30,
+      "name": "Java / stdio / blocked \u2014 Runtime.exec",
+      "language": "java",
+      "mode": "stdio",
+      "expect": "SECURITY_BLOCKED",
+      "passed": true,
+      "elapsed_s": 0.0
+    }
+  ]
+}

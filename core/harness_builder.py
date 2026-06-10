@@ -610,18 +610,13 @@ class HarnessBuilder:
         if rt == "void":
             return f"{fn}({args});"
         if rt == "auto":
-            # C++17 if constexpr: handles both void and non-void return types
-            # automatically. Avoids compile error when user omits return_type
-            # for a void function (the old `auto ret = void_fn()` would fail).
+            # Stream the return value directly — works for any non-void return type
+            # in C++11/14/17.  Users with a void function must pass return_type="void"
+            # explicitly; auto+void would produce a compile error (oss << void).
+            # The old if constexpr approach required C++17, but Judge0's default
+            # GCC standard is gnu++14.
             return f"""
-        {{
-            using _Ret = decltype({fn}({args}));
-            if constexpr (std::is_void_v<_Ret>) {{
-                {fn}({args});
-            }} else {{
-                oss << {fn}({args});
-            }}
-        }}"""
+        oss << {fn}({args});"""
         return f"""
         auto ret = {fn}({args});
         oss << ret;
@@ -653,7 +648,10 @@ class HarnessBuilder:
             int   _saved_out = dup(STDOUT_FILENO);
             dup2(fileno(_tmp), STDOUT_FILENO);
 
-            student_stdio_main(0, nullptr);
+            /* Call with no args: handles both int main() and int main(void).
+             * Students who declare int main(int argc, char* argv[]) would get
+             * a compile error — they should use int main() for stdio mode. */
+            student_stdio_main();
 
             /* Flush C and C++ output buffers before restoring fd */
             fflush(stdout);
