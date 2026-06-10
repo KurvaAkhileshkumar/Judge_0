@@ -1,0 +1,6038 @@
+{
+  "harness_config": {
+    "mode": "stdio"
+  },
+  "problems": [
+    {
+      "id": "trapping_rain_water",
+      "title": "Trapping Rain Water",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "0\n\n",
+          "expected": "0",
+          "description": "empty array"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "1\n0\n",
+          "expected": "0",
+          "description": "single bar"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "2\n3 3\n",
+          "expected": "0",
+          "description": "two equal"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "3\n0 1 0\n",
+          "expected": "0",
+          "description": "valley depth 1"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "3\n3 0 3\n",
+          "expected": "3",
+          "description": "valley depth 3"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "6\n4 2 0 3 2 5\n",
+          "expected": "9",
+          "description": "classic1"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "12\n0 1 0 2 1 0 1 3 2 1 2 1\n",
+          "expected": "6",
+          "description": "leetcode classic"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "3\n1 0 1\n",
+          "expected": "1",
+          "description": "width-3 valley"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "3\n2 0 2\n",
+          "expected": "2",
+          "description": "width-3 depth-2"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "8\n3 1 2 4 0 1 3 2\n",
+          "expected": "8",
+          "description": "mixed"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "5\n5 4 3 2 1\n",
+          "expected": "0",
+          "description": "descending no trap"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "5\n1 2 3 4 5\n",
+          "expected": "0",
+          "description": "ascending no trap"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "4\n5 5 5 5\n",
+          "expected": "0",
+          "description": "all same"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "5\n3 0 0 0 3\n",
+          "expected": "9",
+          "description": "wide valley"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "5\n2 1 0 1 2\n",
+          "expected": "4",
+          "description": "symmetric pyramid"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "5\n4 0 4 0 4\n",
+          "expected": "8",
+          "description": "alternating"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "5\n1 2 1 2 1\n",
+          "expected": "1",
+          "description": "zig-zag no trap"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "30\n6 4 2 0 3 2 0 3 1 4 5 3 2 7 5 3 0 1 2 1 3 2 1 2 1 3 4 2 0 1\n",
+          "expected": "69",
+          "description": "long complex"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "3\n100 0 100\n",
+          "expected": "100",
+          "description": "max depth 100"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "5\n3 0 2 0 4\n",
+          "expected": "7",
+          "description": "two valleys"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "5\n0 0 0 0 0\n",
+          "expected": "0",
+          "description": "all zeros"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "1\n1\n",
+          "expected": "0",
+          "description": "single nonzero"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "6\n2 0 0 0 0 3\n",
+          "expected": "8",
+          "description": "wide flat valley"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "8\n1 3 2 4 0 1 3 2\n",
+          "expected": "6",
+          "description": "irregular"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "7\n9 6 8 8 5 6 3\n",
+          "expected": "3",
+          "description": "no trap partial"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "7\n3 2 1 0 1 2 3\n",
+          "expected": "9",
+          "description": "pyramid"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "5\n10 0 5 0 10\n",
+          "expected": "25",
+          "description": "two-well"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "9\n1 7 2 7 2 7 2 7 1\n",
+          "expected": "15",
+          "description": "comb pattern"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "7\n5 0 0 5 0 0 5\n",
+          "expected": "20",
+          "description": "triple valley"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "12\n2 6 3 8 2 9 1 5 0 4 7 3\n",
+          "expected": "27",
+          "description": "random hard"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "trapping_rain_water_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Trapping Rain Water",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input())\nh=list(map(int,input().split())) if n>0 else []\nif n<3:\n    print(0)\nelse:\n    l,r=0,n-1;lm=h[0];rm=h[-1];res=0\n    while l<r:\n        if lm<=rm:\n            l+=1;lm=max(lm,h[l]);res+=lm-h[l]\n        else:\n            r-=1;rm=max(rm,h[r]);res+=rm-h[r]\n    print(res)"
+        }
+      ]
+    },
+    {
+      "id": "histogram_largest_rectangle",
+      "title": "Largest Rectangle in Histogram",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "6\n2 1 5 6 2 3\n",
+          "expected": "10",
+          "description": "standard"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "0\n\n",
+          "expected": "0",
+          "description": "empty"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "1\n5\n",
+          "expected": "5",
+          "description": "single"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "5\n1 1 1 1 1\n",
+          "expected": "5",
+          "description": "all same height 1"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "4\n5 5 5 5\n",
+          "expected": "20",
+          "description": "all same height 5"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "5\n1 2 3 4 5\n",
+          "expected": "9",
+          "description": "ascending"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "5\n5 4 3 2 1\n",
+          "expected": "9",
+          "description": "descending"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "3\n2 1 2\n",
+          "expected": "3",
+          "description": "valley"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "3\n1 2 1\n",
+          "expected": "3",
+          "description": "hill"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "7\n6 2 5 4 5 1 6\n",
+          "expected": "12",
+          "description": "complex"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "4\n4 4 4 4\n",
+          "expected": "16",
+          "description": "wide rectangle"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "4\n0 0 0 0\n",
+          "expected": "0",
+          "description": "all zero"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "3\n1 0 1\n",
+          "expected": "1",
+          "description": "separated bars"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "3\n3 0 3\n",
+          "expected": "3",
+          "description": "two tall separated"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "6\n1 2 3 4 5 6\n",
+          "expected": "12",
+          "description": "ramp up"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "6\n6 5 4 3 2 1\n",
+          "expected": "12",
+          "description": "ramp down"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "5\n2 4 2 4 2\n",
+          "expected": "10",
+          "description": "alternating"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "6\n1 1 1 2 2 2\n",
+          "expected": "6",
+          "description": "two levels"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "2\n10 10\n",
+          "expected": "20",
+          "description": "two tall"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "3\n1 10 1\n",
+          "expected": "10",
+          "description": "spike center"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "5\n3 1 3 1 3\n",
+          "expected": "5",
+          "description": "comb"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "7\n2 2 5 5 5 2 2\n",
+          "expected": "15",
+          "description": "plateau"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "5\n1 2 3 2 1\n",
+          "expected": "6",
+          "description": "pyramid"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "5\n5 1 1 1 5\n",
+          "expected": "5",
+          "description": "walls"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "6\n3 3 3 3 3 3\n",
+          "expected": "18",
+          "description": "6-wide uniform"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "5\n0 1 0 1 0\n",
+          "expected": "1",
+          "description": "alternating zero-one"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "7\n4 3 2 1 2 3 4\n",
+          "expected": "7",
+          "description": "valley of descend-ascend"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "7\n1 2 4 8 4 2 1\n",
+          "expected": "12",
+          "description": "mountain"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "5\n7 1 7 1 7\n",
+          "expected": "7",
+          "description": "tall-short-tall"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "7\n2 3 2 3 2 3 2\n",
+          "expected": "14",
+          "description": "sawtooth"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "histogram_largest_rectangle_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Largest Rectangle in Histogram",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input())\nh=list(map(int,input().split())) if n>0 else []\nst=[];mx=0\nfor i,v in enumerate(h+[0]):\n    while st and h[st[-1]]>v:\n        ht=h[st.pop()];w=i if not st else i-st[-1]-1;mx=max(mx,ht*w)\n    st.append(i)\nprint(mx)"
+        }
+      ]
+    },
+    {
+      "id": "decode_ways",
+      "title": "Decode Ways",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "1\n",
+          "expected": "1",
+          "description": "single 1"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "9\n",
+          "expected": "1",
+          "description": "single 9"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "10\n",
+          "expected": "1",
+          "description": "ten"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "11\n",
+          "expected": "2",
+          "description": "eleven"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "12\n",
+          "expected": "2",
+          "description": "twelve"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "0\n",
+          "expected": "0",
+          "description": "leading zero \u2192 0"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "00\n",
+          "expected": "0",
+          "description": "double zero \u2192 0"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "100\n",
+          "expected": "0",
+          "description": "100"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "101\n",
+          "expected": "1",
+          "description": "101"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "110\n",
+          "expected": "1",
+          "description": "110"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "1262\n",
+          "expected": "3",
+          "description": "many ways"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "226\n",
+          "expected": "3",
+          "description": "three ways"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "111111\n",
+          "expected": "13",
+          "description": "six ones"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "1234\n",
+          "expected": "3",
+          "description": "medium"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "2626\n",
+          "expected": "4",
+          "description": "alternating 2s and 6s"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "301\n",
+          "expected": "0",
+          "description": "30x"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "3012\n",
+          "expected": "0",
+          "description": "edge zero mid"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "1001\n",
+          "expected": "0",
+          "description": "double zero middle"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "10\n",
+          "expected": "1",
+          "description": "classic ten"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "20\n",
+          "expected": "1",
+          "description": "twenty"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "21\n",
+          "expected": "2",
+          "description": "twenty-one"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "26\n",
+          "expected": "2",
+          "description": "twenty-six"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "27\n",
+          "expected": "1",
+          "description": "twenty-seven"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "2101\n",
+          "expected": "1",
+          "description": "complex with zero"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "111111111111111111111111111111\n",
+          "expected": "1346269",
+          "description": "30 ones large"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "12345678901234567890\n",
+          "expected": "0",
+          "description": "alternating"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "11111111111111111111\n",
+          "expected": "10946",
+          "description": "twenty ones"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "1111111111\n",
+          "expected": "89",
+          "description": "ten ones"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "212121\n",
+          "expected": "13",
+          "description": "alternating 2-1"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "1010\n",
+          "expected": "1",
+          "description": "two tens"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "decode_ways_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Decode Ways",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "s=input().strip()\nif not s or s[0]=='0':\n    print(0)\nelse:\n    dp=[0]*(len(s)+1);dp[0]=dp[1]=1\n    for i in range(2,len(s)+1):\n        if s[i-1]!='0':dp[i]+=dp[i-1]\n        if 10<=int(s[i-2:i])<=26:dp[i]+=dp[i-2]\n    print(dp[len(s)])"
+        }
+      ]
+    },
+    {
+      "id": "edit_distance",
+      "title": "Edit Distance (Levenshtein)",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "\n\n",
+          "expected": "0",
+          "description": "both empty"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "a\na\n",
+          "expected": "0",
+          "description": "identical single"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "a\nb\n",
+          "expected": "1",
+          "description": "single sub"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "\nabc\n",
+          "expected": "3",
+          "description": "empty to abc"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "abc\n\n",
+          "expected": "3",
+          "description": "abc to empty"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "horse\nros\n",
+          "expected": "3",
+          "description": "classic"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "intention\nexecution\n",
+          "expected": "5",
+          "description": "classic2"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "abc\nabc\n",
+          "expected": "0",
+          "description": "identical"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "abcdef\nace\n",
+          "expected": "3",
+          "description": "all same"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "ab\nba\n",
+          "expected": "2",
+          "description": "swap"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "kitten\nsitting\n",
+          "expected": "3",
+          "description": "classic3"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "sunday\nsaturday\n",
+          "expected": "3",
+          "description": "weekend"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "\na\n",
+          "expected": "1",
+          "description": "empty to one"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "a\n\n",
+          "expected": "1",
+          "description": "one to empty"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "abcd\ndcba\n",
+          "expected": "4",
+          "description": "reverse"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "aaaa\nbbbb\n",
+          "expected": "4",
+          "description": "all replace"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "aabbcc\naabbcc\n",
+          "expected": "0",
+          "description": "identical long"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "abcde\nedcba\n",
+          "expected": "4",
+          "description": "reverse 5"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "distance\neducation\n",
+          "expected": "8",
+          "description": "complex"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "algorithm\naltruistic\n",
+          "expected": "6",
+          "description": "both medium"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "pneumonoultramicroscopicsilicovolcanoconiosis\np\n",
+          "expected": "44",
+          "description": "very long"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "aaa\na\n",
+          "expected": "2",
+          "description": "reduce"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "a\naaa\n",
+          "expected": "2",
+          "description": "expand"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "xyzxyzxyz\nzyzyzyzyz\n",
+          "expected": "4",
+          "description": "pattern"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "abcdefghij\njihgfedcba\n",
+          "expected": "10",
+          "description": "reverse 10"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "aaabbb\nbbbaaa\n",
+          "expected": "6",
+          "description": "flip halves"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "abab\nbaba\n",
+          "expected": "2",
+          "description": "interleave"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "abcabc\ncbacba\n",
+          "expected": "4",
+          "description": "double reverse"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "hello\nworld\n",
+          "expected": "4",
+          "description": "different words"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "zoologicoarchaeologist\nzoogeographer\n",
+          "expected": "15",
+          "description": "biology"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "edit_distance_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Edit Distance (Levenshtein)",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "s=input();t=input()\ndp=list(range(len(t)+1))\nfor i in range(1,len(s)+1):\n    prev=dp[0];dp[0]=i\n    for j in range(1,len(t)+1):\n        tmp=dp[j];dp[j]=(prev if s[i-1]==t[j-1] else 1+min(prev,dp[j],dp[j-1]));prev=tmp\nprint(dp[len(t)])"
+        }
+      ]
+    },
+    {
+      "id": "distinct_subsequences",
+      "title": "Distinct Subsequences",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "\n\n",
+          "expected": "1",
+          "description": "empty both \u2192 1"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "a\n\n",
+          "expected": "1",
+          "description": "t empty \u2192 1"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "\na\n",
+          "expected": "0",
+          "description": "s empty \u2192 0"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "rabbbit\nrabbit\n",
+          "expected": "3",
+          "description": "classic three b"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "babgbag\nbag\n",
+          "expected": "5",
+          "description": "classic"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "aaa\na\n",
+          "expected": "3",
+          "description": "three choices"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "abc\nabc\n",
+          "expected": "1",
+          "description": "identical \u2192 1"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "abc\nb\n",
+          "expected": "1",
+          "description": "middle char"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "aabb\nab\n",
+          "expected": "4",
+          "description": "two ways"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "aaaa\naa\n",
+          "expected": "6",
+          "description": "combs"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "abcde\nace\n",
+          "expected": "1",
+          "description": "skip middle"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "aab\nab\n",
+          "expected": "2",
+          "description": "one repeat"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "aabb\naa\n",
+          "expected": "1",
+          "description": "two a choices"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "abcabc\nabc\n",
+          "expected": "4",
+          "description": "two copies"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "xyzxyz\nxyz\n",
+          "expected": "4",
+          "description": "two xyz"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "aaaaaa\naaa\n",
+          "expected": "20",
+          "description": "C(6,3)=20"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "aaaa\naa\n",
+          "expected": "6",
+          "description": "C(4,2)=6"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "abc\nd\n",
+          "expected": "0",
+          "description": "no match \u2192 0"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "abcde\nfg\n",
+          "expected": "0",
+          "description": "no match \u2192 0"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "aaabbbccc\nabc\n",
+          "expected": "27",
+          "description": "3*3*3=27"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "aabbcc\nabc\n",
+          "expected": "8",
+          "description": "2*2*2=8"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "abcabcabc\nabc\n",
+          "expected": "10",
+          "description": "count from three"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "\nb\n",
+          "expected": "0",
+          "description": "s empty \u2192 0"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "aab\na\n",
+          "expected": "2",
+          "description": "two a's"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "abcabd\nabd\n",
+          "expected": "3",
+          "description": ""
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "aaaaa\na\n",
+          "expected": "5",
+          "description": "5 ways"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "aaaaa\naa\n",
+          "expected": "10",
+          "description": "10 ways"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "abcde\nabcde\n",
+          "expected": "1",
+          "description": "one way"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "abcde\n\n",
+          "expected": "1",
+          "description": "one way empty t"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "aabbccdd\nabcd\n",
+          "expected": "16",
+          "description": "2^4=16"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "distinct_subsequences_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Distinct Subsequences",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "s=input();t=input()\ndp=[0]*(len(t)+1);dp[0]=1\nfor c in s:\n    for j in range(len(t),0,-1):\n        if c==t[j-1]:dp[j]+=dp[j-1]\nprint(dp[len(t)])"
+        }
+      ]
+    },
+    {
+      "id": "palindrome_min_cuts",
+      "title": "Palindrome Partitioning Min Cuts",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "a\n",
+          "expected": "0",
+          "description": "single char \u2192 0"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "aa\n",
+          "expected": "0",
+          "description": "palindrome \u2192 0"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "ab\n",
+          "expected": "1",
+          "description": "one cut"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "aab\n",
+          "expected": "1",
+          "description": "one cut"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "abba\n",
+          "expected": "0",
+          "description": "palindrome \u2192 0"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "abcba\n",
+          "expected": "0",
+          "description": "palindrome \u2192 0"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "aabb\n",
+          "expected": "1",
+          "description": "one cut"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "abcd\n",
+          "expected": "3",
+          "description": "three cuts"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "aaaa\n",
+          "expected": "0",
+          "description": "palindrome \u2192 0"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "abcba\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "abacaba\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "aabaa\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "abcbabcba\n",
+          "expected": "0",
+          "description": "complex"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "ababababab\n",
+          "expected": "1",
+          "description": "alternating"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "aabbaabb\n",
+          "expected": "1",
+          "description": ""
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "abcabcabc\n",
+          "expected": "8",
+          "description": ""
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "zzazz\n",
+          "expected": "0",
+          "description": ""
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "xyzyx\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "abcbc\n",
+          "expected": "2",
+          "description": "one cut ab|cbcb"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "banana\n",
+          "expected": "1",
+          "description": ""
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "aaabbb\n",
+          "expected": "1",
+          "description": ""
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "xaaxaa\n",
+          "expected": "1",
+          "description": ""
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "abacabadabacaba\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "amanaplanacanalpanama\n",
+          "expected": "0",
+          "description": "classic"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "racecar\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "abcdefedcba\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "noonmadam\n",
+          "expected": "1",
+          "description": "two words palindromes"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "abcba\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "xyzxyzxyz\n",
+          "expected": "8",
+          "description": ""
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "aabbaa\n",
+          "expected": "0",
+          "description": ""
+        }
+      ],
+      "solutions": [
+        {
+          "id": "palindrome_min_cuts_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Palindrome Partitioning Min Cuts",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "s=input();n=len(s)\nif n==0:\n    print(0)\nelse:\n    ip=[[False]*n for _ in range(n)]\n    for i in range(n):ip[i][i]=True\n    for i in range(n-1):ip[i][i+1]=(s[i]==s[i+1])\n    for l in range(3,n+1):\n        for i in range(n-l+1):\n            j=i+l-1;ip[i][j]=ip[i+1][j-1] and s[i]==s[j]\n    cuts=list(range(-1,n))\n    for i in range(n):\n        if ip[0][i]:cuts[i+1]=0\n        else:\n            for j in range(i):\n                if ip[j+1][i]:cuts[i+1]=min(cuts[i+1],cuts[j+1]+1)\n    print(cuts[n])"
+        }
+      ]
+    },
+    {
+      "id": "burst_balloons",
+      "title": "Burst Balloons",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "3\n3 1 5\n",
+          "expected": "35",
+          "description": "basic"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "4\n3 1 5 8\n",
+          "expected": "167",
+          "description": "classic \u2192 167"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "1\n1\n",
+          "expected": "1",
+          "description": "single"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "1\n2\n",
+          "expected": "2",
+          "description": "single 2"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "2\n1 5\n",
+          "expected": "10",
+          "description": "two"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "2\n5 1\n",
+          "expected": "10",
+          "description": "two rev"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "12\n7 9 8 0 7 1 3 5 5 2 6 3\n",
+          "expected": "2032",
+          "description": "large"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "4\n1 1 1 1\n",
+          "expected": "4",
+          "description": "all ones"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "5\n5 5 5 5 5\n",
+          "expected": "405",
+          "description": "all fives"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "5\n1 2 3 4 5\n",
+          "expected": "110",
+          "description": "ascending"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "5\n5 4 3 2 1\n",
+          "expected": "110",
+          "description": "descending"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "3\n1 10 1\n",
+          "expected": "30",
+          "description": "spike center"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "3\n10 1 10\n",
+          "expected": "210",
+          "description": "walls around one"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "4\n2 4 3 5\n",
+          "expected": "115",
+          "description": ""
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "9\n9 8 7 6 5 4 3 2 1\n",
+          "expected": "1530",
+          "description": "descending 9"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "5\n1 2 4 8 16\n",
+          "expected": "704",
+          "description": "powers of 2"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "6\n1 3 1 3 1 3\n",
+          "expected": "60",
+          "description": "alternating"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "3\n3 1 3\n",
+          "expected": "21",
+          "description": "symmetric"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "3\n2 3 2\n",
+          "expected": "18",
+          "description": "symmetric2"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "8\n1 1 1 1 1 1 1 1\n",
+          "expected": "8",
+          "description": "eight ones"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "3\n6 1 6\n",
+          "expected": "78",
+          "description": "six-one-six"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "5\n5 2 3 4 1\n",
+          "expected": "120",
+          "description": "mixed"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "6\n1 2 1 2 1 2\n",
+          "expected": "24",
+          "description": "alternating small"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "4\n10 1 1 10\n",
+          "expected": "220",
+          "description": "outer large"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "6\n4 4 4 4 4 4\n",
+          "expected": "276",
+          "description": "all fours"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "6\n1 100 1 1 100 1\n",
+          "expected": "20400",
+          "description": "double peaks"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "7\n3 1 6 8 2 7 9\n",
+          "expected": "1264",
+          "description": "random"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "5\n2 4 1 3 5\n",
+          "expected": "127",
+          "description": ""
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "4\n6 3 1 4\n",
+          "expected": "114",
+          "description": ""
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "7\n1 7 5 8 3 6 4\n",
+          "expected": "970",
+          "description": ""
+        }
+      ],
+      "solutions": [
+        {
+          "id": "burst_balloons_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Burst Balloons",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input());nums=list(map(int,input().split()))\na=[1]+nums+[1];sz=len(a)\ndp=[[0]*sz for _ in range(sz)]\nfor l in range(2,sz):\n    for i in range(sz-l):\n        j=i+l\n        for k in range(i+1,j):\n            dp[i][j]=max(dp[i][j],a[i]*a[k]*a[j]+dp[i][k]+dp[k][j])\nprint(dp[0][sz-1])"
+        }
+      ]
+    },
+    {
+      "id": "word_break",
+      "title": "Word Break DP",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "leetcode\n2\nleet\ncode\n",
+          "expected": "True",
+          "description": "classic True"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "applepenapple\n2\napple\npen\n",
+          "expected": "True",
+          "description": "classic True"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "catsandog\n5\ncats\ndog\nsand\nand\ncat\n",
+          "expected": "False",
+          "description": "classic False"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "a\n1\na\n",
+          "expected": "True",
+          "description": "single char True"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "a\n1\nb\n",
+          "expected": "False",
+          "description": "single char False"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "\n1\na\n",
+          "expected": "True",
+          "description": "empty word True"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "aaaa\n1\na\n",
+          "expected": "True",
+          "description": "repeated char"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "aaab\n3\na\naa\naaa\n",
+          "expected": "False",
+          "description": "no match False"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "cars\n3\ncar\nca\nrs\n",
+          "expected": "True",
+          "description": "two ways True"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "abcd\n4\na\nabc\nb\ncd\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "abcde\n5\na\nbc\nde\nabc\ne\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "bb\n4\na\nb\nbbb\nbbbb\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "goalspecial\n4\ngo\ngoal\ngoals\nspecial\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "aaaaaaa\n2\naaaa\naaa\n",
+          "expected": "True",
+          "description": "split ways True"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "aaaaab\n4\na\nb\nab\naab\n",
+          "expected": "True",
+          "description": "False - b at end"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "programminglanguage\n4\nprogramming\nlanguage\njava\npython\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "catcatsanddog\n5\ncat\ncats\nand\nsand\ndog\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "aab\n2\na\naab\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "abc\n6\na\nb\nc\nab\nbc\nabc\n",
+          "expected": "True",
+          "description": "True many ways"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "impossible\n4\nim\npossible\nim possible\nnot\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "hellooworld\n4\nhello\nhellow\nworld\noworld\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "code\n4\nco\nde\nod\ncod\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "nope\n3\nno\npe\nno pe\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "thequickbrownfox\n4\nthe\nquick\nbrown\nfox\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "xyznop\n4\nxy\nz\nnop\nxyz\n",
+          "expected": "True",
+          "description": "True"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab\n10\na\naa\naaa\naaaa\naaaaa\naaaaaa\naaaaaaa\naaaaaaaa\naaaaaaaaa\naaaaaaaaaa\n",
+          "expected": "False",
+          "description": "False long"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "abcdef\n5\nabc\ndef\nabcdef\nab\ncdef\n",
+          "expected": "True",
+          "description": "True multiple"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "aab\n2\naa\nb\n",
+          "expected": "True",
+          "description": "True split"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "ab\n2\na\nb\n",
+          "expected": "True",
+          "description": "two singles True"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "xyz\n4\nx\ny\nz\nxy\n",
+          "expected": "True",
+          "description": "True"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "word_break_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Word Break DP",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "w=input().strip();n=int(input())\nd=set(input().strip() for _ in range(n))\ndp=[False]*(len(w)+1);dp[0]=True\nfor i in range(1,len(w)+1):\n    for j in range(i):\n        if dp[j] and w[j:i] in d:dp[i]=True;break\nprint(dp[len(w)])"
+        }
+      ]
+    },
+    {
+      "id": "min_jumps",
+      "title": "Jump Game II - Min Jumps",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "1\n0\n",
+          "expected": "0",
+          "description": "single \u2192 0"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "2\n1 0\n",
+          "expected": "1",
+          "description": "reach end 1 jump"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "5\n2 3 1 1 4\n",
+          "expected": "2",
+          "description": "classic 2"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "5\n2 3 0 1 4\n",
+          "expected": "2",
+          "description": "classic 2 alt"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "3\n1 2 3\n",
+          "expected": "2",
+          "description": "three \u2192 2"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "4\n1 1 1 1\n",
+          "expected": "3",
+          "description": "all ones \u2192 3"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "4\n3 0 0 0\n",
+          "expected": "1",
+          "description": "reach edge"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "3\n1 0 0\n",
+          "expected": "2",
+          "description": "impossible? - handle"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "5\n5 1 1 1 1\n",
+          "expected": "1",
+          "description": "big first jump"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "5\n1 2 1 0 4\n",
+          "expected": "3",
+          "description": "zero block different path"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "5\n2 0 2 0 1\n",
+          "expected": "2",
+          "description": "alt zero"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "10\n1 3 1 3 1 3 1 3 1 3\n",
+          "expected": "5",
+          "description": "alternating"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "11\n10 1 1 1 1 1 1 1 1 1 1\n",
+          "expected": "1",
+          "description": "big jump first"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "5\n1 1 2 1 1\n",
+          "expected": "3",
+          "description": "two small then bigger"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "6\n5 4 3 2 1 0\n",
+          "expected": "1",
+          "description": "countdown"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "6\n1 2 4 8 16 32\n",
+          "expected": "3",
+          "description": "doubles"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "7\n3 2 1 2 1 0 5\n",
+          "expected": "3",
+          "description": "skip blocked"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "9\n6 5 4 3 2 1 0 0 0\n",
+          "expected": "2",
+          "description": "countdown fail recovery"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "10\n1 1 1 1 1 1 1 1 1 1\n",
+          "expected": "9",
+          "description": "ten ones \u2192 9"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "9\n4 1 1 3 1 1 0 2 1\n",
+          "expected": "3",
+          "description": "complex"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "5\n2 1 0 2 3\n",
+          "expected": "2",
+          "description": "zero in middle"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "5\n3 1 0 1 3\n",
+          "expected": "2",
+          "description": ""
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "6\n1 2 1 0 0 2\n",
+          "expected": "3",
+          "description": ""
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "8\n7 0 0 0 0 0 0 0\n",
+          "expected": "1",
+          "description": "big jump exact"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "7\n1 0 1 0 1 0 1\n",
+          "expected": "2",
+          "description": "skip zeros"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "10\n2 2 2 2 2 2 2 2 2 2\n",
+          "expected": "5",
+          "description": "all twos"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "10\n1 2 3 4 5 6 7 8 9 10\n",
+          "expected": "4",
+          "description": "ramp"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "10\n10 9 8 7 6 5 4 3 2 1\n",
+          "expected": "1",
+          "description": "ramp down"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "15\n1 1 1 1 1 1 1 1 1 1 1 1 1 1 1\n",
+          "expected": "14",
+          "description": "fifteen ones \u2192 14"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "6\n2 3 1 1 0 4\n",
+          "expected": "3",
+          "description": "last element unreachable? no"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "min_jumps_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Jump Game II - Min Jumps",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input());nums=list(map(int,input().split()))\nif n<=1:\n    print(0)\nelse:\n    j=0;ce=0;far=0\n    for i in range(n-1):\n        far=max(far,i+nums[i])\n        if i==ce:j+=1;ce=far\n        if ce>=n-1:break\n    print(j)"
+        }
+      ]
+    },
+    {
+      "id": "first_missing_positive",
+      "title": "First Missing Positive",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "3\n1 2 0\n",
+          "expected": "3",
+          "description": "classic \u2192 3"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "4\n3 4 -1 1\n",
+          "expected": "2",
+          "description": "with neg \u2192 2"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "5\n7 8 9 11 12\n",
+          "expected": "1",
+          "description": "all large \u2192 1"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "1\n1\n",
+          "expected": "2",
+          "description": "single 1 \u2192 2"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "1\n2\n",
+          "expected": "1",
+          "description": "single 2 \u2192 1"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "1\n0\n",
+          "expected": "1",
+          "description": "zero \u2192 1"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "3\n1 2 3\n",
+          "expected": "4",
+          "description": "consecutive \u2192 4"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "3\n2 3 4\n",
+          "expected": "1",
+          "description": "start 2 \u2192 1"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "3\n1 1 1\n",
+          "expected": "2",
+          "description": "all same \u2192 2"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "5\n1 2 3 4 5\n",
+          "expected": "6",
+          "description": "all \u2192 6"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "5\n5 4 3 2 1\n",
+          "expected": "6",
+          "description": "rev \u2192 6"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "5\n1 3 5 7 9\n",
+          "expected": "2",
+          "description": "odd \u2192 2"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "3\n-1 -2 -3\n",
+          "expected": "1",
+          "description": "all neg \u2192 1"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "0\n\n",
+          "expected": "1",
+          "description": "empty \u2192 1"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "4\n0 -1 3 1\n",
+          "expected": "2",
+          "description": "mixed \u2192 2"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "3\n100 200 300\n",
+          "expected": "1",
+          "description": "large \u2192 1"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "2\n1 100\n",
+          "expected": "2",
+          "description": "gap \u2192 2"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "4\n2 1 0 -1\n",
+          "expected": "3",
+          "description": "with zero neg \u2192 3"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "5\n1 2 0 4 5\n",
+          "expected": "3",
+          "description": "gap at 3 \u2192 3"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "5\n1 2 3 0 -1\n",
+          "expected": "4",
+          "description": "zero neg \u2192 4"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "1\n1000000\n",
+          "expected": "1",
+          "description": "large single \u2192 1"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "4\n2 3 1 0\n",
+          "expected": "4",
+          "description": "shuffled \u2192 4"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "10\n1 2 3 4 5 6 7 8 9 11\n",
+          "expected": "10",
+          "description": "gap at 10 \u2192 10"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "10\n1 2 3 4 5 6 7 8 9 10\n",
+          "expected": "11",
+          "description": "all \u2192 11"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "3\n3 2 1\n",
+          "expected": "4",
+          "description": "rev 3 \u2192 4"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "4\n4 3 2 1\n",
+          "expected": "5",
+          "description": "rev 4 \u2192 5"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "6\n1 1 2 2 3 3\n",
+          "expected": "4",
+          "description": "duplicates \u2192 4"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "4\n2 2 2 2\n",
+          "expected": "1",
+          "description": "all same 2 \u2192 1"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "4\n0 0 0 0\n",
+          "expected": "1",
+          "description": "all zeros \u2192 1"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "4\n1 -1 1 -1\n",
+          "expected": "2",
+          "description": "alternating \u2192 2"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "first_missing_positive_accepted",
+          "type": "accepted",
+          "description": "Correct solution for First Missing Positive",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input());a=list(map(int,input().split()))\nfor i in range(n):\n    while 1<=a[i]<=n and a[a[i]-1]!=a[i]:a[a[i]-1],a[i]=a[i],a[a[i]-1]\nans=n+1\nfor i in range(n):\n    if a[i]!=i+1:ans=i+1;break\nprint(ans)"
+        }
+      ]
+    },
+    {
+      "id": "longest_consecutive_sequence",
+      "title": "Longest Consecutive Sequence",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "6\n100 4 200 1 3 2\n",
+          "expected": "4",
+          "description": "classic \u2192 4"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "10\n0 3 7 2 5 8 4 6 0 1\n",
+          "expected": "9",
+          "description": "10 consec"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "0\n\n",
+          "expected": "0",
+          "description": "empty \u2192 0"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "1\n1\n",
+          "expected": "1",
+          "description": "single \u2192 1"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "5\n1 2 3 4 5\n",
+          "expected": "5",
+          "description": "consec \u2192 5"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "5\n5 4 3 2 1\n",
+          "expected": "5",
+          "description": "rev \u2192 5"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "5\n1 3 5 7 9\n",
+          "expected": "1",
+          "description": "gaps \u2192 1"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "4\n1 1 1 1\n",
+          "expected": "1",
+          "description": "all same \u2192 1"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "3\n2 1 0\n",
+          "expected": "3",
+          "description": "three consec"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "3\n-1 0 1\n",
+          "expected": "3",
+          "description": "negative \u2192 3"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "7\n-3 -2 -1 0 1 2 3\n",
+          "expected": "7",
+          "description": "neg to pos \u2192 7"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "4\n100 101 102 103\n",
+          "expected": "4",
+          "description": "four \u2192 4"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "4\n1 2 0 1\n",
+          "expected": "3",
+          "description": "with dup"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "1\n0\n",
+          "expected": "1",
+          "description": "zero \u2192 1"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "1\n-1\n",
+          "expected": "1",
+          "description": "neg single \u2192 1"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "7\n1 2 3 100 200 201 202\n",
+          "expected": "3",
+          "description": "two chains pick longest"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "4\n10 5 4 3\n",
+          "expected": "3",
+          "description": "chain of 3 from 3"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "3\n1 0 -1\n",
+          "expected": "3",
+          "description": "three straddle zero"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "10\n2 3 4 1 0 9 8 7 6 5\n",
+          "expected": "10",
+          "description": "two chains of 5"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "4\n100 200 300 400\n",
+          "expected": "1",
+          "description": "no consec \u2192 1"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "20\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20\n",
+          "expected": "20",
+          "description": "20 consec"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "5\n1 3 5 2 4\n",
+          "expected": "5",
+          "description": "evens/odds mix \u2192 5"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "3\n10 30 20\n",
+          "expected": "1",
+          "description": "gaps \u2192 1"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "4\n1 2 4 3\n",
+          "expected": "4",
+          "description": "almost 4 \u2192 4"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "5\n5 3 1 2 4\n",
+          "expected": "5",
+          "description": "shuffled 1-5 \u2192 5"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "6\n0 0 0 1 2 3\n",
+          "expected": "4",
+          "description": "with zeros \u2192 4 from 0..3"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "11\n-5 -4 -3 -2 -1 0 1 2 3 4 5\n",
+          "expected": "11",
+          "description": "neg to pos 11"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "6\n1 100 200 201 202 300\n",
+          "expected": "3",
+          "description": "chain 3"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "12\n7 4 0 -1 2 1 -2 3 5 8 6 9\n",
+          "expected": "12",
+          "description": "big mix"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "7\n1 2 2 3 3 4 4\n",
+          "expected": "4",
+          "description": "dupes \u2192 4"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "longest_consecutive_sequence_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Longest Consecutive Sequence",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input());nums=list(map(int,input().split()))\ns=set(nums);best=0\nfor v in s:\n    if v-1 not in s:\n        cur=v;st=1\n        while cur+1 in s:cur+=1;st+=1\n        best=max(best,st)\nprint(best)"
+        }
+      ]
+    },
+    {
+      "id": "sliding_window_maximum",
+      "title": "Sliding Window Maximum (Deque)",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "8\n1 3 -1 -3 5 3 6 7\n3\n",
+          "expected": "3 3 5 5 6 7",
+          "description": "classic"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "1\n1\n1\n",
+          "expected": "1",
+          "description": "single"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "2\n1 2\n1\n",
+          "expected": "1 2",
+          "description": "k=1 all"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "2\n1 2\n2\n",
+          "expected": "2",
+          "description": "k=2 max=2"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "4\n4 3 2 1\n2\n",
+          "expected": "4 3 2",
+          "description": "decreasing k=2"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "4\n1 2 3 4\n2\n",
+          "expected": "2 3 4",
+          "description": "increasing k=2"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "5\n2 1 2 3 2\n2\n",
+          "expected": "2 2 3 3",
+          "description": ""
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "2\n1 -1\n1\n",
+          "expected": "1 -1",
+          "description": ""
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "5\n5 3 1 4 2\n2\n",
+          "expected": "5 3 4 4",
+          "description": ""
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "6\n3 3 1 1 2 2\n3\n",
+          "expected": "3 3 2 2",
+          "description": "dupes"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "10\n1 2 3 4 5 6 7 8 9 10\n3\n",
+          "expected": "3 4 5 6 7 8 9 10",
+          "description": "increasing k=3"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "10\n10 9 8 7 6 5 4 3 2 1\n3\n",
+          "expected": "10 9 8 7 6 5 4 3",
+          "description": "decreasing k=3"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "5\n1 1 1 1 1\n3\n",
+          "expected": "1 1 1",
+          "description": "all same"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "4\n2 1 1 2\n3\n",
+          "expected": "2 2",
+          "description": ""
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "8\n9 10 9 3 2 4 7 6\n4\n",
+          "expected": "10 10 9 7 7",
+          "description": ""
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "6\n1 0 1 0 1 0\n2\n",
+          "expected": "1 1 1 1 1",
+          "description": "alternating"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "6\n1 2 1 2 1 2\n3\n",
+          "expected": "2 2 2 2",
+          "description": ""
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "5\n5 1 5 1 5\n2\n",
+          "expected": "5 5 5 5",
+          "description": "alternating highs"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "4\n4 4 4 4\n4\n",
+          "expected": "4",
+          "description": "all same k=n"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "9\n1 2 3 2 1 2 3 2 1\n3\n",
+          "expected": "3 3 3 2 3 3 3",
+          "description": "wave"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "4\n100 200 100 200\n2\n",
+          "expected": "200 200 200",
+          "description": "alternating high"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "8\n1 3 1 3 1 3 1 3\n2\n",
+          "expected": "3 3 3 3 3 3 3",
+          "description": "alternating"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "3\n7 2 4\n2\n",
+          "expected": "7 4",
+          "description": ""
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "6\n1 3 2 3 1 3\n3\n",
+          "expected": "3 3 3 3",
+          "description": ""
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "5\n-1 -3 -5 -2 -4\n2\n",
+          "expected": "-1 -3 -2 -2",
+          "description": "all neg"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "5\n5 0 5 0 5\n3\n",
+          "expected": "5 5 5",
+          "description": ""
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "5\n1 2 3 4 5\n5\n",
+          "expected": "5",
+          "description": "k=n single"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "8\n3 1 4 1 5 9 2 6\n4\n",
+          "expected": "4 5 9 9 9",
+          "description": "pi digits"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "7\n2 0 2 0 0 2 0\n3\n",
+          "expected": "2 2 2 2 2",
+          "description": "sparse highs"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "6\n1 3 1 2 0 5\n3\n",
+          "expected": "3 3 2 5",
+          "description": "valley then peak"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "sliding_window_maximum_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Sliding Window Maximum (Deque)",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "from collections import deque\nn=int(input());nums=list(map(int,input().split()));k=int(input())\ndq=deque();res=[]\nfor i,v in enumerate(nums):\n    while dq and dq[0]<i-k+1:dq.popleft()\n    while dq and nums[dq[-1]]<v:dq.pop()\n    dq.append(i)\n    if i>=k-1:res.append(nums[dq[0]])\nprint(*res)"
+        }
+      ]
+    },
+    {
+      "id": "n_queens_count",
+      "title": "N-Queens Count Solutions",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "1\n",
+          "expected": "1",
+          "description": "n=1"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "2\n",
+          "expected": "0",
+          "description": "n=2"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "3\n",
+          "expected": "0",
+          "description": "n=3"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "4\n",
+          "expected": "2",
+          "description": "n=4"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "5\n",
+          "expected": "10",
+          "description": "n=5"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "6\n",
+          "expected": "4",
+          "description": "n=6"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "7\n",
+          "expected": "40",
+          "description": "n=7"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "8\n",
+          "expected": "92",
+          "description": "n=8"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "9\n",
+          "expected": "352",
+          "description": "n=9"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "10\n",
+          "expected": "724",
+          "description": "n=10"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "10\n",
+          "expected": "724",
+          "description": "10x10 board"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "9\n",
+          "expected": "352",
+          "description": "9x9 board"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "1\n",
+          "expected": "1",
+          "description": "n=1 dup1"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "2\n",
+          "expected": "0",
+          "description": "n=2 dup2"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "3\n",
+          "expected": "0",
+          "description": "n=3 dup3"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "4\n",
+          "expected": "2",
+          "description": "n=4 dup4"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "5\n",
+          "expected": "10",
+          "description": "n=5 dup5"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "6\n",
+          "expected": "4",
+          "description": "n=6 dup6"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "7\n",
+          "expected": "40",
+          "description": "n=7 dup7"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "8\n",
+          "expected": "92",
+          "description": "n=8 dup8"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "9\n",
+          "expected": "352",
+          "description": "n=9 dup9"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "10\n",
+          "expected": "724",
+          "description": "n=10 dup10"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "4\n",
+          "expected": "2",
+          "description": "n=4 dup11"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "5\n",
+          "expected": "10",
+          "description": "n=5 dup12"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "6\n",
+          "expected": "4",
+          "description": "n=6 dup13"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "8\n",
+          "expected": "92",
+          "description": "n=8 dup14"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "7\n",
+          "expected": "40",
+          "description": "n=7 dup15"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "1\n",
+          "expected": "1",
+          "description": "n=1 dup16"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "4\n",
+          "expected": "2",
+          "description": "n=4 dup17"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "8\n",
+          "expected": "92",
+          "description": "n=8 dup18"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "n_queens_count_accepted",
+          "type": "accepted",
+          "description": "Correct solution for N-Queens Count Solutions",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input())\ndef bt(r,c,d1,d2):\n    if r==n:return 1\n    cnt=0;avail=((1<<n)-1)&~(c|d1|d2)\n    while avail:\n        bit=avail&-avail;avail^=bit\n        cnt+=bt(r+1,c|bit,(d1|bit)<<1,(d2|bit)>>1)\n    return cnt\nprint(bt(0,0,0,0))"
+        }
+      ]
+    },
+    {
+      "id": "count_inversions",
+      "title": "Count Inversions (Merge Sort)",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "5\n1 2 3 4 5\n",
+          "expected": "0",
+          "description": "sorted \u2192 0"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "5\n5 4 3 2 1\n",
+          "expected": "10",
+          "description": "rev sorted \u2192 10"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "2\n2 1\n",
+          "expected": "1",
+          "description": "two \u2192 1"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "3\n1 3 2\n",
+          "expected": "1",
+          "description": "one inv"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "3\n3 2 1\n",
+          "expected": "3",
+          "description": "three \u2192 3"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "1\n1\n",
+          "expected": "0",
+          "description": "single \u2192 0"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "0\n\n",
+          "expected": "0",
+          "description": "empty \u2192 0"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "4\n2 3 1 4\n",
+          "expected": "2",
+          "description": ""
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "5\n4 3 2 1 0\n",
+          "expected": "10",
+          "description": "rev 5 \u2192 10"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "5\n1 20 6 4 5\n",
+          "expected": "5",
+          "description": ""
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "4\n7 5 6 4\n",
+          "expected": "5",
+          "description": ""
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "5\n1 2 3 4 0\n",
+          "expected": "4",
+          "description": "zero at end \u2192 4"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "5\n0 1 2 3 4\n",
+          "expected": "0",
+          "description": "with zero front \u2192 0"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "5\n5 1 4 2 3\n",
+          "expected": "6",
+          "description": ""
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "3\n3 1 2\n",
+          "expected": "2",
+          "description": "two invs"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "4\n8 4 2 1\n",
+          "expected": "6",
+          "description": "rev powers \u2192 6"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "4\n1 1 1 1\n",
+          "expected": "0",
+          "description": "all same \u2192 0"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "4\n2 2 1 1\n",
+          "expected": "4",
+          "description": "dup \u2192 4"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "6\n1 3 5 2 4 6\n",
+          "expected": "3",
+          "description": "interleave \u2192 3"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "10\n10 9 8 7 6 5 4 3 2 1\n",
+          "expected": "45",
+          "description": "rev 10 \u2192 45"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "6\n6 3 8 2 9 1\n",
+          "expected": "9",
+          "description": "mixed"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "10\n1 2 3 4 5 6 7 8 9 10\n",
+          "expected": "0",
+          "description": "sorted 10 \u2192 0"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "5\n2 4 1 3 5\n",
+          "expected": "3",
+          "description": ""
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "4\n5 2 6 1\n",
+          "expected": "4",
+          "description": ""
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "9\n3 3 3 2 2 2 1 1 1\n",
+          "expected": "27",
+          "description": "all dups rev"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "5\n1 5 2 4 3\n",
+          "expected": "4",
+          "description": ""
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "7\n7 3 1 4 2 6 5\n",
+          "expected": "10",
+          "description": ""
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "6\n4 1 2 3 5 6\n",
+          "expected": "3",
+          "description": "one big at start"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "5\n2 3 4 5 1\n",
+          "expected": "4",
+          "description": "one small at end"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "10\n1 2 4 3 5 6 8 7 9 10\n",
+          "expected": "2",
+          "description": "two swaps"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "count_inversions_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Count Inversions (Merge Sort)",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input());arr=list(map(int,input().split()))\ndef mc(a):\n    if len(a)<=1:return a,0\n    m=len(a)//2;l,lc=mc(a[:m]);r,rc=mc(a[m:])\n    merged=[];cnt=lc+rc;i=j=0\n    while i<len(l) and j<len(r):\n        if l[i]<=r[j]:merged.append(l[i]);i+=1\n        else:merged.append(r[j]);j+=1;cnt+=len(l)-i\n    merged+=l[i:];merged+=r[j:]\n    return merged,cnt\nprint(mc(arr)[1])"
+        }
+      ]
+    },
+    {
+      "id": "matrix_chain_multiplication",
+      "title": "Matrix Chain Multiplication",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "3\n10 30 5 60\n",
+          "expected": "4500",
+          "description": "classic 3 matrices"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "4\n40 20 30 10 30\n",
+          "expected": "26000",
+          "description": "four matrices"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "2\n10 20 30\n",
+          "expected": "6000",
+          "description": "two matrices"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "4\n10 20 30 40 30\n",
+          "expected": "30000",
+          "description": "four matrices"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "2\n2 3 4\n",
+          "expected": "24",
+          "description": "2x3 * 3x4"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "6\n5 10 3 12 5 50 6\n",
+          "expected": "2010",
+          "description": "six matrices"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "4\n2 2 2 2 2\n",
+          "expected": "24",
+          "description": "four 2x2 matrices"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "4\n100 1 100 1 100\n",
+          "expected": "10200",
+          "description": "alternating large small"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "5\n3 4 2 3 1 4\n",
+          "expected": "38",
+          "description": "five matrices"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "4\n5 10 20 30 40\n",
+          "expected": "10000",
+          "description": "ascending dims"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "4\n40 30 20 10 5\n",
+          "expected": "10000",
+          "description": "descending dims"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "4\n1 1 1 1 1\n",
+          "expected": "3",
+          "description": "all ones \u2192 0? No, 2"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "1\n10 100\n",
+          "expected": "0",
+          "description": "single matrix \u2192 0"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "6\n2 3 2 3 2 3 2\n",
+          "expected": "52",
+          "description": "6 matrices alternating"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "3\n50 50 50 50\n",
+          "expected": "250000",
+          "description": "three 50x50"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "4\n10 20 10 20 10\n",
+          "expected": "5000",
+          "description": "alternating 10,20"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "8\n7 2 8 3 9 1 5 4 6\n",
+          "expected": "167",
+          "description": "eight matrices"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "6\n30 35 15 5 10 20 25\n",
+          "expected": "15125",
+          "description": "six matrices classic"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "4\n5 4 6 2 7\n",
+          "expected": "158",
+          "description": "four matrices"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "6\n1 2 1 2 1 2 1\n",
+          "expected": "8",
+          "description": "six mats 1-2"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "3\n100 1 2 100\n",
+          "expected": "10200",
+          "description": "three: 100x1 1x2 2x100"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "5\n3 2 5 3 4 3\n",
+          "expected": "96",
+          "description": "five matrices 2"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "4\n10 30 5 60 10\n",
+          "expected": "5000",
+          "description": "four matrices 2"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "6\n2 4 3 1 2 4 3\n",
+          "expected": "46",
+          "description": "six matrices 2"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "5\n5 6 3 7 2 8\n",
+          "expected": "218",
+          "description": "five matrices 3"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "6\n4 5 3 2 4 5 3\n",
+          "expected": "164",
+          "description": "six matrices 3"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "5\n1 5 1 5 1 5\n",
+          "expected": "16",
+          "description": "five 1x5 and 5x1 alternating"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "6\n10 5 20 10 5 20 10\n",
+          "expected": "3000",
+          "description": "pattern"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "4\n3 3 3 3 3\n",
+          "expected": "81",
+          "description": "four 3x3"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "4\n50 20 10 40 30\n",
+          "expected": "37000",
+          "description": "four matrices 3"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "matrix_chain_multiplication_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Matrix Chain Multiplication",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input());dims=list(map(int,input().split()))\ndp=[[0]*n for _ in range(n)]\nfor l in range(2,n+1):\n    for i in range(n-l+1):\n        j=i+l-1;dp[i][j]=10**18\n        for k in range(i,j):\n            c=dp[i][k]+dp[k+1][j]+dims[i]*dims[k+1]*dims[j+1]\n            dp[i][j]=min(dp[i][j],c)\nprint(dp[0][n-1])"
+        }
+      ]
+    },
+    {
+      "id": "egg_drop_minimum_trials",
+      "title": "Egg Drop Problem",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "1 1\n",
+          "expected": "1",
+          "description": "1 egg 1 floor \u2192 1"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "1 10\n",
+          "expected": "10",
+          "description": "1 egg 10 floors \u2192 10"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "1 100\n",
+          "expected": "100",
+          "description": "1 egg 100 floors \u2192 100"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "2 2\n",
+          "expected": "2",
+          "description": "2 eggs 2 floors \u2192 2"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "2 6\n",
+          "expected": "3",
+          "description": "2 eggs 6 floors \u2192 3"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "2 10\n",
+          "expected": "4",
+          "description": "2 eggs 10 floors \u2192 4"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "2 100\n",
+          "expected": "14",
+          "description": "2 eggs 100 floors \u2192 14"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "3 14\n",
+          "expected": "4",
+          "description": "3 eggs 14 floors \u2192 4"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "2 36\n",
+          "expected": "8",
+          "description": "2 eggs 36 floors \u2192 9"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "3 25\n",
+          "expected": "5",
+          "description": "3 eggs 25 floors \u2192 5"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "2 1\n",
+          "expected": "1",
+          "description": "2 eggs 1 floor \u2192 1"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "2 4\n",
+          "expected": "3",
+          "description": "2 eggs 4 floors \u2192 3"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "3 100\n",
+          "expected": "9",
+          "description": "3 eggs 100 floors \u2192 9"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "4 100\n",
+          "expected": "8",
+          "description": "4 eggs 100 floors \u2192 8"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "5 100\n",
+          "expected": "7",
+          "description": "5 eggs 100 floors \u2192 7"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "10 100\n",
+          "expected": "7",
+          "description": "10 eggs 100 floors \u2192 7"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "2 50\n",
+          "expected": "10",
+          "description": "2 eggs 50 floors \u2192 10"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "2 36\n",
+          "expected": "8",
+          "description": "2 eggs 36 floor \u2192 8+1? verify"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "3 50\n",
+          "expected": "7",
+          "description": "3 eggs 50 floors \u2192 7"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "4 50\n",
+          "expected": "6",
+          "description": "4 eggs 50 floors \u2192 6"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "2 3\n",
+          "expected": "2",
+          "description": "2 eggs 3 floors \u2192 2"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "3 10\n",
+          "expected": "4",
+          "description": "3 eggs 10 floors \u2192 4"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "1 50\n",
+          "expected": "50",
+          "description": "1 egg 50 floors \u2192 50"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "2 200\n",
+          "expected": "20",
+          "description": "2 eggs 200 floors \u2192 20"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "3 200\n",
+          "expected": "11",
+          "description": "3 eggs 200 floors \u2192 11"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "2 15\n",
+          "expected": "5",
+          "description": "2 eggs 15 floors \u2192 5"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "2 21\n",
+          "expected": "6",
+          "description": "2 eggs 21 floors \u2192 6"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "2 28\n",
+          "expected": "7",
+          "description": "2 eggs 28 floors \u2192 7"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "2 55\n",
+          "expected": "10",
+          "description": "2 eggs 55 floors \u2192 10"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "3 1000\n",
+          "expected": "19",
+          "description": "3 eggs 1000 floors"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "egg_drop_minimum_trials_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Egg Drop Problem",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "k,n=map(int,input().split())\nif k==1:\n    print(n)\nelif n<=1:\n    print(n)\nelse:\n    dp=[[0]*(n+1) for _ in range(k+1)];m=0\n    while dp[k][m]<n:\n        m+=1\n        for i in range(1,k+1):dp[i][m]=dp[i-1][m-1]+dp[i][m-1]+1\n    print(m)"
+        }
+      ]
+    },
+    {
+      "id": "painters_partition",
+      "title": "Painters Partition Problem",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "1\n5\n5 10 7 2 4\n",
+          "expected": "28",
+          "description": "1 painter \u2192 sum=28"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "2\n5\n5 10 7 2 4\n",
+          "expected": "15",
+          "description": "2 painters \u2192 15"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "4\n5\n5 10 7 2 4\n",
+          "expected": "10",
+          "description": "4 painters"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "2\n4\n10 20 30 40\n",
+          "expected": "60",
+          "description": "2 painters \u2192 60"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "3\n4\n10 20 30 40\n",
+          "expected": "40",
+          "description": "3 painters \u2192 40"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "4\n4\n10 20 30 40\n",
+          "expected": "40",
+          "description": "4 painters \u2192 40"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "1\n1\n10\n",
+          "expected": "10",
+          "description": "1 plank 1 painter \u2192 10"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "2\n2\n1 1\n",
+          "expected": "1",
+          "description": "equal planks \u2192 1"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "3\n5\n1 2 3 4 5\n",
+          "expected": "6",
+          "description": "3 painters"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "2\n10\n1 2 3 4 5 6 7 8 9 10\n",
+          "expected": "28",
+          "description": "2 painters \u2192 30"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "5\n10\n1 2 3 4 5 6 7 8 9 10\n",
+          "expected": "15",
+          "description": "5 painters"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "2\n4\n100 100 100 100\n",
+          "expected": "200",
+          "description": "equal planks \u2192 200"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "3\n3\n100 100 100\n",
+          "expected": "100",
+          "description": "3 eq planks 3 painters \u2192 100"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "2\n4\n5 10 30 20\n",
+          "expected": "45",
+          "description": "2 painters"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "3\n6\n3 3 3 3 3 3\n",
+          "expected": "6",
+          "description": "3 painters 6 equal"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "2\n2\n1 100\n",
+          "expected": "100",
+          "description": "2 painters \u2192 100"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "3\n6\n10 10 10 10 10 10\n",
+          "expected": "20",
+          "description": "3 painters 6 eq"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "4\n4\n25 25 25 25\n",
+          "expected": "25",
+          "description": "4 painters 4 eq \u2192 25"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "2\n4\n1 2 3 100\n",
+          "expected": "100",
+          "description": "skewed last \u2192 100"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "5\n10\n10 20 30 40 50 60 70 80 90 100\n",
+          "expected": "150",
+          "description": "5 painters 10 planks"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "3\n4\n1 1 1 1000\n",
+          "expected": "1000",
+          "description": "spike at end"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "2\n3\n50 50 50\n",
+          "expected": "100",
+          "description": "3 planks 2 painters \u2192 100"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "10\n10\n1 1 1 1 1 1 1 1 1 1\n",
+          "expected": "1",
+          "description": "10 painters 10 planks \u2192 1"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "3\n5\n1 2 4 8 16\n",
+          "expected": "16",
+          "description": "geometric"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "2\n4\n3 3 3 3\n",
+          "expected": "6",
+          "description": "4 eq planks 2 painters \u2192 6"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "4\n8\n5 5 5 5 5 5 5 5\n",
+          "expected": "10",
+          "description": "8 planks 4 painters \u2192 10"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "3\n5\n10 5 2 3 10\n",
+          "expected": "10",
+          "description": "mixed"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "2\n2\n1 99\n",
+          "expected": "99",
+          "description": "2 painters \u2192 99"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "2\n4\n1 1 1 100\n",
+          "expected": "100",
+          "description": "spike at end 2 painters"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "3\n5\n5 10 15 20 25\n",
+          "expected": "30",
+          "description": "ascending 3 painters"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "painters_partition_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Painters Partition Problem",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "k=int(input());n=int(input());planks=list(map(int,input().split()))\ndef ok(mid):\n    p=1;c=0\n    for x in planks:\n        if x>mid:return False\n        if c+x>mid:p+=1;c=x\n        else:c+=x\n    return p<=k\nlo,hi=max(planks),sum(planks)\nwhile lo<hi:\n    mid=(lo+hi)//2\n    if ok(mid):hi=mid\n    else:lo=mid+1\nprint(lo)"
+        }
+      ]
+    },
+    {
+      "id": "longest_palindromic_substring_length",
+      "title": "Longest Palindromic Substring (Manacher's)",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "a\n",
+          "expected": "1",
+          "description": "single \u2192 1"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "aa\n",
+          "expected": "2",
+          "description": "two same \u2192 2"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "ab\n",
+          "expected": "1",
+          "description": "diff \u2192 1"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "aba\n",
+          "expected": "3",
+          "description": "odd palindrome \u2192 3"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "abba\n",
+          "expected": "4",
+          "description": "even palindrome \u2192 4"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "abcba\n",
+          "expected": "5",
+          "description": "full string \u2192 5"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "babad\n",
+          "expected": "3",
+          "description": "bab or aba \u2192 3"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "cbbd\n",
+          "expected": "2",
+          "description": "bb \u2192 2"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "racecar\n",
+          "expected": "7",
+          "description": "full \u2192 7"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "noon\n",
+          "expected": "4",
+          "description": "full \u2192 4"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "abcbabcbabcba\n",
+          "expected": "13",
+          "description": "complex"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "aacabdkacaa\n",
+          "expected": "3",
+          "description": ""
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "ccc\n",
+          "expected": "3",
+          "description": "\u2192 3"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "dddd\n",
+          "expected": "4",
+          "description": "\u2192 4"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "abcdef\n",
+          "expected": "1",
+          "description": "\u2192 1"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "aaaa\n",
+          "expected": "4",
+          "description": "\u2192 4"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "xaabacxcabaax\n",
+          "expected": "13",
+          "description": ""
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "amanaplanacanalpanama\n",
+          "expected": "21",
+          "description": "full \u2192 21"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "\n",
+          "expected": "0",
+          "description": "empty \u2192 0"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "z\n",
+          "expected": "1",
+          "description": "single \u2192 1"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "abcbabcba\n",
+          "expected": "9",
+          "description": "odd center"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "aaaabaaa\n",
+          "expected": "7",
+          "description": ""
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "tattarrattat\n",
+          "expected": "12",
+          "description": "famous palindrome \u2192 12"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "abacabadabacaba\n",
+          "expected": "15",
+          "description": ""
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "noonbaboon\n",
+          "expected": "4",
+          "description": ""
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "xyzabcbazyxaaayxzabcbazyx\n",
+          "expected": "11",
+          "description": "complex long"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "abcbabcbabcbabcba\n",
+          "expected": "17",
+          "description": ""
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "aaabaaaa\n",
+          "expected": "7",
+          "description": ""
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "bananas\n",
+          "expected": "5",
+          "description": "anana \u2192 5"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "abcdefedcba\n",
+          "expected": "11",
+          "description": "full \u2192 11"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "longest_palindromic_substring_length_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Longest Palindromic Substring (Manacher's)",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "s=input().strip()\nif not s:\n    print(0)\nelse:\n    t='#'+'#'.join(s)+'#';nt=len(t);p=[0]*nt;c=r=0\n    for i in range(nt):\n        m=2*c-i\n        if i<r:p[i]=min(r-i,p[m])\n        while i+p[i]+1<nt and i-p[i]-1>=0 and t[i+p[i]+1]==t[i-p[i]-1]:p[i]+=1\n        if i+p[i]>r:c,r=i,i+p[i]\n    print(max(p))"
+        }
+      ]
+    },
+    {
+      "id": "k_transactions_max_profit",
+      "title": "Stock Buy-Sell K Transactions",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "2\n6\n3 2 6 5 0 3\n",
+          "expected": "7",
+          "description": "classic k=2 \u2192 7"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "2\n5\n1 2 3 4 5\n",
+          "expected": "4",
+          "description": "ascending k=2 \u2192 4"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "1\n2\n1 2\n",
+          "expected": "1",
+          "description": "k=1 \u2192 1"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "0\n2\n1 2\n",
+          "expected": "0",
+          "description": "k=0 \u2192 0"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "2\n4\n1 4 2 7\n",
+          "expected": "8",
+          "description": "\u2192 9"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "3\n6\n1 2 3 4 5 6\n",
+          "expected": "5",
+          "description": "k=3 ascending"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "2\n3\n2 4 1\n",
+          "expected": "2",
+          "description": "k=2 single transaction \u2192 2"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "1\n5\n7 6 4 3 1\n",
+          "expected": "0",
+          "description": "descending \u2192 0"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "2\n6\n1 3 1 3 1 3\n",
+          "expected": "4",
+          "description": "three k=2"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "2\n6\n6 1 3 2 4 7\n",
+          "expected": "7",
+          "description": ""
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "3\n5\n1 2 3 4 5\n",
+          "expected": "4",
+          "description": "k=3 \u2192 4"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "2\n8\n1 2 1 2 1 2 1 2\n",
+          "expected": "2",
+          "description": "alternating k=2"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "1\n10\n3 1 4 1 5 9 2 6 5 3\n",
+          "expected": "8",
+          "description": "k=1 max"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "100\n5\n1 2 3 4 5\n",
+          "expected": "4",
+          "description": "large k \u2192 all"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "2\n6\n10 22 5 75 65 80\n",
+          "expected": "87",
+          "description": ""
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "2\n5\n2 1 2 0 1\n",
+          "expected": "2",
+          "description": ""
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "3\n6\n1 3 2 8 4 9\n",
+          "expected": "13",
+          "description": "k=3"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "2\n2\n1 2\n",
+          "expected": "1",
+          "description": "k=2 single pair"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "2\n2\n2 1\n",
+          "expected": "0",
+          "description": "descending pair \u2192 0"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "4\n13\n1 2 3 4 5 4 3 2 1 2 3 4 5\n",
+          "expected": "8",
+          "description": "k=4"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "2\n8\n3 3 5 0 0 3 1 4\n",
+          "expected": "6",
+          "description": ""
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "1\n4\n1 4 2 7\n",
+          "expected": "6",
+          "description": "k=1 best = 6"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "2\n4\n5 5 5 5\n",
+          "expected": "0",
+          "description": "flat \u2192 0"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "2\n4\n1 100 1 100\n",
+          "expected": "198",
+          "description": "two peaks"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "2\n10\n1 2 4 2 5 7 2 4 9 0\n",
+          "expected": "13",
+          "description": "k=2 complex"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "3\n8\n2 3 5 1 2 4 1 5\n",
+          "expected": "10",
+          "description": "k=3"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "2\n8\n0 1 0 1 0 1 0 1\n",
+          "expected": "2",
+          "description": "alternating 0,1 k=2"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "2\n9\n1 2 3 1 2 3 1 2 3\n",
+          "expected": "4",
+          "description": "repeating 123 k=2"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "2\n6\n7 1 5 3 6 4\n",
+          "expected": "7",
+          "description": "classic best two \u2192 7"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "2\n8\n3 2 6 5 0 3 2 8\n",
+          "expected": "12",
+          "description": "extended classic"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "k_transactions_max_profit_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Stock Buy-Sell K Transactions",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "k=int(input());n=int(input());prices=list(map(int,input().split()))\nif n==0 or k==0:\n    print(0)\nelif k>=n//2:\n    print(sum(max(0,prices[i]-prices[i-1]) for i in range(1,n)))\nelse:\n    dp=[[0]*n for _ in range(k+1)]\n    for t in range(1,k+1):\n        mx=-prices[0]\n        for d in range(1,n):\n            dp[t][d]=max(dp[t][d-1],prices[d]+mx);mx=max(mx,dp[t-1][d]-prices[d])\n    print(dp[k][n-1])"
+        }
+      ]
+    },
+    {
+      "id": "maximum_sum_submatrix",
+      "title": "Maximum Sum Submatrix (2D Kadane)",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "2 2\n1 2\n-1 -2\n",
+          "expected": "3",
+          "description": "pick row 1 \u2192 3"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "3 3\n1 -2 3\n4 -5 6\n7 -8 9\n",
+          "expected": "18",
+          "description": "pick col 2 \u2192 18"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "2 2\n-1 -2\n-3 -4\n",
+          "expected": "-1",
+          "description": "all neg \u2192 -1"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "1 1\n5\n",
+          "expected": "5",
+          "description": "single \u2192 5"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "1 1\n-5\n",
+          "expected": "-5",
+          "description": "single neg \u2192 -5"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "2 3\n1 2 3\n4 5 6\n",
+          "expected": "21",
+          "description": "all pos \u2192 21"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "2 2\n0 0\n0 0\n",
+          "expected": "0",
+          "description": "all zero \u2192 0"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "3 3\n1 2 -3\n4 -5 6\n-7 8 -9\n",
+          "expected": "8",
+          "description": "mixed"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "2 2\n-1 0\n-2 -3\n",
+          "expected": "0",
+          "description": ""
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "4 4\n2 1 -3 4\n1 -5 3 2\n-1 3 2 1\n4 -2 1 3\n",
+          "expected": "16",
+          "description": "4x4"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "3 3\n1 0 1\n0 1 0\n1 0 1\n",
+          "expected": "5",
+          "description": "checkerboard"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "3 4\n9 -1 -1 9\n9 -1 -1 9\n9 -1 -1 9\n",
+          "expected": "48",
+          "description": ""
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "3 5\n1 -2 3 -2 1\n-1 2 -1 2 -1\n1 -2 3 -2 1\n",
+          "expected": "5",
+          "description": ""
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "1 8\n-2 -3 4 -1 -2 1 5 -3\n",
+          "expected": "7",
+          "description": "1-row Kadane \u2192 7"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "1 5\n1 2 3 4 5\n",
+          "expected": "15",
+          "description": "1-row all pos \u2192 15"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "1 5\n-1 -2 -3 -4 -5\n",
+          "expected": "-1",
+          "description": "1-row all neg \u2192 -1"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "5 1\n1\n2\n3\n4\n5\n",
+          "expected": "15",
+          "description": "1-col \u2192 15"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "3 1\n-1\n-2\n-3\n",
+          "expected": "-1",
+          "description": "1-col neg \u2192 -1"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "3 5\n3 -4 1 5 -2\n4 1 -3 2 3\n-1 5 2 -4 1\n",
+          "expected": "13",
+          "description": "3x5"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "3 3\n1 2 3\n1 2 3\n1 2 3\n",
+          "expected": "18",
+          "description": "3 equal rows \u2192 18"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "3 3\n-1 2 -1\n2 -1 2\n-1 2 -1\n",
+          "expected": "3",
+          "description": "plus pattern \u2192 4"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "3 3\n0 -1 0\n-1 5 -1\n0 -1 0\n",
+          "expected": "5",
+          "description": "center spike \u2192 5"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "4 4\n1 -1 1 -1\n-1 1 -1 1\n1 -1 1 -1\n-1 1 -1 1\n",
+          "expected": "1",
+          "description": "chess \u2192 1"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "3 3\n100 -50 100\n-50 100 -50\n100 -50 100\n",
+          "expected": "300",
+          "description": "corners large"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "3 4\n1 2 3 4\n5 6 7 8\n9 10 11 12\n",
+          "expected": "78",
+          "description": "3x4 all pos \u2192 78"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "2 4\n2 -5 2 -5\n2 -5 2 -5\n",
+          "expected": "4",
+          "description": "col select"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "3 4\n-3 1 -4 1\n-5 9 -2 6\n-5 3 -5 8\n",
+          "expected": "19",
+          "description": "pi row"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "3 3\n1 -2 3\n-4 5 -6\n7 -8 9\n",
+          "expected": "9",
+          "description": "diagonal"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "2 5\n5 -1 5 -1 5\n-1 5 -1 5 -1\n",
+          "expected": "20",
+          "description": "checkerboard 2"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "3 3\n10 0 10\n0 10 0\n10 0 10\n",
+          "expected": "50",
+          "description": "sparse"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "maximum_sum_submatrix_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Maximum Sum Submatrix (2D Kadane)",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "rows,cols=map(int,input().split())\nmat=[list(map(int,input().split())) for _ in range(rows)]\nres=-10**9\nfor l in range(cols):\n    rs=[0]*rows\n    for r in range(l,cols):\n        for i in range(rows):rs[i]+=mat[i][r]\n        cur=rs[0];best=rs[0]\n        for v in rs[1:]:cur=max(v,cur+v);best=max(best,cur)\n        res=max(res,best)\nprint(res)"
+        }
+      ]
+    },
+    {
+      "id": "word_ladder_length",
+      "title": "Word Ladder - Shortest Path BFS",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "hit\ncog\n6\nhot\ndot\ndog\nlot\nlog\ncog\n",
+          "expected": "5",
+          "description": "classic \u2192 5"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "hit\ncog\n5\nhot\ndot\ndog\nlot\nlog\n",
+          "expected": "0",
+          "description": "no cog \u2192 0"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "a\nc\n3\na\nb\nc\n",
+          "expected": "2",
+          "description": "\u2192 2"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "hot\ndog\n3\nhot\ndog\ndot\n",
+          "expected": "3",
+          "description": "\u2192 3"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "qa\nsq\n39\nsi\ngo\nse\ncm\nso\nph\nmt\ndb\nmb\nsb\nkr\nln\ntm\nle\nav\nsm\nar\nci\nca\nbr\nti\nba\nto\nra\nfa\nyo\now\nsn\nya\ncr\npo\nfe\nho\nma\nre\nox\nta\nmid\ntag\n",
+          "expected": "0",
+          "description": "no path \u2192 0"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "cat\ndog\n8\ncat\nbat\nbad\nbag\ndag\ndog\ncot\ncog\n",
+          "expected": "4",
+          "description": "\u2192 5"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "abc\nabd\n1\nabd\n",
+          "expected": "2",
+          "description": "one change \u2192 2"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "hot\ndot\n1\ndot\n",
+          "expected": "2",
+          "description": "\u2192 2"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "same\nsame\n1\nsame\n",
+          "expected": "2",
+          "description": "same \u2192 1"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "ab\ncd\n2\nad\ncd\n",
+          "expected": "3",
+          "description": "\u2192 3"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "a\nz\n26\na\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl\nm\nn\no\np\nq\nr\ns\nt\nu\nv\nw\nx\ny\nz\n",
+          "expected": "2",
+          "description": "alphabet \u2192 26"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "lost\ncost\n1\ncost\n",
+          "expected": "2",
+          "description": "\u2192 2"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "lot\nlog\n1\nlog\n",
+          "expected": "2",
+          "description": "\u2192 2"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "hit\nhot\n1\nhot\n",
+          "expected": "2",
+          "description": "\u2192 2"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "hot\ncold\n10\ncold\ncord\nword\nward\nware\nbare\nbore\ncore\ncord\ncord\n",
+          "expected": "0",
+          "description": "diff length \u2192 0"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "start\nstar\n1\nstar\n",
+          "expected": "0",
+          "description": "diff len \u2192 0"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "ab\nab\n1\nab\n",
+          "expected": "2",
+          "description": "same word \u2192 1"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "abc\nxyz\n2\nabc\nxyz\n",
+          "expected": "0",
+          "description": "no path \u2192 0"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "red\ntax\n6\nted\ntex\ntad\ntax\nred\nrex\n",
+          "expected": "4",
+          "description": "\u2192 4"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "damp\nlike\n2\ndamp\nlike\n",
+          "expected": "0",
+          "description": "no path \u2192 0"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "game\nhelp\n96\ngame\nfame\nface\nfact\nfast\nlast\nlust\nlest\nbest\nbelt\nbell\nball\nhall\nhale\ntale\ntile\ntime\nlime\nlike\nhike\nhile\nhill\nwill\nmill\nmild\nmold\nbold\nbald\nbale\ntale\npale\npole\nrole\nrule\nrile\nrife\nlife\nlift\nlist\nfist\nfish\ndish\nwish\nwise\nrise\nrose\nrope\nrobe\nrode\nbode\ncode\ncome\nhome\nhole\nmole\nmole\nrole\nsole\nsale\ntale\ntile\ntime\nlime\nline\nmine\ndine\nfine\nfire\nhire\nhike\nbike\nbite\nkite\nsite\nsire\ntire\ntile\nfile\nfill\nbill\nbell\nbelt\nmelt\nfelt\nfell\ntell\ntall\nball\ncall\nhall\nfall\ntall\ntale\ntime\nlime\nhelp\n",
+          "expected": "0",
+          "description": "long ladder"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "hit\nfit\n1\nfit\n",
+          "expected": "2",
+          "description": "\u2192 2"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "abc\nabd\n4\nabc\nabd\nacd\naed\n",
+          "expected": "2",
+          "description": "direct \u2192 2"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "cog\ncog\n1\ncog\n",
+          "expected": "2",
+          "description": "start=end in dict \u2192 1"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "abc\nxyz\n3\nxbc\nxyc\nxyz\n",
+          "expected": "4",
+          "description": "\u2192 4"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "lead\ngold\n5\nload\ngoad\ngold\nlead\nlord\n",
+          "expected": "4",
+          "description": "classic metal \u2192 5"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "hot\nhot\n3\nhot\ndot\ndog\n",
+          "expected": "2",
+          "description": "same \u2192 1"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "ab\naa\n3\naa\nba\nbb\n",
+          "expected": "2",
+          "description": "\u2192 2"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "bat\nsay\n9\nbat\nbad\nbed\nred\nrod\nrods\nrays\nsays\nsay\n",
+          "expected": "0",
+          "description": "bat\u2192say"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "toon\nplea\n12\ntoon\nboon\nboos\nbobs\nblob\nblot\nplot\nplop\nplod\nploe\npled\nplea\n",
+          "expected": "0",
+          "description": "\u2192 11"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "word_ladder_length_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Word Ladder - Shortest Path BFS",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "from collections import deque\nbeg=input().strip();end=input().strip();n=int(input())\nwl=set(input().strip() for _ in range(n))\nif end not in wl:\n    print(0)\nelse:\n    q=deque([(beg,1)]);vis={beg};ans=0\n    while q:\n        w,d=q.popleft()\n        done=False\n        for i in range(len(w)):\n            for c in 'abcdefghijklmnopqrstuvwxyz':\n                nw=w[:i]+c+w[i+1:]\n                if nw==end:ans=d+1;done=True;break\n                if nw in wl and nw not in vis:vis.add(nw);q.append((nw,d+1))\n            if done:break\n        if done:break\n    print(ans)"
+        }
+      ]
+    },
+    {
+      "id": "optimal_bst_minimum_cost",
+      "title": "Optimal Binary Search Tree Cost",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "2\n10 12\n",
+          "expected": "32",
+          "description": "2 keys"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "3\n34 8 50\n",
+          "expected": "142",
+          "description": "3 keys classic \u2192 142"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "3\n25 10 20\n",
+          "expected": "95",
+          "description": "3 keys rev"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "5\n10 12 20 25 30\n",
+          "expected": "199",
+          "description": "5 keys"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "1\n1\n",
+          "expected": "1",
+          "description": "single key \u2192 1"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "5\n1 1 1 1 1\n",
+          "expected": "11",
+          "description": "uniform freq"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "5\n10 20 30 40 50\n",
+          "expected": "300",
+          "description": "increasing"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "5\n50 40 30 20 10\n",
+          "expected": "300",
+          "description": "decreasing"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "6\n5 5 5 5 5 5\n",
+          "expected": "70",
+          "description": "6 uniform"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "3\n10 20 30\n",
+          "expected": "100",
+          "description": "3 keys"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "5\n1 2 4 8 16\n",
+          "expected": "57",
+          "description": "geometric"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "5\n16 8 4 2 1\n",
+          "expected": "57",
+          "description": "rev geometric"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "5\n10 5 10 5 10\n",
+          "expected": "80",
+          "description": "alternating"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "5\n1 100 1 100 1\n",
+          "expected": "308",
+          "description": "alternating high"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "6\n20 5 17 25 30 12\n",
+          "expected": "232",
+          "description": "6 keys"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "6\n100 1 1 1 1 1\n",
+          "expected": "116",
+          "description": "one dominant"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "5\n1 1 1 1 100\n",
+          "expected": "112",
+          "description": "last dominant"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "5\n3 5 7 11 13\n",
+          "expected": "77",
+          "description": "prime freqs"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "6\n2 4 6 8 10 12\n",
+          "expected": "90",
+          "description": "even freqs 6"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "10\n10 9 8 7 6 5 4 3 2 1\n",
+          "expected": "145",
+          "description": "decreasing 10"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "10\n1 2 3 4 5 6 7 8 9 10\n",
+          "expected": "145",
+          "description": "increasing 10"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "6\n5 10 15 20 25 30\n",
+          "expected": "225",
+          "description": "arithmetic"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "5\n1 3 9 27 81\n",
+          "expected": "179",
+          "description": "powers of 3"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "5\n81 27 9 3 1\n",
+          "expected": "179",
+          "description": "rev powers 3"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "5\n1 1 2 1 1\n",
+          "expected": "12",
+          "description": "small with center spike"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "4\n10 10 10 10\n",
+          "expected": "80",
+          "description": "4 uniform"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "7\n6 6 6 6 6 6 6\n",
+          "expected": "102",
+          "description": "7 uniform"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "2\n100 100\n",
+          "expected": "300",
+          "description": "2 equal dominant"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "3\n50 50 50\n",
+          "expected": "250",
+          "description": "3 equal"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "6\n1 100 1 1 100 1\n",
+          "expected": "312",
+          "description": "two spikes"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "optimal_bst_minimum_cost_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Optimal Binary Search Tree Cost",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input());freq=list(map(int,input().split()))\npre=[0]*(n+1)\nfor i in range(n):pre[i+1]=pre[i]+freq[i]\ndef rs(i,j):return pre[j+1]-pre[i]\ndp=[[0]*n for _ in range(n)]\nfor i in range(n):dp[i][i]=freq[i]\nfor l in range(2,n+1):\n    for i in range(n-l+1):\n        j=i+l-1;dp[i][j]=10**18\n        for r in range(i,j+1):\n            lv=dp[i][r-1] if r>i else 0;rv=dp[r+1][j] if r<j else 0\n            dp[i][j]=min(dp[i][j],lv+rv+rs(i,j))\nprint(dp[0][n-1])"
+        }
+      ]
+    },
+    {
+      "id": "boolean_parenthesization",
+      "title": "Boolean Parenthesization Count",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "T|T|F\n",
+          "expected": "2",
+          "description": ""
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "T&F|T\n",
+          "expected": "2",
+          "description": ""
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "T|F&T\n",
+          "expected": "2",
+          "description": ""
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "T\n",
+          "expected": "1",
+          "description": "\u2192 1"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "F\n",
+          "expected": "0",
+          "description": "\u2192 0"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "T|T\n",
+          "expected": "1",
+          "description": "\u2192 1"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "F|F\n",
+          "expected": "0",
+          "description": "\u2192 0"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "T&T\n",
+          "expected": "1",
+          "description": "\u2192 1"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "F&F\n",
+          "expected": "0",
+          "description": "\u2192 0"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "T^T\n",
+          "expected": "0",
+          "description": "\u2192 0"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "T^F\n",
+          "expected": "1",
+          "description": "\u2192 1"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "F^T\n",
+          "expected": "1",
+          "description": "\u2192 1"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "F^F\n",
+          "expected": "0",
+          "description": "\u2192 0"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "T|T|T\n",
+          "expected": "2",
+          "description": "\u2192 4"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "F&F&F\n",
+          "expected": "0",
+          "description": "\u2192 1"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "T^T^T\n",
+          "expected": "2",
+          "description": ""
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "T&F|T&T\n",
+          "expected": "5",
+          "description": ""
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "F|T&F|T\n",
+          "expected": "5",
+          "description": ""
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "T|F^T&F\n",
+          "expected": "3",
+          "description": ""
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "T&T&T\n",
+          "expected": "2",
+          "description": "\u2192 1"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "T|T&F\n",
+          "expected": "1",
+          "description": ""
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "F^T|F&T\n",
+          "expected": "5",
+          "description": ""
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "T&T|F|T\n",
+          "expected": "5",
+          "description": ""
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "F|F|F|F\n",
+          "expected": "0",
+          "description": "\u2192 0"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "T|T|T|T\n",
+          "expected": "5",
+          "description": ""
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "T^F^T^F\n",
+          "expected": "0",
+          "description": ""
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "T&F^T|F\n",
+          "expected": "5",
+          "description": ""
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "T|T&T|T\n",
+          "expected": "5",
+          "description": ""
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "F^T&F|T\n",
+          "expected": "5",
+          "description": ""
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "T|F|T|F|T\n",
+          "expected": "14",
+          "description": ""
+        }
+      ],
+      "solutions": [
+        {
+          "id": "boolean_parenthesization_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Boolean Parenthesization Count",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "expr=input().strip()\nsym=expr[::2];ops=expr[1::2];n=len(sym)\nT=[[0]*n for _ in range(n)];F=[[0]*n for _ in range(n)]\nfor i in range(n):T[i][i]=sym[i]=='T';F[i][i]=sym[i]=='F'\nfor l in range(2,n+1):\n    for i in range(n-l+1):\n        j=i+l-1\n        for k in range(i,j):\n            op=ops[k];lt,lf=T[i][k],F[i][k];rt,rf=T[k+1][j],F[k+1][j]\n            if op=='&':T[i][j]+=lt*rt;F[i][j]+=lt*rf+lf*rt+lf*rf\n            elif op=='|':T[i][j]+=lt*rt+lt*rf+lf*rt;F[i][j]+=lf*rf\n            elif op=='^':T[i][j]+=lt*rf+lf*rt;F[i][j]+=lt*rt+lf*rf\nprint(T[0][n-1]%1000)"
+        }
+      ]
+    },
+    {
+      "id": "largest_divisible_subset_size",
+      "title": "Largest Divisible Subset",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "3\n1 2 3\n",
+          "expected": "2",
+          "description": "\u2192 2"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "4\n1 2 4 8\n",
+          "expected": "4",
+          "description": "\u2192 4 all powers of 2"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "1\n1\n",
+          "expected": "1",
+          "description": "single \u2192 1"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "2\n1 2\n",
+          "expected": "2",
+          "description": "two \u2192 2"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "1\n3\n",
+          "expected": "1",
+          "description": "single \u2192 1"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "5\n2 3 4 9 8\n",
+          "expected": "3",
+          "description": "\u2192 3: 2,4,8"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "6\n1 2 3 4 5 6\n",
+          "expected": "3",
+          "description": "\u2192 4: 1,2,4? wait"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "6\n1 3 6 13 17 12\n",
+          "expected": "4",
+          "description": "\u2192 3: 1,3,6 or 1,6,12"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "6\n1 2 4 8 16 32\n",
+          "expected": "6",
+          "description": "\u2192 6 chain"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "5\n1 3 9 27 81\n",
+          "expected": "5",
+          "description": "\u2192 5 powers of 3"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "4\n2 4 8 16\n",
+          "expected": "4",
+          "description": "\u2192 4"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "6\n1 2 3 6 12 24\n",
+          "expected": "5",
+          "description": "\u2192 5"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "10\n5 9 18 54 108 540 90 180 360 720\n",
+          "expected": "6",
+          "description": "\u2192 9"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "4\n6 12 24 48\n",
+          "expected": "4",
+          "description": "\u2192 4"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "1\n100\n",
+          "expected": "1",
+          "description": "single large \u2192 1"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "6\n1 2 4 5 10 20\n",
+          "expected": "4",
+          "description": "\u2192 4: 1,2,10,20"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "4\n3 5 7 11\n",
+          "expected": "1",
+          "description": "all prime \u2192 1"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "6\n1 2 3 4 6 12\n",
+          "expected": "4",
+          "description": "\u2192 5: 1,2,4,12 or 1,2,6,12"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "7\n2 3 4 6 12 24 48\n",
+          "expected": "5",
+          "description": "\u2192 5"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "7\n1 2 4 8 16 32 64\n",
+          "expected": "7",
+          "description": "\u2192 7"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "6\n5 10 20 40 80 160\n",
+          "expected": "6",
+          "description": "\u2192 6"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "6\n1 3 9 27 81 243\n",
+          "expected": "6",
+          "description": "\u2192 6"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "8\n1 2 3 6 18 36 72 144\n",
+          "expected": "7",
+          "description": "\u2192 6"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "6\n2 4 8 3 9 27\n",
+          "expected": "3",
+          "description": "\u2192 3 from powers"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "5\n1 2 3 6 12\n",
+          "expected": "4",
+          "description": "\u2192 4: 1,2,6,12"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "4\n1 4 16 64\n",
+          "expected": "4",
+          "description": "\u2192 4"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "4\n1 5 25 125\n",
+          "expected": "4",
+          "description": "\u2192 4"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "10\n1 2 4 8 16 32 64 128 256 512\n",
+          "expected": "10",
+          "description": "\u2192 10 powers of 2"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "4\n6 1 2 3\n",
+          "expected": "3",
+          "description": "\u2192 3: 1,2,6 or 1,3,6"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "5\n7 14 21 42 84\n",
+          "expected": "4",
+          "description": "\u2192 4"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "largest_divisible_subset_size_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Largest Divisible Subset",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input());nums=list(map(int,input().split()))\nif not nums:\n    print(0)\nelse:\n    nums.sort();dp=[1]*n\n    for i in range(1,n):\n        for j in range(i):\n            if nums[i]%nums[j]==0:dp[i]=max(dp[i],dp[j]+1)\n    print(max(dp))"
+        }
+      ]
+    },
+    {
+      "id": "count_smaller_numbers_after_self",
+      "title": "Count Smaller Numbers After Self",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "4\n5 2 6 1\n",
+          "expected": "2 1 1 0",
+          "description": "classic \u2192 2 1 1 0"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "3\n2 0 1\n",
+          "expected": "2 0 0",
+          "description": "\u2192 2 0 0"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "1\n1\n",
+          "expected": "0",
+          "description": "single \u2192 0"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "2\n1 2\n",
+          "expected": "0 0",
+          "description": "asc \u2192 0 0"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "2\n2 1\n",
+          "expected": "1 0",
+          "description": "desc \u2192 1 0"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "3\n3 2 1\n",
+          "expected": "2 1 0",
+          "description": "desc \u2192 2 1 0"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "3\n1 2 3\n",
+          "expected": "0 0 0",
+          "description": "asc \u2192 0 0 0"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "4\n5 5 5 5\n",
+          "expected": "0 0 0 0",
+          "description": "all same \u2192 0 0 0 0"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "5\n1 9 7 8 5\n",
+          "expected": "0 3 1 1 0",
+          "description": ""
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "3\n2 2 1\n",
+          "expected": "1 1 0",
+          "description": "\u2192 1 1 0"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "3\n3 1 2\n",
+          "expected": "2 0 0",
+          "description": ""
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "2\n0 -1\n",
+          "expected": "1 0",
+          "description": "\u2192 1 0"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "2\n-1 0\n",
+          "expected": "0 0",
+          "description": "\u2192 0 0"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "6\n5 2 6 1 3 4\n",
+          "expected": "4 1 3 0 0 0",
+          "description": "extended classic"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "3\n1 0 -1\n",
+          "expected": "2 1 0",
+          "description": "\u2192 2 1 0"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "5\n5 4 3 2 1\n",
+          "expected": "4 3 2 1 0",
+          "description": "rev 5 \u2192 4 3 2 1 0"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "5\n1 2 3 4 5\n",
+          "expected": "0 0 0 0 0",
+          "description": "asc 5 \u2192 0 0 0 0 0"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "6\n6 3 4 2 5 1\n",
+          "expected": "5 2 2 1 1 0",
+          "description": "\u2192 5 1 2 0 1 0"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "4\n7 5 6 4\n",
+          "expected": "3 1 1 0",
+          "description": "\u2192 3 1 1 0"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "5\n2 4 1 3 5\n",
+          "expected": "1 2 0 0 0",
+          "description": "\u2192 1 2 0 0 0"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "6\n5 2 6 1 4 3\n",
+          "expected": "4 1 3 0 1 0",
+          "description": "\u2192 3 1 2 0 1 0"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "6\n10 8 2 9 5 3\n",
+          "expected": "5 3 0 2 1 0",
+          "description": ""
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "5\n3 3 3 1 2\n",
+          "expected": "2 2 2 0 0",
+          "description": ""
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "5\n1 3 5 2 4\n",
+          "expected": "0 1 2 0 0",
+          "description": ""
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "4\n4 1 3 2\n",
+          "expected": "3 0 1 0",
+          "description": "\u2192 3 0 1 0"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "5\n1 2 3 2 1\n",
+          "expected": "0 1 2 1 0",
+          "description": ""
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "5\n5 4 3 4 5\n",
+          "expected": "3 1 0 0 0",
+          "description": ""
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "6\n1 7 2 8 3 9\n",
+          "expected": "0 2 0 1 0 0",
+          "description": ""
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "6\n9 3 1 7 2 8\n",
+          "expected": "5 2 0 1 0 0",
+          "description": ""
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "5\n4 2 4 2 4\n",
+          "expected": "2 0 1 0 0",
+          "description": ""
+        }
+      ],
+      "solutions": [
+        {
+          "id": "count_smaller_numbers_after_self_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Count Smaller Numbers After Self",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input());nums=list(map(int,input().split()))\nres=[0]*n\ndef mc(idx):\n    if len(idx)<=1:return idx\n    m=len(idx)//2;l=mc(idx[:m]);r=mc(idx[m:])\n    merged=[];i=j=0;rs=0\n    while i<len(l) and j<len(r):\n        if nums[l[i]]>nums[r[j]]:rs+=1;merged.append(r[j]);j+=1\n        else:res[l[i]]+=rs;merged.append(l[i]);i+=1\n    while i<len(l):res[l[i]]+=rs;merged.append(l[i]);i+=1\n    merged+=r[j:];return merged\nmc(list(range(n)));print(*res)"
+        }
+      ]
+    },
+    {
+      "id": "minimum_cost_to_cut_stick",
+      "title": "Minimum Cost to Cut a Stick",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "7\n4\n1 3 4 5\n",
+          "expected": "16",
+          "description": "classic \u2192 16"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "10\n3\n2 4 7\n",
+          "expected": "20",
+          "description": ""
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "10\n1\n5\n",
+          "expected": "10",
+          "description": "single cut \u2192 10"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "10\n9\n1 2 3 4 5 6 7 8 9\n",
+          "expected": "34",
+          "description": "all cuts \u2192 many"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "5\n4\n1 2 3 4\n",
+          "expected": "12",
+          "description": ""
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "9\n3\n3 5 6\n",
+          "expected": "18",
+          "description": ""
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "7\n3\n2 4 6\n",
+          "expected": "14",
+          "description": ""
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "10\n2\n1 5\n",
+          "expected": "15",
+          "description": "two cuts"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "20\n3\n5 10 15\n",
+          "expected": "40",
+          "description": "even intervals"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "6\n2\n2 4\n",
+          "expected": "10",
+          "description": ""
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "100\n5\n10 30 50 70 90\n",
+          "expected": "260",
+          "description": ""
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "15\n4\n3 6 9 12\n",
+          "expected": "36",
+          "description": ""
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "12\n3\n3 6 9\n",
+          "expected": "24",
+          "description": ""
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "8\n3\n2 4 6\n",
+          "expected": "16",
+          "description": ""
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "10\n2\n3 7\n",
+          "expected": "17",
+          "description": ""
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "10\n2\n1 9\n",
+          "expected": "19",
+          "description": "extremes"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "10\n2\n4 6\n",
+          "expected": "16",
+          "description": "mid cuts"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "10\n4\n1 2 8 9\n",
+          "expected": "22",
+          "description": "near ends"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "10\n3\n2 5 8\n",
+          "expected": "20",
+          "description": ""
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "10\n5\n3 4 5 6 7\n",
+          "expected": "24",
+          "description": "dense middle"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "100\n3\n25 50 75\n",
+          "expected": "200",
+          "description": "even thirds \u2192 "
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "6\n5\n1 2 3 4 5\n",
+          "expected": "16",
+          "description": "all cuts 6"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "8\n4\n1 3 5 7\n",
+          "expected": "19",
+          "description": "evens"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "10\n4\n2 4 6 8\n",
+          "expected": "24",
+          "description": "even cuts 10"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "10\n5\n1 3 5 7 9\n",
+          "expected": "26",
+          "description": "odd cuts"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "15\n2\n5 10\n",
+          "expected": "25",
+          "description": "thirds 15"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "20\n4\n4 8 12 16\n",
+          "expected": "48",
+          "description": "evens 20"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "10\n3\n1 4 7\n",
+          "expected": "20",
+          "description": "three cuts"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "10\n4\n2 3 5 8\n",
+          "expected": "23",
+          "description": "four cuts 10"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "10\n1\n1\n",
+          "expected": "10",
+          "description": "single cut at 1"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "minimum_cost_to_cut_stick_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Minimum Cost to Cut a Stick",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "n=int(input());m=int(input())\ncuts=sorted(map(int,input().split()))\nc=[0]+list(cuts)+[n];sz=len(c)\ndp=[[0]*sz for _ in range(sz)]\nfor l in range(2,sz):\n    for i in range(sz-l):\n        j=i+l;dp[i][j]=10**9\n        for k in range(i+1,j):dp[i][j]=min(dp[i][j],c[j]-c[i]+dp[i][k]+dp[k][j])\nprint(dp[0][sz-1])"
+        }
+      ]
+    },
+    {
+      "id": "wildcard_matching",
+      "title": "Wildcard Pattern Matching",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "aa\na\n",
+          "expected": "False",
+          "description": "\u2192 False"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "aa\n*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "cb\n?a\n",
+          "expected": "False",
+          "description": "\u2192 False"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "adceb\n*a*b\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "acdcb\na*c?b\n",
+          "expected": "False",
+          "description": "\u2192 False"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "\n\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "\n*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "\n?\n",
+          "expected": "False",
+          "description": "\u2192 False"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "a\n?\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "ab\n?*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "a\na*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "abc\nabc\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "abc\nab?\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "abc\nab*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "abc\n*c\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "abc\na*c\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "abc\na?c\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "abcd\n*d\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "abcd\na**d\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "\n**\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "ho\nho*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "abc\n*b*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "xyz\n*xyz*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "xyz\n*xyz\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "xyz\nxyz*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "abcdef\na*f\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "abcdef\nb*f\n",
+          "expected": "False",
+          "description": "\u2192 False"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "abcdef\n*b*e*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "abcdef\n*x*\n",
+          "expected": "False",
+          "description": "\u2192 False"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "baaabab\n*****ba*****ab\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "wildcard_matching_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Wildcard Pattern Matching",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "s=input();p=input()\nm,n=len(s),len(p);dp=[[False]*(n+1) for _ in range(m+1)];dp[0][0]=True\nfor j in range(1,n+1):\n    if p[j-1]=='*':dp[0][j]=dp[0][j-1]\nfor i in range(1,m+1):\n    for j in range(1,n+1):\n        if p[j-1]=='*':dp[i][j]=dp[i-1][j] or dp[i][j-1]\n        elif p[j-1]=='?' or p[j-1]==s[i-1]:dp[i][j]=dp[i-1][j-1]\nprint(dp[m][n])"
+        }
+      ]
+    },
+    {
+      "id": "regular_expression_matching",
+      "title": "Regular Expression Matching",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "aa\na\n",
+          "expected": "False",
+          "description": "\u2192 False"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "aa\na*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "ab\n.*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "aab\nc*a*b\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "mississippi\nmis*is*p*.\n",
+          "expected": "False",
+          "description": "\u2192 False"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "\n\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "\na*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "\na\n",
+          "expected": "False",
+          "description": "\u2192 False"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "a\na\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "a\n.\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "a\n.*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "ab\n.*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "ab\na.\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "ab\na*b\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "ab\nab*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "abc\na.c\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "abc\na.*c\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "abc\na*bc\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "abc\n.*c\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "aaa\na*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "aaa\na*a\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "aaa\na*aa\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "aaa\na*b\n",
+          "expected": "False",
+          "description": "\u2192 False"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "a\nab*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "a\n.*..a*\n",
+          "expected": "False",
+          "description": "\u2192 False"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "ab\na*ab\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "ab\na*b*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "ab\na*b*c*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "abc\na*b*c*d*\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "aab\na*b\n",
+          "expected": "True",
+          "description": "\u2192 True"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "regular_expression_matching_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Regular Expression Matching",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "s=input();p=input()\nm,n=len(s),len(p);dp=[[False]*(n+1) for _ in range(m+1)];dp[0][0]=True\nfor j in range(1,n+1):\n    if p[j-1]=='*':dp[0][j]=dp[0][j-2]\nfor i in range(1,m+1):\n    for j in range(1,n+1):\n        if p[j-1]=='*':dp[i][j]=dp[i][j-2] or (dp[i-1][j] and (p[j-2]=='.' or p[j-2]==s[i-1]))\n        elif p[j-1]=='.' or p[j-1]==s[i-1]:dp[i][j]=dp[i-1][j-1]\nprint(dp[m][n])"
+        }
+      ]
+    },
+    {
+      "id": "edit_distance_v2",
+      "title": "Edit Distance (Variant \u2014 long strings)",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "\n\n",
+          "expected": "0",
+          "description": "both empty"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "a\na\n",
+          "expected": "0",
+          "description": "identical single"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "a\nb\n",
+          "expected": "1",
+          "description": "single sub"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "\nabc\n",
+          "expected": "3",
+          "description": "empty to abc"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "abc\n\n",
+          "expected": "3",
+          "description": "abc to empty"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "horse\nros\n",
+          "expected": "3",
+          "description": "classic"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "intention\nexecution\n",
+          "expected": "5",
+          "description": "classic2"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "abc\nabc\n",
+          "expected": "0",
+          "description": "identical"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "abcdef\nace\n",
+          "expected": "3",
+          "description": "all same"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "ab\nba\n",
+          "expected": "2",
+          "description": "swap"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "kitten\nsitting\n",
+          "expected": "3",
+          "description": "classic3"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "sunday\nsaturday\n",
+          "expected": "3",
+          "description": "weekend"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "\na\n",
+          "expected": "1",
+          "description": "empty to one"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "a\n\n",
+          "expected": "1",
+          "description": "one to empty"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "abcd\ndcba\n",
+          "expected": "4",
+          "description": "reverse"
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "aaaa\nbbbb\n",
+          "expected": "4",
+          "description": "all replace"
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "aabbcc\naabbcc\n",
+          "expected": "0",
+          "description": "identical long"
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "abcde\nedcba\n",
+          "expected": "4",
+          "description": "reverse 5"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "distance\neducation\n",
+          "expected": "8",
+          "description": "complex"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "algorithm\naltruistic\n",
+          "expected": "6",
+          "description": "both medium"
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "pneumonoultramicroscopicsilicovolcanoconiosis\np\n",
+          "expected": "44",
+          "description": "very long"
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "aaa\na\n",
+          "expected": "2",
+          "description": "reduce"
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "a\naaa\n",
+          "expected": "2",
+          "description": "expand"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "xyzxyzxyz\nzyzyzyzyz\n",
+          "expected": "4",
+          "description": "pattern"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "abcdefghij\njihgfedcba\n",
+          "expected": "10",
+          "description": "reverse 10"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "aaabbb\nbbbaaa\n",
+          "expected": "6",
+          "description": "flip halves"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "abab\nbaba\n",
+          "expected": "2",
+          "description": "interleave"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "abcabc\ncbacba\n",
+          "expected": "4",
+          "description": "double reverse"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "hello\nworld\n",
+          "expected": "4",
+          "description": "different words"
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "zoologicoarchaeologist\nzoogeographer\n",
+          "expected": "15",
+          "description": "biology"
+        }
+      ],
+      "solutions": [
+        {
+          "id": "edit_distance_v2_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Edit Distance (Variant \u2014 long strings)",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "s=input();t=input()\ndp=list(range(len(t)+1))\nfor i in range(1,len(s)+1):\n    prev=dp[0];dp[0]=i\n    for j in range(1,len(t)+1):\n        tmp=dp[j];dp[j]=(prev if s[i-1]==t[j-1] else 1+min(prev,dp[j],dp[j-1]));prev=tmp\nprint(dp[len(t)])"
+        }
+      ]
+    },
+    {
+      "id": "palindrome_min_cuts_v2",
+      "title": "Palindrome Min Cuts (Long Strings)",
+      "difficulty": "hard",
+      "language": "python",
+      "per_tc_limit_s": 5,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {
+          "id": "tc1",
+          "stdin_text": "a\n",
+          "expected": "0",
+          "description": "single char \u2192 0"
+        },
+        {
+          "id": "tc2",
+          "stdin_text": "aa\n",
+          "expected": "0",
+          "description": "palindrome \u2192 0"
+        },
+        {
+          "id": "tc3",
+          "stdin_text": "ab\n",
+          "expected": "1",
+          "description": "one cut"
+        },
+        {
+          "id": "tc4",
+          "stdin_text": "aab\n",
+          "expected": "1",
+          "description": "one cut"
+        },
+        {
+          "id": "tc5",
+          "stdin_text": "abba\n",
+          "expected": "0",
+          "description": "palindrome \u2192 0"
+        },
+        {
+          "id": "tc6",
+          "stdin_text": "abcba\n",
+          "expected": "0",
+          "description": "palindrome \u2192 0"
+        },
+        {
+          "id": "tc7",
+          "stdin_text": "aabb\n",
+          "expected": "1",
+          "description": "one cut"
+        },
+        {
+          "id": "tc8",
+          "stdin_text": "abcd\n",
+          "expected": "3",
+          "description": "three cuts"
+        },
+        {
+          "id": "tc9",
+          "stdin_text": "aaaa\n",
+          "expected": "0",
+          "description": "palindrome \u2192 0"
+        },
+        {
+          "id": "tc10",
+          "stdin_text": "abcba\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc11",
+          "stdin_text": "abacaba\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc12",
+          "stdin_text": "aabaa\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc13",
+          "stdin_text": "abcbabcba\n",
+          "expected": "0",
+          "description": "complex"
+        },
+        {
+          "id": "tc14",
+          "stdin_text": "ababababab\n",
+          "expected": "1",
+          "description": "alternating"
+        },
+        {
+          "id": "tc15",
+          "stdin_text": "aabbaabb\n",
+          "expected": "1",
+          "description": ""
+        },
+        {
+          "id": "tc16",
+          "stdin_text": "abcabcabc\n",
+          "expected": "8",
+          "description": ""
+        },
+        {
+          "id": "tc17",
+          "stdin_text": "zzazz\n",
+          "expected": "0",
+          "description": ""
+        },
+        {
+          "id": "tc18",
+          "stdin_text": "xyzyx\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc19",
+          "stdin_text": "abcbc\n",
+          "expected": "2",
+          "description": "one cut ab|cbcb"
+        },
+        {
+          "id": "tc20",
+          "stdin_text": "banana\n",
+          "expected": "1",
+          "description": ""
+        },
+        {
+          "id": "tc21",
+          "stdin_text": "aaabbb\n",
+          "expected": "1",
+          "description": ""
+        },
+        {
+          "id": "tc22",
+          "stdin_text": "xaaxaa\n",
+          "expected": "1",
+          "description": ""
+        },
+        {
+          "id": "tc23",
+          "stdin_text": "abacabadabacaba\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc24",
+          "stdin_text": "amanaplanacanalpanama\n",
+          "expected": "0",
+          "description": "classic"
+        },
+        {
+          "id": "tc25",
+          "stdin_text": "racecar\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc26",
+          "stdin_text": "abcdefedcba\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc27",
+          "stdin_text": "noonmadam\n",
+          "expected": "1",
+          "description": "two words palindromes"
+        },
+        {
+          "id": "tc28",
+          "stdin_text": "abcba\n",
+          "expected": "0",
+          "description": "palindrome"
+        },
+        {
+          "id": "tc29",
+          "stdin_text": "xyzxyzxyz\n",
+          "expected": "8",
+          "description": ""
+        },
+        {
+          "id": "tc30",
+          "stdin_text": "aabbaa\n",
+          "expected": "0",
+          "description": ""
+        }
+      ],
+      "solutions": [
+        {
+          "id": "palindrome_min_cuts_v2_accepted",
+          "type": "accepted",
+          "description": "Correct solution for Palindrome Min Cuts (Long Strings)",
+          "expected_harness_statuses": [
+            "PASS"
+          ],
+          "source_code": "s=input();n=len(s)\nif n==0:\n    print(0)\nelse:\n    ip=[[False]*n for _ in range(n)]\n    for i in range(n):ip[i][i]=True\n    for i in range(n-1):ip[i][i+1]=(s[i]==s[i+1])\n    for l in range(3,n+1):\n        for i in range(n-l+1):\n            j=i+l-1;ip[i][j]=ip[i+1][j-1] and s[i]==s[j]\n    cuts=list(range(-1,n))\n    for i in range(n):\n        if ip[0][i]:cuts[i+1]=0\n        else:\n            for j in range(i):\n                if ip[j+1][i]:cuts[i+1]=min(cuts[i+1],cuts[j+1]+1)\n    print(cuts[n])"
+        }
+      ]
+    }
+  ],
+  "_fast_approach_note": "Working copy generated from uploaded question bank. No additional solutions have been merged yet."
+}
