@@ -11,6 +11,37 @@ go.sum
 
 # Documentation and chat logs
 full_conversation.txt
+*.md
+*.docx
+*.pptx
+
+# Large report/test-result files
+Reports/
+Reports_backup_*/
+*.json
+*.jsonl
+*.xlsx
+*.log
+
+# Docker / compose files (not needed inside image)
+Dockerfile
+docker-compose*.yml
+*.conf
+*.sh
+deploy-ec2.sh
+cleanup.sh
+requirements-report.txt
+
+# Test harnesses and load-test scripts (only runtime code needed)
+test_harness.py
+run_load_tests.sh
+collect_ec2_metrics.py
+generate_*.py
+run_dp_test.py
+generate_ec2_report.py
+generate_cumulative_report.py
+generate_test_report.py
+session.log
 
 # Python cache
 __pycache__/
