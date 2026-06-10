@@ -934,8 +934,7 @@ class HarnessBuilder:
         _threads[{i}] = launchStdioTC("{stdin}", _resultRefs[{i}]);""")
             else:
                 inputs_arr = ", ".join(
-                    f'(Object)({v})' if isinstance(v, (int, float)) else f'"{v}"'
-                    for v in (tc.inputs or [])
+                    self._java_literal(v) for v in (tc.inputs or [])
                 )
                 lines.append(f"""
         {{

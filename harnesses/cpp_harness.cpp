@@ -166,7 +166,13 @@ static void run_tc_child(int pipe_fd, {tc_params_comma}int per_tc_limit_s, int m
                 got_str.back() == ' '  || got_str.back() == '\t'))
             got_str.pop_back();
 
-        strncpy(result.got, got_str.c_str(), sizeof(result.got) - 1);
+        /* Fix: only overwrite result.got when oss has content (function mode).
+         * In stdio mode, result.got is already set by the fd-level capture inside
+         * _build_cpp_stdio_call; an empty oss here means the student used printf
+         * rather than cout — preserving result.got ensures printf output is not lost. */
+        if (!got_str.empty()) {{
+            strncpy(result.got, got_str.c_str(), sizeof(result.got) - 1);
+        }}
 
         /* Fix 4.1: status=OUTPUT; OutputParser does comparison externally */
         strncpy(result.status, "OUTPUT", sizeof(result.status) - 1);
