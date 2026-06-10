@@ -29,7 +29,9 @@ services:
       - SECRET_KEY_BASE=${RAILS_SECRET_KEY_BASE}
 
   workers:
-    mem_limit: 1.1g
+    mem_limit: 1.5g
     mem_reservation: 400m
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xmx96m -Xms32m
     volumes:
       - ./judge0.ec2.mr3.conf:/judge0.conf:ro

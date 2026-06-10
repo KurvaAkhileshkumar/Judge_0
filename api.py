@@ -100,10 +100,11 @@ def _get_redis() -> redis.Redis:
     global _redis_client
     if _redis_client is None:
         _redis_client = redis.Redis(
-            host     = os.getenv("REDIS_HOST", "localhost"),
-            port     = int(os.getenv("REDIS_PORT", 6379)),
-            password = _read_secret("REDIS_PASSWORD") or None,
-            decode_responses = False,
+            host            = os.getenv("REDIS_HOST", "localhost"),
+            port            = int(os.getenv("REDIS_PORT", 6379)),
+            password        = _read_secret("REDIS_PASSWORD") or None,
+            decode_responses= False,
+            max_connections = 256,
         )
     return _redis_client
 

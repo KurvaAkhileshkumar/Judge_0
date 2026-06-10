@@ -458,7 +458,8 @@ def sanitize_for_injection(student_code: str, language: str) -> str:
         return "\n".join(line.rstrip() for line in student_code.split("\n"))
 
     elif language in ("c", "cpp", "java"):
-        # Prevent */ from closing harness block comments prematurely
-        return student_code.replace("*/", "* /")
+        # Student code is injected at file scope, not inside any block comment,
+        # so */ replacement is not needed and would break student comments.
+        return student_code
 
     return student_code
