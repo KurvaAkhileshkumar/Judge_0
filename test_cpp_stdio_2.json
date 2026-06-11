@@ -1,0 +1,11 @@
+{
+  "student_id": "u1",
+  "assessment_id": "cpp-stdio-2",
+  "language": "cpp",
+  "student_code": "#include <iostream>\nusing namespace std;\nint main() {\n    int n; cin >> n;\n    int sum = 0, x;\n    for (int i = 0; i < n; i++) { cin >> x; sum += x; }\n    cout << sum << endl;\n    return 0;\n}",
+  "mode": "stdio",
+  "test_cases": [
+    {"stdin_text": "3\n1 2 3\n", "expected": "6"},
+    {"stdin_text": "4\n10 20 30 40\n", "expected": "100"}
+  ]
+}

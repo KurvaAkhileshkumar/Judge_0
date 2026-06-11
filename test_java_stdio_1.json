@@ -1,0 +1,11 @@
+{
+  "student_id": "u1",
+  "assessment_id": "java-stdio-1",
+  "language": "java",
+  "student_code": "import java.util.Scanner;\npublic class Student {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        int a = sc.nextInt(), b = sc.nextInt();\n        System.out.println(a + b);\n    }\n}",
+  "mode": "stdio",
+  "test_cases": [
+    {"stdin_text": "2 3\n", "expected": "5"},
+    {"stdin_text": "10 20\n", "expected": "30"}
+  ]
+}

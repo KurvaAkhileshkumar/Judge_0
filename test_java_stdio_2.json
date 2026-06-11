@@ -1,0 +1,11 @@
+{
+  "student_id": "u1",
+  "assessment_id": "java-stdio-2",
+  "language": "java",
+  "student_code": "import java.util.Scanner;\npublic class Student {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        int n = sc.nextInt();\n        int sum = 0;\n        for (int i = 0; i < n; i++) sum += sc.nextInt();\n        System.out.println(sum);\n    }\n}",
+  "mode": "stdio",
+  "test_cases": [
+    {"stdin_text": "3\n1 2 3\n", "expected": "6"},
+    {"stdin_text": "4\n10 20 30 40\n", "expected": "100"}
+  ]
+}

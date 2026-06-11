@@ -1,0 +1,11 @@
+{
+  "student_id": "u1",
+  "assessment_id": "py-stdio-2",
+  "language": "python",
+  "student_code": "n = int(input())\narr = list(map(int, input().split()))\nprint(sum(arr))",
+  "mode": "stdio",
+  "test_cases": [
+    {"stdin_text": "3\n1 2 3\n", "expected": "6"},
+    {"stdin_text": "4\n10 20 30 40\n", "expected": "100"}
+  ]
+}

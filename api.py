@@ -151,6 +151,14 @@ class _SubmitRequest(BaseModel):
     memory_limit_mb: int  = 256
     param_types:     list[str] | None = None
     return_type:     str  = "auto"
+    callback_url:    str | None       = None
+
+    @field_validator("callback_url")
+    @classmethod
+    def _check_callback_url(cls, v: str | None) -> str | None:
+        if v is not None and not (v.startswith("http://") or v.startswith("https://")):
+            raise ValueError("callback_url must start with http:// or https://")
+        return v
 
     @field_validator("test_cases")
     @classmethod
@@ -293,6 +301,7 @@ def submit():
         "memory_limit_mb": req.memory_limit_mb,
         "param_types":     req.param_types,
         "return_type":     req.return_type,
+        "callback_url":    req.callback_url,
     }
 
     job = QueuedJob(

@@ -34,9 +34,11 @@ import os
 import signal
 import socket
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import redis
+import requests as http_requests
 
 from core.job_queue       import PriorityJobQueue, QueuedJob
 from core.judge0_client   import Judge0Config, CallbackServer
@@ -104,6 +106,28 @@ def _read_secret(env_name: str) -> str | None:
     return None
 
 
+# ── Webhook delivery ─────────────────────────────────────────────────────────
+
+def _fire_webhook(callback_url: str, ticket_id: str, result: dict) -> None:
+    """POST result to callback_url with 3 attempts and exponential backoff."""
+    payload = {"ticket_id": ticket_id, "result": result}
+    for attempt in range(3):
+        try:
+            resp = http_requests.post(callback_url, json=payload, timeout=10)
+            if resp.status_code < 500:
+                log.info("webhook_delivered", ticket_id=ticket_id[:8],
+                         status=resp.status_code, attempt=attempt + 1)
+                return
+            log.warning("webhook_server_error", ticket_id=ticket_id[:8],
+                        status=resp.status_code, attempt=attempt + 1)
+        except Exception as exc:
+            log.warning("webhook_failed", ticket_id=ticket_id[:8],
+                        error=str(exc), attempt=attempt + 1)
+        if attempt < 2:
+            time.sleep(2 ** attempt)  # 1s, 2s
+    log.error("webhook_gave_up", ticket_id=ticket_id[:8], url=callback_url)
+
+
 # ── Per-job task ──────────────────────────────────────────────────────────────
 
 async def process_job(
@@ -122,7 +146,8 @@ async def process_job(
     every semaphore slot for the full back-off duration and no new jobs
     can start until all sleepers wake up.
     """
-    ticket_id  = job.ticket_id
+    ticket_id    = job.ticket_id
+    callback_url = job.payload.get("callback_url")
     _requeue_backoff_s: float | None = None   # set inside sem, consumed outside
 
     async with sem:
@@ -139,17 +164,17 @@ async def process_job(
                         ticket_id=ticket_id[:8],
                         max_retries=MAX_RETRY_COUNT,
                     )
+                    error_result = {
+                        "system_error": (
+                            "Grading server temporarily overloaded. "
+                            "Your submission was not evaluated. Please resubmit."
+                        )
+                    }
                     await asyncio.to_thread(
-                        queue.store_result,
-                        ticket_id,
-                        {
-                            "system_error": (
-                                "Grading server temporarily overloaded. "
-                                "Your submission was not evaluated. Please resubmit."
-                            )
-                        },
-                        job.idem_key,
+                        queue.store_result, ticket_id, error_result, job.idem_key,
                     )
+                    if callback_url:
+                        await asyncio.to_thread(_fire_webhook, callback_url, ticket_id, error_result)
                     # Retries exhausted — delete Judge0 submission now
                     if result.judge0_raw and result.judge0_raw.token:
                         await asyncio.to_thread(
@@ -175,9 +200,12 @@ async def process_job(
                     # NOTE: requeue + ack happen OUTSIDE the semaphore (see below)
 
             else:
+                final_result = result_to_dict(result)
                 await asyncio.to_thread(
-                    queue.store_result, ticket_id, result_to_dict(result), job.idem_key
+                    queue.store_result, ticket_id, final_result, job.idem_key
                 )
+                if callback_url:
+                    await asyncio.to_thread(_fire_webhook, callback_url, ticket_id, final_result)
                 await asyncio.to_thread(queue.ack, job)
                 log.info(
                     "job_done",
@@ -189,12 +217,12 @@ async def process_job(
         except Exception as exc:
             log.error("job_unexpected_error", ticket_id=ticket_id[:8], error=str(exc), exc_info=True)
             try:
+                error_result = {"system_error": f"Internal grading error. Please resubmit. ({exc})"}
                 await asyncio.to_thread(
-                    queue.store_result,
-                    ticket_id,
-                    {"system_error": f"Internal grading error. Please resubmit. ({exc})"},
-                    job.idem_key,
+                    queue.store_result, ticket_id, error_result, job.idem_key,
                 )
+                if callback_url:
+                    await asyncio.to_thread(_fire_webhook, callback_url, ticket_id, error_result)
                 await asyncio.to_thread(queue.ack, job)
             except Exception as store_exc:
                 log.error(

@@ -1,0 +1,11 @@
+{
+  "student_id": "u1",
+  "assessment_id": "c-stdio-2",
+  "language": "c",
+  "student_code": "#include <stdio.h>\nint main() {\n    int n;\n    scanf(\"%d\", &n);\n    int sum = 0, x;\n    for (int i = 0; i < n; i++) { scanf(\"%d\", &x); sum += x; }\n    printf(\"%d\\n\", sum);\n    return 0;\n}",
+  "mode": "stdio",
+  "test_cases": [
+    {"stdin_text": "3\n1 2 3\n", "expected": "6"},
+    {"stdin_text": "4\n10 20 30 40\n", "expected": "100"}
+  ]
+}
