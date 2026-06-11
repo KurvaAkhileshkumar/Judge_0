@@ -38,9 +38,9 @@ app = Flask(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-JUDGE0_EC2_URL   = os.getenv("JUDGE0_EC2_URL",   "http://ec2-52-66-244-88.ap-south-1.compute.amazonaws.com:5001")
+JUDGE0_EC2_URL   = os.getenv("JUDGE0_EC2_URL",   "http://localhost:5001")
 EDWISELY_AUTH_URL = os.getenv("EDWISELY_AUTH_URL", "https://studenthackathon.edwisely.com/api/verify-token")
-WEBHOOK_BASE_URL  = os.getenv("WEBHOOK_BASE_URL",  "https://studenthackathon.edwisely.com")
+WEBHOOK_BASE_URL  = os.getenv("WEBHOOK_BASE_URL",  "http://52.66.244.88:5000")
 WEBHOOK_SECRET    = os.getenv("WEBHOOK_SECRET",    "change-me-in-production")
 
 # In-memory result store — replace with your DB (Postgres, MongoDB, etc.)
