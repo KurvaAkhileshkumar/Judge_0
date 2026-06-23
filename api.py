@@ -9,9 +9,11 @@ Endpoints:
   GET   /health                      — liveness + queue depths
 
 Fix 2.3 — Idempotency:
-  SHA-256 of (student_id + ":" + assessment_id + ":" + sha256(source_code))
-  stored in Redis as "judge0:idem:{key}" → ticket_id  (TTL = 24 h)
-  Duplicate POST within 24 h returns the same ticket_id (200 instead of 202).
+  The caller (backend) computes and sends an `idem_key` (hex string).
+  Judge0 stores "judge0:idem:{idem_key}" → ticket_id in Redis (TTL = 2 h).
+  Duplicate POST within that window returns the same ticket_id (200 instead of 202).
+  If no idem_key is provided, a random UUID is used — the key is still stored
+  in Redis but deduplication won't trigger (UUID never collides).
 
 Fix 3.2 — SSE delivery:
   /results/stream/<ticket_id> subscribes to "judge0:notify:{ticket_id}" via
@@ -34,7 +36,6 @@ Environment variables:
     LOG_LEVEL           (default: INFO)
 """
 
-import hashlib
 import hmac
 import json
 import os
@@ -116,13 +117,6 @@ def _get_queue() -> PriorityJobQueue:
     return _queue
 
 
-# ── Idempotency helpers ───────────────────────────────────────────────────────
-
-def _idem_key(student_id: str, assessment_id: str, source_code: str) -> str:
-    """Deterministic key for deduplication."""
-    code_hash = hashlib.sha256(source_code.encode()).hexdigest()
-    raw = f"{student_id}:{assessment_id}:{code_hash}"
-    return IDEM_PREFIX + hashlib.sha256(raw.encode()).hexdigest()
 
 
 # ── Pydantic request models ───────────────────────────────────────────────────
@@ -152,6 +146,9 @@ class _SubmitRequest(BaseModel):
     param_types:     list[str] | None = None
     return_type:     str  = "auto"
     callback_url:    str | None       = None
+    # Caller-supplied idempotency key (hex string).  The backend computes this
+    # hash; judge0 uses it directly for Redis deduplication.
+    idem_key:        str | None       = None
 
     @field_validator("callback_url")
     @classmethod
@@ -271,9 +268,8 @@ def submit():
     language      = req.language
     student_code  = req.student_code
 
-    # Fix 2.3 — Idempotency check
-    idem_key = _idem_key(student_id, assessment_id, student_code)
     r = _get_redis()
+    idem_key = IDEM_PREFIX + (req.idem_key if req.idem_key else str(uuid.uuid4()))
     existing = r.get(idem_key)
     if existing:
         ticket_id = existing.decode() if isinstance(existing, bytes) else existing
@@ -313,7 +309,6 @@ def submit():
     )
     queue.enqueue(job)
 
-    # Store idempotency key after successful enqueue
     r.setex(idem_key, IDEM_TTL_S, ticket_id)
 
     log.info("submit_queued", ticket_id=ticket_id[:8], student_id=student_id,
