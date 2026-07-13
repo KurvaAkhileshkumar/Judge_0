@@ -279,7 +279,8 @@ def _check_python_ast(code: str) -> List[SecurityViolation]:
     try:
         tree = ast.parse(code)
     except SyntaxError as e:
-        return [SecurityViolation("SyntaxError", str(e), e.lineno)]
+        detail = (f"line {e.lineno}: {e.msg}" if e.lineno else e.msg) or str(e)
+        return [SecurityViolation("SyntaxError", detail, e.lineno)]
 
     checker = _PythonASTChecker()
     checker.visit(tree)

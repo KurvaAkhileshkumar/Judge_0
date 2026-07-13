@@ -67,9 +67,10 @@ class HarnessConfig:
 class HarnessBuilder:
 
     def __init__(self, config: HarnessConfig):
-        self.cfg        = config
-        self.session_id = uuid.uuid4().hex[:12]
-        self.delim      = f"@@TC_RESULT__{self.session_id}__"
+        self.cfg                   = config
+        self.session_id            = uuid.uuid4().hex[:12]
+        self.delim                 = f"@@TC_RESULT__{self.session_id}__"
+        self.student_code_start_line = 0  # set by _build_java(); used by output_parser
 
     def build(self) -> str:
         lang = self.cfg.language.lower()
@@ -251,7 +252,7 @@ class HarnessBuilder:
             tc_params_comma        = (params + ", ") if params else ""
             call_solve_and_capture = self._build_c_call(return_type)
 
-        return template.format(
+        result = template.format(
             delim                  = self.delim,
             student_code           = student_code_escaped,
             tc_params_comma        = tc_params_comma,
@@ -259,6 +260,14 @@ class HarnessBuilder:
             call_solve_and_capture = call_solve_and_capture,
             tc_runner_body         = self._build_c_parallel_runner(),
         )
+
+        # Lines in the template before {student_code} = harness header line count.
+        # For stdio mode, student_code_escaped starts with "#define main …\n",
+        # so real student code begins one line later.
+        prefix_lines = template[:template.index("{student_code}")].count("\n")
+        self.student_code_start_line = prefix_lines + 1 + (1 if self.cfg.mode == "stdio" else 0)
+
+        return result
 
     # FIX-5: printf format string and cast mapped per C type.
     # The old code cast EVERY non-void return to (int) and used "%d".
@@ -594,7 +603,7 @@ class HarnessBuilder:
             tc_params_comma        = (params + ", ") if params else ""
             call_solve_and_capture = self._build_cpp_call()
 
-        return template.format(
+        result = template.format(
             delim                  = self.delim,
             student_code           = student_code_escaped,
             tc_params_comma        = tc_params_comma,
@@ -602,6 +611,11 @@ class HarnessBuilder:
             call_solve_and_capture = call_solve_and_capture,
             tc_runner_body         = self._build_cpp_parallel_runner(),
         )
+
+        prefix_lines = template[:template.index("{student_code}")].count("\n")
+        self.student_code_start_line = prefix_lines + 1 + (1 if self.cfg.mode == "stdio" else 0)
+
+        return result
 
     def _build_cpp_call(self) -> str:
         fn   = self.cfg.function_name
@@ -957,6 +971,21 @@ class HarnessBuilder:
         result = template
         for placeholder, value in replacements.items():
             result = result.replace(placeholder, value)
+
+        # Calculate where student code body starts in the generated harness.
+        # javac error lines and stack frames reference this file — we subtract the
+        # offset so students see line numbers relative to their own code.
+        try:
+            marker = "static class Student {"
+            idx = result.index(marker)
+            # +1 for the { line itself, +1 again because body starts on next line
+            self.student_code_start_line = result[:idx + len(marker)].count("\n") + 2
+        except ValueError:
+            self.student_code_start_line = 0
+
+        # Fill the runtime constant used by studentDetailMsg() in the Java harness.
+        result = result.replace("{student_code_start_line}", str(self.student_code_start_line))
+
         return result
 
     def _build_java_parallel_runner(self) -> str:

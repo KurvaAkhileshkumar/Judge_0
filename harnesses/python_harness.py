@@ -107,8 +107,24 @@ builtins.quit = _safe_exit
 _STUDENT_SOURCE = {student_code_raw}
 
 def _safe_tb():
-    lines = traceback.format_exc().strip().splitlines()
-    return " | ".join(lines[-2:])
+    tb_str = traceback.format_exc().strip()
+    lines  = tb_str.splitlines()
+    if not lines:
+        return "error"
+    exc_msg = lines[-1].strip()
+    # Walk frames in reverse to find the innermost one from student code.
+    # exec() in stdio mode uses filename "<student>"; function mode runs at
+    # module level so frames show the harness path — fall back in that case.
+    for line in reversed(lines):
+        if '<student>' in line and ', line ' in line:
+            try:
+                lineno = line.split(', line ')[1].split(',')[0].strip()
+                return 'line ' + lineno + ': ' + exc_msg
+            except (IndexError, ValueError):
+                pass
+    # Fallback (function mode or unexpected frame): last two lines joined
+    return ' | '.join(lines[-2:])
+
 
 
 # FIX-10: float comparison with relative+absolute epsilon tolerance.
@@ -211,7 +227,28 @@ def _child_run_stdio(tc):
     exec() cannot access blocked builtins via ns["__builtins__"].__dict__.
     Fix 4.1: returns raw output; OutputParser does comparison.
     """
-    # Fix 1.6: whitelist of safe builtins for exec() namespace
+    # Modules banned inside the sandbox. Attempting to import any of these
+    # raises a clear ImportError instead of a cryptic module-not-found message.
+    _BANNED_MODULES = frozenset({{
+        'os', 'subprocess', 'socket', 'signal', 'resource', 'select',
+        'multiprocessing', 'threading', 'ctypes', 'mmap', 'fcntl',
+        'pty', 'tty', 'termios', 'posix', 'posixpath', 'pathlib',
+        'sys', 'importlib', 'imp', 'builtins', 'gc', 'sysconfig',
+        'shutil', 'tempfile', 'glob', 'platform',
+    }})
+    _real_builtin_import = __import__
+
+    def _restricted_import(name, *args, **kwargs):
+        base = name.split('.')[0]
+        if base in _BANNED_MODULES:
+            raise ImportError(
+                f"import '{{name}}' is not allowed in this sandbox. "
+                f"Module '{{base}}' provides system access that is restricted."
+            )
+        return _real_builtin_import(name, *args, **kwargs)
+
+    # Fix 1.6: whitelist of safe builtins for exec() namespace.
+    # __import__ is intentionally NOT included — replaced with _restricted_import below.
     _safe_builtins = {{
         k: v for k, v in __builtins__.__dict__.items()
         if k in {{
@@ -227,9 +264,9 @@ def _child_run_stdio(tc):
             'MemoryError', 'Exception', 'BaseException',
             'True', 'False', 'None', 'NotImplemented', 'Ellipsis',
             'object', 'super', 'property', 'staticmethod', 'classmethod',
-            '__import__',  # needed for import statements in student code (e.g. import bisect)
         }}
     }}
+    _safe_builtins['__import__'] = _restricted_import  # sandbox-aware import
     fake_stdin  = io.StringIO(tc.get("stdin_text", ""))
     fake_stdout = io.StringIO()
     sys.stdin   = fake_stdin

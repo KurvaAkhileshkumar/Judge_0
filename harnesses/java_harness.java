@@ -252,11 +252,11 @@ public class Main {
                     result.detail = "OutOfMemoryError";
                 } else {
                     result.status = "ERROR";
-                    result.detail = lastLine(cause != null ? cause.toString() : e.toString());
+                    result.detail = studentDetailMsg(cause != null ? cause : e);
                 }
             } catch (Exception e) {
                 result.status = "ERROR";
-                result.detail = lastLine(e.toString());
+                result.detail = studentDetailMsg(e);
             } finally {
                 TL_OUT.remove();
                 TL_IN.remove();
@@ -305,11 +305,11 @@ public class Main {
                     result.detail = "OutOfMemoryError";
                 } else {
                     result.status = "ERROR";
-                    result.detail = lastLine(cause != null ? cause.toString() : e.toString());
+                    result.detail = studentDetailMsg(cause != null ? cause : e);
                 }
             } catch (Exception e) {
                 result.status = "ERROR";
-                result.detail = lastLine(e.toString());
+                result.detail = studentDetailMsg(e);
             } finally {
                 TL_OUT.remove();
                 TL_IN.remove();
@@ -352,6 +352,35 @@ public class Main {
         if (s == null || s.isEmpty()) return "unknown error";
         String[] lines = s.split("\\n");
         return lines[lines.length - 1].trim();
+    }
+
+    /** Harness line where the student code body starts (1-indexed). Set by harness builder. */
+    static final int STUDENT_LINE_OFFSET = {student_code_start_line};
+
+    /**
+     * Build a human-readable error detail from a Throwable.
+     * Walks the stack trace looking for a frame in the Student class and, if found,
+     * appends the student-relative line number (harness line − STUDENT_LINE_OFFSET + 1).
+     */
+    static String studentDetailMsg(Throwable t) {
+        if (t == null) return "unknown error";
+        String msg = lastLine(t.toString());
+        if (STUDENT_LINE_OFFSET > 0) {
+            for (StackTraceElement frame : t.getStackTrace()) {
+                String cls = frame.getClassName();
+                if (cls.contains("Student")) {
+                    int harnessLine = frame.getLineNumber();
+                    if (harnessLine > 0) {
+                        int studentLine = harnessLine - STUDENT_LINE_OFFSET + 1;
+                        if (studentLine > 0) {
+                            return msg + " (at line " + studentLine + ")";
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        return msg;
     }
 
     static String escape(String s) {

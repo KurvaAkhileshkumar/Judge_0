@@ -171,13 +171,37 @@ class OutputParser:
             )
 
 
+def _adjust_compile_output(raw: str, student_code_start_line: int) -> str:
+    """
+    Rewrite compiler-reported line numbers from harness-absolute to student-relative.
+
+    Handles javac, gcc, and g++ output formats:
+      Java:  'Main.java:52: error: …'       → 'line 6: error: …'
+      C/C++: '/tmp/sol.c:63:10: error: …'   → 'line 4: error: …'
+    """
+    if student_code_start_line <= 1:
+        return raw
+    offset = student_code_start_line - 1
+
+    def _fix(m):
+        return f"line {max(1, int(m.group(1)) - offset)}:"
+
+    # Java: Main.java:N:
+    if "Main.java:" in raw:
+        return re.sub(r'\bMain\.java:(\d+):', _fix, raw)
+
+    # C / C++ / C#: any path ending in .c/.cpp/.cc/.cxx/.cs followed by :N: or :N:col:
+    return re.sub(r'\S+\.(?:c|cpp|cc|cxx|cs):(\d+)(?::\d+)?:', _fix, raw)
+
+
 def parse_judge0_response(
-    judge0_stdout:   str,
-    judge0_status:   str,   # Judge0's own status: "Accepted", "Time Limit Exceeded", etc.
-    session_id:      str,
-    total_tc_count:  int,
-    expected_values: list = None,   # Fix 4.1: passed from autograder; harness emits OUTPUT
-    compile_output:  str  = None,   # Compiler error message from Judge0 (status_id=6)
+    judge0_stdout:            str,
+    judge0_status:            str,   # Judge0's own status: "Accepted", "Time Limit Exceeded", etc.
+    session_id:               str,
+    total_tc_count:           int,
+    expected_values:          list = None,  # Fix 4.1: passed from autograder; harness emits OUTPUT
+    compile_output:           str  = None,  # Compiler error message from Judge0 (status_id=6)
+    student_code_start_line:  int  = 0,     # Harness line where student body begins (Java only)
 ) -> ParsedSubmission:
     """
     Top-level parser.
@@ -198,16 +222,19 @@ def parse_judge0_response(
         sub.global_tle = True
         return sub
 
-    # Judge0 compile error — no output at all
+    # Judge0 compile error — no output at all.
+    # Use status="CE" so the backend maps it to (3, "Compilation Error") via
+    # _JUDGE0_TC_STATUS, giving the student the correct label + error text.
     if judge0_status in ("Compilation Error", "Internal Error"):
         if compile_output:
-            # Trim to 500 chars so it fits in the result JSON without overwhelming
-            snippet = compile_output.strip()[:500]
-            detail = f"Compilation Error:\n{snippet}"
+            adjusted = _adjust_compile_output(
+                compile_output.strip(), student_code_start_line
+            )
+            detail = f"Compilation Error:\n{adjusted[:500]}"
         else:
             detail = f"Judge0: {judge0_status}"
         results = [
-            TCResult(tc_num=i, status="ERROR", detail=detail)
+            TCResult(tc_num=i, status="CE", detail=detail)
             for i in range(1, total_tc_count + 1)
         ]
         return ParsedSubmission(tc_results=results, total=total_tc_count)

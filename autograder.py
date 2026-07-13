@@ -277,7 +277,7 @@ class Autograder:
             if sec.violations and sec.violations[0].rule == "SyntaxError":
                 detail = f"SyntaxError: {sec.violations[0].detail}"
                 err_results = [
-                    TCResult(tc_num=i + 1, status="ERROR", detail=detail)
+                    TCResult(tc_num=i + 1, status="CE", detail=detail)
                     for i in range(len(submission.test_cases))
                 ]
                 return GradingResult(
@@ -408,12 +408,13 @@ class Autograder:
         # outside the sandbox instead of relying on harness-embedded values.
         expected_values = [str(tc.expected).strip() for tc in submission.test_cases]
         parsed = parse_judge0_response(
-            judge0_stdout   = judge0_result.stdout,
-            judge0_status   = judge0_result.status_str,
-            session_id      = builder.session_id,
-            total_tc_count  = len(submission.test_cases),
-            expected_values = expected_values,
-            compile_output  = judge0_result.compile_output,
+            judge0_stdout            = judge0_result.stdout,
+            judge0_status            = judge0_result.status_str,
+            session_id               = builder.session_id,
+            total_tc_count           = len(submission.test_cases),
+            expected_values          = expected_values,
+            compile_output           = judge0_result.compile_output,
+            student_code_start_line  = builder.student_code_start_line,
         )
 
         # ── 6. Infrastructure failure detection ──────────────────────────
