@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
-VALID_STATUSES = {"PASS", "FAIL", "TLE", "MLE", "SEGV", "FPE", "ERROR", "OUTPUT"}
+VALID_STATUSES = {"PASS", "FAIL", "TLE", "MLE", "SEGV", "FPE", "ERROR", "OUTPUT", "CE"}
 
 # Statuses a harness is ALLOWED to emit. PASS and FAIL are never emitted by
 # the harness — they are assigned only by OutputParser after comparison.
@@ -40,7 +40,7 @@ def _num_equal(a_str: str, b_str: str) -> bool:
 @dataclass
 class TCResult:
     tc_num:   int
-    status:   str                   # PASS | FAIL | TLE | MLE | SEGV | FPE | ERROR | MISSING
+    status:   str                   # PASS | FAIL | TLE | MLE | SEGV | FPE | ERROR | MISSING | CE
     got:      str       = ""
     expected: str       = ""
     detail:   str       = ""

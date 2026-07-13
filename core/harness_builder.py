@@ -99,23 +99,20 @@ class HarnessBuilder:
                 for tc in self.cfg.test_cases
             ]
 
-        # Escape { and } in student code so .format() doesn't misinterpret them
-        # as format placeholders. After .format(), {{ becomes { in the output.
-        student_code_escaped = (
-            self.cfg.student_code
-                .replace("{", "{{")
-                .replace("}", "}}")
-        )
-
         # For stdio mode: student code must NOT run at module level in the parent
         # process (it calls input() which would fail with empty stdin).
         # Children exec() from _STUDENT_SOURCE with fake stdin/stdout.
-        # For function mode: student code defines solve() which must be in the
-        # parent namespace so it is inherited by forked children.
+        # For function mode: exec with '<student>' as the filename so that runtime
+        # tracebacks show student-relative line numbers — the same mechanism stdio
+        # mode uses. _safe_tb() already knows how to extract them from '<student>' frames.
         if self.cfg.mode == "stdio":
             module_level_code = "# stdio mode: student code runs only in child processes via exec()"
         else:
-            module_level_code = student_code_escaped
+            # repr() produces a safe Python string literal (handles backslashes,
+            # quotes, newlines, and dict-literal braces). The result is passed as
+            # a VALUE to .format() — values are never scanned for {placeholder}
+            # patterns, so no brace-escaping is needed.
+            module_level_code = f"exec(compile({repr(self.cfg.student_code)}, '<student>', 'exec'), globals())"
 
         # _STUDENT_SOURCE must hold the EXACT original code (unescaped).
         # We use a sentinel placeholder to avoid passing the raw code through
