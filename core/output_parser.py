@@ -171,27 +171,105 @@ class OutputParser:
             )
 
 
+# Harness function names that must never appear in student-facing error messages.
+# These are the C/C++ harness runner functions; errors inside them are cascades
+# from broken student code and are meaningless to students.
+_HARNESS_FN_SYMS = re.compile(r'\b(run_tc_child)\b')
+
+# Symbols that the harness injects as aliases for student code.
+# In stdio mode: #define main student_stdio_main — so the student's main()
+# is compiled under this name.  Errors *inside* it belong to the student;
+# cascade references to it (e.g. "'student_stdio_main' was not declared")
+# are harness noise and must be dropped.
+_STUDENT_ALIAS_SYMS = re.compile(r'\b(student_stdio_main)\b')
+
+# Pattern that matches gcc/g++ "In function '…':" context lines.
+_IN_FN_RE = re.compile(r"^.*: In function '([^']*)':")
+
+
 def _adjust_compile_output(raw: str, student_code_start_line: int) -> str:
     """
-    Rewrite compiler-reported line numbers from harness-absolute to student-relative.
+    Rewrite compiler-reported line numbers from harness-absolute to student-relative,
+    and strip any errors / context that reference harness-internal symbols.
 
     Handles javac, gcc, and g++ output formats:
       Java:  'Main.java:52: error: …'       → 'line 6: error: …'
       C/C++: '/tmp/sol.c:63:10: error: …'   → 'line 4: error: …'
+
+    Also adjusts source-context lines emitted by modern gcc/g++:
+      '  42 | #include<bit'  →  '   1 | #include<bit'
+
+    Filtering rules for C/C++ harness noise:
+      • "In function 'run_tc_child':" → skip the entire error group;
+        stay in skip mode until the next "In function" (or end of output).
+      • "In function 'student_stdio_main':" → student's own main(), renamed to
+        "main" in the output so the student recognises it.
+      • Any line outside an "In function" block that contains a harness alias
+        (e.g. "'student_stdio_main' was not declared") → cascade error, skip.
     """
     if student_code_start_line <= 1:
         return raw
     offset = student_code_start_line - 1
+    is_java = "Main.java:" in raw
 
-    def _fix(m):
+    def _fix_header(m):
         return f"line {max(1, int(m.group(1)) - offset)}:"
 
-    # Java: Main.java:N:
-    if "Main.java:" in raw:
-        return re.sub(r'\bMain\.java:(\d+):', _fix, raw)
+    def _fix_context(m):
+        return f"{m.group(1)}{max(1, int(m.group(2)) - offset)}{m.group(3)}"
 
-    # C / C++ / C#: any path ending in .c/.cpp/.cc/.cxx/.cs followed by :N: or :N:col:
-    return re.sub(r'\S+\.(?:c|cpp|cc|cxx|cs):(\d+)(?::\d+)?:', _fix, raw)
+    out  = []
+    skip = False   # True = we're inside a harness function's error group
+
+    for line in raw.splitlines():
+        in_fn_m = _IN_FN_RE.match(line)
+
+        if in_fn_m:
+            fn_name = in_fn_m.group(1)
+            if _HARNESS_FN_SYMS.search(fn_name):
+                # Harness runner function (run_tc_child) — skip entire group.
+                # Retroactively remove any orphaned "In function" preamble.
+                skip = True
+                while out and _IN_FN_RE.match(out[-1]):
+                    out.pop()
+                continue
+            elif _STUDENT_ALIAS_SYMS.search(fn_name):
+                # Student's main() renamed by the #define wrapper — show it as
+                # "main" so the student recognises their own function.
+                line = line.replace('student_stdio_main', 'main')
+                skip = False
+                # fall through to process and add to out
+            else:
+                # Genuine student helper function — include as-is.
+                skip = False
+                # fall through
+
+        elif skip:
+            # We are inside a harness function's error group.
+            # Keep skipping EVERYTHING (errors, context lines, notes) until
+            # the next "In function" block — which the in_fn_m branch above handles.
+            continue
+
+        elif _STUDENT_ALIAS_SYMS.search(line):
+            # A line outside any "In function" block that references the student
+            # alias — this is a cascade reference, not a real student error.
+            skip = True
+            while out and _IN_FN_RE.match(out[-1]):
+                out.pop()
+            continue
+
+        # Adjust error-header line numbers: main.cpp:42:5: error: …
+        if is_java:
+            line = re.sub(r'\bMain\.java:(\d+):', _fix_header, line)
+        else:
+            line = re.sub(r'\S+\.(?:c|cpp|cc|cxx|cs):(\d+)(?::\d+)?:', _fix_header, line)
+
+        # Adjust source-context line numbers: "  42 | #include<bit"
+        line = re.sub(r'^(\s+)(\d+)(\s*\|)', _fix_context, line)
+
+        out.append(line)
+
+    return '\n'.join(out)
 
 
 def parse_judge0_response(
