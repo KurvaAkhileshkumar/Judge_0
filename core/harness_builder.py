@@ -861,13 +861,74 @@ class HarnessBuilder:
     # JAVA
 
     # ─────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _preprocess_java_student_code(student_code: str) -> tuple:
+        """
+        Split student code into (extra_imports, class_body).
+
+        Students commonly write a full top-level class:
+            import java.util.Scanner;
+            public class Student {
+                public static void main(String[] args) { ... }
+            }
+
+        The harness embeds student code inside "static class Student { }",
+        so two transforms are required:
+          1. Import statements must be moved to file scope (before public class Main).
+          2. The outer class declaration must be stripped; only the body is kept.
+
+        If no class declaration is detected the raw code is returned as-is.
+        """
+        import re
+
+        lines = student_code.split('\n')
+        import_lines = []
+        other_lines = []
+
+        for line in lines:
+            stripped = line.strip()
+            if re.match(r'^import\s+[\w.*]+\s*;', stripped):
+                import_lines.append(stripped)
+            else:
+                other_lines.append(line)
+
+        remaining = '\n'.join(other_lines)
+
+        # Match optional modifiers + "class" keyword + name + optional
+        # extends/implements clause + opening "{".
+        class_decl = re.compile(
+            r'(?:(?:public|protected|private|abstract|final|static)\s+)*'
+            r'class\s+\w+(?:\s+extends\s+\w+)?(?:\s+implements\s+[\w\s,]+)?\s*\{',
+        )
+
+        m = class_decl.search(remaining)
+        if m:
+            body_start = m.end()   # right after the opening '{'
+            depth = 1
+            i = body_start
+            while i < len(remaining) and depth > 0:
+                if remaining[i] == '{':
+                    depth += 1
+                elif remaining[i] == '}':
+                    depth -= 1
+                i += 1
+            class_body = remaining[body_start : i - 1]
+        else:
+            class_body = remaining
+
+        extra_imports = '\n'.join(import_lines)
+        return extra_imports, class_body
+
     def _build_java(self) -> str:
         # Java has too many literal { } braces for Python .format() — use replace() instead.
         template = (_HARNESSES_DIR / "java_harness.java").read_text()
 
+        extra_imports, class_body = self._preprocess_java_student_code(self.cfg.student_code)
+
         inner_class = (
             "\n    static class Student {\n" +
-            textwrap.indent(self.cfg.student_code, "        ") +
+            textwrap.indent(class_body, "        ") +
             "\n    }\n"
         )
 
@@ -886,6 +947,7 @@ class HarnessBuilder:
             "{function_name}":     self.cfg.function_name,
             "{param_types_array}": param_types_array,
             "{tc_runner_body}":    self._build_java_parallel_runner(),
+            "{extra_imports}":     extra_imports,
             # Process student code LAST so none of the above replacements
             # can match a placeholder string that happens to appear inside
             # student code (e.g. a Java string literal "\{per_tc_limit_ms}").
