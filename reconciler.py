@@ -69,11 +69,17 @@ _KS_CHANNEL = "__keyevent@{db}__:expired"
 
 
 def _requeue_raw(r: redis.Redis, raw: str) -> None:
-    """Push raw JSON job back to the retry queue with retry_count incremented."""
+    """Push raw JSON job back to the retry queue with retry_count incremented.
+
+    Uses rpush (append to back) for FIFO fairness within the retry queue,
+    consistent with PriorityJobQueue.requeue().  The retry queue is always
+    drained before the normal queue (BLPOP key order), so all retried jobs
+    are served before any new submission regardless of position.
+    """
     try:
         job_dict = json.loads(raw)
         job_dict["retry_count"] = job_dict.get("retry_count", 0) + 1
-        r.lpush(RETRY_QUEUE, json.dumps(job_dict))
+        r.rpush(RETRY_QUEUE, json.dumps(job_dict))
     except (json.JSONDecodeError, Exception) as e:
         log.error("requeue_failed", error=str(e))
 

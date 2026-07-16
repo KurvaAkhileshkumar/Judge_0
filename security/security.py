@@ -239,11 +239,22 @@ class _PythonASTChecker(ast.NodeVisitor):
                 call_node = stmt.value
             if call_node is not None:
                 func = call_node.func
-                # Direct self-call: solve(...) or self.solve(...) etc.
-                called_name = (
-                    func.id if isinstance(func, ast.Name) else
-                    func.attr if isinstance(func, ast.Attribute) else None
-                )
+                # Determine if this is a direct self-call.
+                # Bare call:        solve(...)       → func is Name(id='solve')
+                # Self method call: self.solve(...)  → func is Attribute(value=Name(id='self'), attr='solve')
+                #
+                # NOT flagged (not recursive):
+                #   self._data.pop() — func.value is Attribute (not a bare Name('self'))
+                #   super().__init__() — func.value is a Call, not Name('self')
+                # Only func.attr where func.value is exactly Name(id='self') counts.
+                if isinstance(func, ast.Name):
+                    called_name = func.id
+                elif (isinstance(func, ast.Attribute)
+                      and isinstance(func.value, ast.Name)
+                      and func.value.id == "self"):
+                    called_name = func.attr
+                else:
+                    called_name = None
                 if called_name == node.name:
                     self._add(
                         "InfiniteLoop",
@@ -279,7 +290,15 @@ def _check_python_ast(code: str) -> List[SecurityViolation]:
     try:
         tree = ast.parse(code)
     except SyntaxError as e:
-        detail = (f"line {e.lineno}: {e.msg}" if e.lineno else e.msg) or str(e)
+        import traceback as _tb
+        # Normalise filename so the student sees "<student>" not the sandbox path.
+        e.filename = "<student>"
+        # format_exception_only produces the full multi-line diagnostic:
+        #   File "<student>", line N
+        #     source line text
+        #     ^^^^^
+        #   SyntaxError: message
+        detail = "".join(_tb.format_exception_only(type(e), e)).rstrip()
         return [SecurityViolation("SyntaxError", detail, e.lineno)]
 
     checker = _PythonASTChecker()

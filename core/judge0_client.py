@@ -331,6 +331,13 @@ class Judge0Client:
             # Judge0 conf sets MAX_MAX_PROCESSES_AND_OR_THREADS=500 as the ceiling.
             "number_of_processes": MAX_PARALLEL_TCS + 20,
         }
+        # Promote pointer↔integer implicit conversions from warning to error in C.
+        # GCC 8 treats `char c = "\0"` (assigning a char* to a char) as a
+        # -Wint-conversion warning; without this flag the code compiles, runs, and
+        # produces a garbage control character that then breaks JSON parsing.
+        # C++ already rejects this at the language level; Java/Python are unaffected.
+        if language.lower() == "c":
+            payload["compiler_options"] = "-Werror=int-conversion"
         return payload, global_limit_s
 
     def _post_with_retry(

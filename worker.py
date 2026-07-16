@@ -123,10 +123,7 @@ def result_to_dict(result) -> dict:
     if result.system_error:
         return {"system_error": result.system_error}
 
-    if result.security_error:
-        return {"security_error": result.security_error}
-
-    return {
+    d = {
         "score":      result.submission.score,
         "total":      result.submission.total,
         "global_tle": result.submission.global_tle,
@@ -144,6 +141,10 @@ def result_to_dict(result) -> dict:
         "time_taken_s": result.judge0_raw.time_taken_s if result.judge0_raw else None,
         "memory_kb":    result.judge0_raw.memory_kb    if result.judge0_raw else None,
     }
+    # Keep security_error for logging/audit but never let it hide tc_results.
+    if result.security_error:
+        d["security_error"] = result.security_error
+    return d
 
 
 # ── Worker loop ───────────────────────────────────────────────────────────────
@@ -241,7 +242,7 @@ if __name__ == "__main__":
         host             = os.getenv("REDIS_HOST", "localhost"),
         port             = int(os.getenv("REDIS_PORT", 6379)),
         password         = _read_secret("REDIS_PASSWORD") or None,
-        decode_responses = True,
+        decode_responses = False,
     )
 
     judge0_cfg = Judge0Config(

@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
-VALID_STATUSES = {"PASS", "FAIL", "TLE", "MLE", "SEGV", "FPE", "ERROR", "OUTPUT", "CE"}
+VALID_STATUSES = {"PASS", "FAIL", "TLE", "MLE", "SEGV", "FPE", "ERROR", "OUTPUT", "CE", "MISSING"}
 
 # Statuses a harness is ALLOWED to emit. PASS and FAIL are never emitted by
 # the harness — they are assigned only by OutputParser after comparison.
@@ -27,7 +27,20 @@ _HARNESS_STATUSES = {"TLE", "MLE", "SEGV", "FPE", "ERROR", "OUTPUT"}
 
 
 def _num_equal(a_str: str, b_str: str) -> bool:
-    """Float-tolerant comparison: relative tolerance 1e-6, absolute 1e-9."""
+    """Numeric tolerance comparison — only for float-typed expected values.
+
+    If the expected string (b_str) is a plain integer (digits only, optional
+    leading minus), float comparison is skipped entirely so that "3.0" is NOT
+    accepted when the expected output is "3".  The caller's exact string match
+    (got_str == expected_str) is the only path to PASS for integer outputs.
+
+    When expected IS float-like (contains '.' or 'e'/'E' exponent notation),
+    relative+absolute epsilon tolerance is applied (1e-6 relative, 1e-9 absolute).
+    """
+    # Plain integer expected → never accept a float representation.
+    # "-3", "0", "42" must not match "-3.0", "0.0", "42.0".
+    if re.fullmatch(r"-?\d+", b_str):
+        return False
     try:
         a, b = float(a_str), float(b_str)
         if a != a or b != b:   # NaN check
@@ -176,39 +189,82 @@ class OutputParser:
 # from broken student code and are meaningless to students.
 _HARNESS_FN_SYMS = re.compile(r'\b(run_tc_child)\b')
 
-# Symbols that the harness injects as aliases for student code.
-# In stdio mode: #define main student_stdio_main — so the student's main()
-# is compiled under this name.  Errors *inside* it belong to the student;
-# cascade references to it (e.g. "'student_stdio_main' was not declared")
-# are harness noise and must be dropped.
+# The alias the C/C++ harness injects for the student's main():
+#   #define main student_stdio_main
+# Errors *inside* student_stdio_main belong to the student.
+# Cascade references to it OUTSIDE any "In function" block
+# (e.g. "'student_stdio_main' was not declared in this scope") are harness noise.
 _STUDENT_ALIAS_SYMS = re.compile(r'\b(student_stdio_main)\b')
 
-# Pattern that matches gcc/g++ "In function '…':" context lines.
+# Errors that fire when the student never defined main().
+# gcc (C):    'student_stdio_main' undeclared (first use…)     — K&R-cast form
+# gcc/ld (C): undefined reference to `student_stdio_main'      — old direct-call form
+# g++ (C++):  'student_stdio_main' was not declared in this scope
+_MISSING_MAIN_RE = re.compile(
+    r"(?:"
+    r"[`'\"]student_stdio_main[`'\"] undeclared"
+    r"|"
+    r"\bundefined reference to [`'\"]student_stdio_main"
+    r"|"
+    r"[`'\"]student_stdio_main[`'\"] was not declared in this scope"
+    r")"
+)
+
+# gcc/g++ "In function '…':" context lines.
 _IN_FN_RE = re.compile(r"^.*: In function '([^']*)':")
+
+# gcc/g++ source-context lines: "   65 | int foo() {"
+# These show the student's literal source code — they must NEVER be filtered,
+# even if they contain 'student_stdio_main' (the macro-renamed version of main).
+_SRC_CONTEXT_RE = re.compile(r'^\s+\d+\s*\|')
 
 
 def _adjust_compile_output(raw: str, student_code_start_line: int) -> str:
     """
-    Rewrite compiler-reported line numbers from harness-absolute to student-relative,
-    and strip any errors / context that reference harness-internal symbols.
+    Rewrite compiler-reported line numbers from harness-absolute to
+    student-relative, and strip errors that reference harness internals.
 
     Handles javac, gcc, and g++ output formats:
       Java:  'Main.java:52: error: …'       → 'line 6: error: …'
       C/C++: '/tmp/sol.c:63:10: error: …'   → 'line 4: error: …'
 
     Also adjusts source-context lines emitted by modern gcc/g++:
-      '  42 | #include<bit'  →  '   1 | #include<bit'
+      '  42 | int student_stdio_main(void) {'  →  '   1 | int main(void) {'
 
-    Filtering rules for C/C++ harness noise:
-      • "In function 'run_tc_child':" → skip the entire error group;
-        stay in skip mode until the next "In function" (or end of output).
-      • "In function 'student_stdio_main':" → student's own main(), renamed to
-        "main" in the output so the student recognises it.
-      • Any line outside an "In function" block that contains a harness alias
-        (e.g. "'student_stdio_main' was not declared") → cascade error, skip.
+    Filtering rules for C/C++ harness noise
+    ─────────────────────────────────────────
+    • "In function 'run_tc_child':" → skip the entire error group (cascade).
+    • "In function 'student_stdio_main':" → student's own main(); show as
+      "In function 'main':" and include the group.
+    • Error/note HEADER lines outside any "In function" block that reference
+      student_stdio_main (e.g. "'student_stdio_main' was not declared") → skip.
+    • Source-context lines ("   N | code...") that contain student_stdio_main
+      are KEPT and the alias is renamed to "main".  These lines show the
+      student's actual code; filtering them would hide the error location.
+      BUG in old code: the source-context line `65 | int student_stdio_main(...`
+      triggered skip=True, silencing all subsequent error messages.
+
+    Note: modern gcc (≥14) on some distros emits Unicode typographic single
+    quotes (U+2018/U+2019) around function names in "In function '…':" lines
+    instead of the ASCII apostrophe.  Normalize them so regexes still match.
     """
     if student_code_start_line <= 1:
         return raw
+    # Normalize typographic quotes (U+2018 LEFT, U+2019 RIGHT) → ASCII apostrophe.
+    # gcc ≥14 on some systems uses these instead of the plain apostrophe in
+    # diagnostic messages like: In function ‘student_stdio_main’:
+    raw = raw.replace('\u2018', "'").replace('\u2019', "'")
+
+    # Pre-scan: detect "undefined reference to student_stdio_main" BEFORE the
+    # per-line loop, because that loop’s skip=True (from run_tc_child’s error
+    # group) would hide this linker error before _STUDENT_ALIAS_SYMS could catch
+    # it.  This error means the student never defined main().
+    if _MISSING_MAIN_RE.search(raw):
+        return (
+            "error: ‘main’ function not found in your code.\n"
+            "       Define: int main(void) { ... }"
+        )
+
     offset = student_code_start_line - 1
     is_java = "Main.java:" in raw
 
@@ -219,7 +275,7 @@ def _adjust_compile_output(raw: str, student_code_start_line: int) -> str:
         return f"{m.group(1)}{max(1, int(m.group(2)) - offset)}{m.group(3)}"
 
     out  = []
-    skip = False   # True = we're inside a harness function's error group
+    skip = False   # True = inside a harness function's error group
 
     for line in raw.splitlines():
         in_fn_m = _IN_FN_RE.match(line)
@@ -227,44 +283,53 @@ def _adjust_compile_output(raw: str, student_code_start_line: int) -> str:
         if in_fn_m:
             fn_name = in_fn_m.group(1)
             if _HARNESS_FN_SYMS.search(fn_name):
-                # Harness runner function (run_tc_child) — skip entire group.
-                # Retroactively remove any orphaned "In function" preamble.
+                # run_tc_child — skip entire group; pop any orphaned preamble.
                 skip = True
                 while out and _IN_FN_RE.match(out[-1]):
                     out.pop()
                 continue
-            elif _STUDENT_ALIAS_SYMS.search(fn_name):
-                # Student's main() renamed by the #define wrapper — show it as
-                # "main" so the student recognises their own function.
-                line = line.replace('student_stdio_main', 'main')
-                skip = False
-                # fall through to process and add to out
             else:
-                # Genuine student helper function — include as-is.
+                # Student function (student_stdio_main) or genuine helper.
+                # Either way, include the group (rename alias below).
                 skip = False
-                # fall through
+                # fall through to rename + append
 
         elif skip:
-            # We are inside a harness function's error group.
-            # Keep skipping EVERYTHING (errors, context lines, notes) until
-            # the next "In function" block — which the in_fn_m branch above handles.
+            # Inside a harness error group — skip until next "In function".
             continue
 
         elif _STUDENT_ALIAS_SYMS.search(line):
-            # A line outside any "In function" block that references the student
-            # alias — this is a cascade reference, not a real student error.
-            skip = True
-            while out and _IN_FN_RE.match(out[-1]):
-                out.pop()
-            continue
+            # Line OUTSIDE any "In function" block that mentions student_stdio_main.
+            #
+            # Two sub-cases:
+            #   1. Source-context lines ("   N | code..."):
+            #      The macro renamed the student's 'main' to 'student_stdio_main'
+            #      in the compiled file, so this line is genuine student code.
+            #      Keep it — just rename for display clarity.
+            #   2. Other error/note header lines (cascade from broken student_stdio_main):
+            #      Meaningless to the student — skip.
+            #   Note: linker "undefined reference to 'student_stdio_main'" is
+            #   intercepted by the _MISSING_MAIN_RE pre-scan above, so it never
+            #   reaches this branch.
+            if _SRC_CONTEXT_RE.match(line):
+                pass   # source context — rename alias below, then append
+            else:
+                skip = True
+                while out and _IN_FN_RE.match(out[-1]):
+                    out.pop()
+                continue
 
-        # Adjust error-header line numbers: main.cpp:42:5: error: …
+        # Rename the harness alias to the student-facing name in ALL kept lines
+        # (error headers, "In function" lines, and source context).
+        line = line.replace('student_stdio_main', 'main')
+
+        # Adjust error-header line numbers:  main.cpp:42:5: error: …
         if is_java:
             line = re.sub(r'\bMain\.java:(\d+):', _fix_header, line)
         else:
             line = re.sub(r'\S+\.(?:c|cpp|cc|cxx|cs):(\d+)(?::\d+)?:', _fix_header, line)
 
-        # Adjust source-context line numbers: "  42 | #include<bit"
+        # Adjust source-context line numbers:  "  42 | int foo() {"
         line = re.sub(r'^(\s+)(\d+)(\s*\|)', _fix_context, line)
 
         out.append(line)
@@ -308,7 +373,15 @@ def parse_judge0_response(
             adjusted = _adjust_compile_output(
                 compile_output.strip(), student_code_start_line
             )
-            detail = f"Compilation Error:\n{adjusted[:500]}"
+            if not adjusted.strip():
+                # All compiler output was filtered as harness noise.
+                # This happens when the student's function has the wrong
+                # signature and the error is inside run_tc_child.
+                adjusted = (
+                    "error: Compilation failed.\n"
+                    "       Check your function name, parameter types, and return type."
+                )
+            detail = f"Compilation Error:\n{adjusted[:3000]}"
         else:
             detail = f"Judge0: {judge0_status}"
         results = [

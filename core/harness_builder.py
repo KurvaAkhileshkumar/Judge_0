@@ -151,6 +151,9 @@ class HarnessBuilder:
             .replace('\0', '\\0')
         )
 
+    _C_INT_MAX =  2**31 - 1
+    _C_INT_MIN = -2**31
+
     @staticmethod
     def _c_literal(val, language: str = "c") -> str:
         """
@@ -162,6 +165,12 @@ class HarnessBuilder:
           Python str        → "quoted and escaped string literal"
           Python int/float  → str(val)  (works directly in C/C++)
           Python list/dict  → raises ValueError (use stdio mode for arrays)
+
+        Integer range rule:
+          Values that fit in 32-bit signed int → bare literal (e.g. 42)
+          Values outside int range             → LL suffix   (e.g. 3000000000LL)
+          This prevents implicit narrowing when the harness passes the literal
+          to a run_tc_child() whose parameter was auto-upgraded to long long.
         """
         if val is None:
             return "0"
@@ -178,12 +187,19 @@ class HarnessBuilder:
                 .replace('\t', '\\t')
             )
             return f'"{escaped}"'
-        if isinstance(val, (int, float)):
+        if isinstance(val, int):
+            if val > HarnessBuilder._C_INT_MAX or val < HarnessBuilder._C_INT_MIN:
+                return str(val) + 'LL'
+            return str(val)
+        if isinstance(val, float):
             return str(val)
         raise ValueError(
             f"Input value {val!r} (type {type(val).__name__}) cannot be passed as a "
             f"C/C++ function argument. Use stdio mode for array or complex inputs."
         )
+
+    _JAVA_INT_MAX =  2**31 - 1
+    _JAVA_INT_MIN = -2**31
 
     @staticmethod
     def _java_literal(val) -> str:
@@ -193,17 +209,27 @@ class HarnessBuilder:
         Handles the type mapping that the old isinstance(v, (int,float)) check got wrong:
           Python True/False → true/false  (bool must be checked BEFORE int)
           Python None       → null
-          Python int        → (Object)(42)   autoboxes to Integer
-          Python float      → (Object)(1.5)  autoboxes to Double
+          Python int        → (Object)(42)    autoboxes to Integer
+                           or (Object)(3e9L)  autoboxes to Long (values > INT_MAX)
+          Python float      → (Object)(1.5)   autoboxes to Double
           Python str        → "escaped string literal"
           Python list/dict  → raises ValueError (use stdio mode)
+
+        Integer range rule:
+          Values that fit in Java int  → no suffix   → autoboxes to Integer
+          Values outside Java int range → L suffix   → autoboxes to Long
+          Without the L suffix, javac rejects literals > 2^31-1 with
+          "integer number too large" because Java treats unsuffixed integer
+          literals as int regardless of magnitude.
         """
         if val is None:
             return "null"
         if isinstance(val, bool):   # must check before int — bool is subclass of int
             return "true" if val else "false"
         if isinstance(val, int):
-            return f"(Object)({val})"
+            if HarnessBuilder._JAVA_INT_MIN <= val <= HarnessBuilder._JAVA_INT_MAX:
+                return f"(Object)({val})"       # autoboxes to Integer
+            return f"(Object)({val}L)"          # autoboxes to Long
         if isinstance(val, float):
             return f"(Object)({val})"
         if isinstance(val, str):
@@ -219,24 +245,81 @@ class HarnessBuilder:
             f"Java function argument. Use stdio mode for array or complex inputs."
         )
 
+    def _effective_param_types(self, language: str) -> list:
+        """
+        Return param_types with "int" auto-upgraded when any test-case input
+        value exceeds the 32-bit signed int range [−2³¹, 2³¹−1].
+
+        Why this matters
+        ────────────────
+        • C/C++: run_tc_child() is declared with the user-supplied param types.
+          If the type is "int" but the literal is 3000000000LL, the compiler
+          narrows silently → wrong result (e.g. 705032704 instead of 3000000000).
+        • Java: resolveParamClasses() maps "int" → int.class.  When the input
+          autoboxes to Long (because _java_literal adds an L suffix), passing a
+          Long to an int parameter via reflection throws IllegalArgumentException.
+
+        C/C++ policy — upgrade per position:
+          Only positions whose value overflows int are upgraded to "long long".
+          Implicit widening in C lets the other int positions widen at the call
+          site without issue.
+
+        Java policy — upgrade all-or-nothing:
+          Java reflection requires an EXACT type match for getDeclaredMethod().
+          Upgrading only some positions would produce a mixed signature like
+          (int.class, long.class) that matches no real method.  So: if ANY
+          "int" position needs upgrading, ALL "int" positions are upgraded to
+          "long" — the common case where the user meant to write "long" for all.
+        """
+        INT_MAX = 2**31 - 1
+        INT_MIN = -2**31
+        types = list(self.cfg.param_types or [])
+
+        if language in ("c", "cpp"):
+            # Per-position upgrade — C allows implicit widening at the call site.
+            for tc in self.cfg.test_cases:
+                for i, val in enumerate(tc.inputs or []):
+                    if i >= len(types):
+                        break
+                    if types[i] == "int" and isinstance(val, int) and not isinstance(val, bool):
+                        if val > INT_MAX or val < INT_MIN:
+                            types[i] = "long long"
+        else:
+            # Java — all-or-nothing: if any "int" position overflows, upgrade all.
+            needs_upgrade = False
+            for tc in self.cfg.test_cases:
+                for i, val in enumerate(tc.inputs or []):
+                    if i < len(types) and types[i] == "int":
+                        if isinstance(val, int) and not isinstance(val, bool):
+                            if val > INT_MAX or val < INT_MIN:
+                                needs_upgrade = True
+                                break
+                if needs_upgrade:
+                    break
+            if needs_upgrade:
+                types = ["long" if t == "int" else t for t in types]
+
+        return types
+
     def _build_c(self) -> str:
         template    = (_HARNESSES_DIR / "c_harness.c").read_text()
-        param_types = self.cfg.param_types or []
+        param_types = self._effective_param_types("c")
         return_type = self.cfg.return_type if self.cfg.return_type != "auto" else "int"
 
-        student_code_escaped = (
-            self.cfg.student_code
-                .replace("{", "{{")
-                .replace("}", "}}")
-        )
+        # Sentinel approach: replace {student_code} BEFORE calling .format() so
+        # that Python's str.format() never sees the student code's { } characters.
+        # Old approach (replace "{" → "{{") was wrong: double-braces in a format()
+        # VALUE are NOT unescaped — they remain as "{{" in the output, producing
+        # invalid C like "class Counter {{" instead of "class Counter {".
+        _SENTINEL = "\x00STUDENT_C_RAW\x00"
 
         if self.cfg.mode == "stdio":
             # Rename student's main() to avoid conflict with harness main().
             # #define precedes the student block; #undef follows it so the
             # harness's own "int main(void)" at the bottom stays as-is.
-            student_code_escaped = (
+            student_raw = (
                 "#define main student_stdio_main\n" +
-                student_code_escaped +
+                self.cfg.student_code +
                 "\n#undef main"
             )
             tc_params_comma        = "const char* _stdin_text, "
@@ -248,23 +331,23 @@ class HarnessBuilder:
             # don't produce "int pipe_fd, , int per_tc" — a C syntax error.
             tc_params_comma        = (params + ", ") if params else ""
             call_solve_and_capture = self._build_c_call(return_type)
+            student_raw = self.cfg.student_code
 
-        result = template.format(
+        # Lines in the template before {student_code} = harness header line count.
+        # For stdio mode, student_raw starts with "#define main …\n",
+        # so real student code begins one line later.
+        prefix_lines = template[:template.index("{student_code}")].count("\n")
+        self.student_code_start_line = prefix_lines + 1 + (1 if self.cfg.mode == "stdio" else 0)
+
+        template_patched = template.replace("{student_code}", _SENTINEL)
+        result = template_patched.format(
             delim                  = self.delim,
-            student_code           = student_code_escaped,
             tc_params_comma        = tc_params_comma,
             tc_args                = "",
             call_solve_and_capture = call_solve_and_capture,
             tc_runner_body         = self._build_c_parallel_runner(),
         )
-
-        # Lines in the template before {student_code} = harness header line count.
-        # For stdio mode, student_code_escaped starts with "#define main …\n",
-        # so real student code begins one line later.
-        prefix_lines = template[:template.index("{student_code}")].count("\n")
-        self.student_code_start_line = prefix_lines + 1 + (1 if self.cfg.mode == "stdio" else 0)
-
-        return result
+        return result.replace(_SENTINEL, student_raw)
 
     # FIX-5: printf format string and cast mapped per C type.
     # The old code cast EVERY non-void return to (int) and used "%d".
@@ -355,7 +438,14 @@ class HarnessBuilder:
             int   _saved_out = dup(STDOUT_FILENO);
             dup2(fileno(_tmp), STDOUT_FILENO);
 
-            student_stdio_main(0, NULL);
+            /* Call through a K&R-style (no-prototype) function pointer so that
+             * gcc does not prototype-check the call site.  This allows both
+             *   int main(void)             and
+             *   int main(int argc, char**)
+             * to compile without "too few arguments" errors.  The student's
+             * code reads input via stdin (redirected above) so argc/argv are
+             * irrelevant in this context. */
+            ((int(*)())student_stdio_main)();
             fflush(stdout);
 
             dup2(_saved_in,  STDIN_FILENO);  close(_saved_in);
@@ -577,18 +667,17 @@ class HarnessBuilder:
     # ─────────────────────────────────────────────────────────────────
     def _build_cpp(self) -> str:
         template    = (_HARNESSES_DIR / "cpp_harness.cpp").read_text()
-        param_types = self.cfg.param_types or []
+        param_types = self._effective_param_types("cpp")
 
-        student_code_escaped = (
-            self.cfg.student_code
-                .replace("{", "{{")
-                .replace("}", "}}")
-        )
+        # Sentinel approach — same rationale as _build_c: brace-escaping student
+        # code with "{{" is wrong because format() does NOT unescape "{{" in VALUES,
+        # only in the template string itself.
+        _SENTINEL = "\x00STUDENT_CPP_RAW\x00"
 
         if self.cfg.mode == "stdio":
-            student_code_escaped = (
+            student_raw = (
                 "#define main student_stdio_main\n" +
-                student_code_escaped +
+                self.cfg.student_code +
                 "\n#undef main"
             )
             tc_params_comma        = "const char* _stdin_text, "
@@ -599,20 +688,20 @@ class HarnessBuilder:
             # FIX-2: same trailing-comma logic as C
             tc_params_comma        = (params + ", ") if params else ""
             call_solve_and_capture = self._build_cpp_call()
+            student_raw = self.cfg.student_code
 
-        result = template.format(
+        prefix_lines = template[:template.index("{student_code}")].count("\n")
+        self.student_code_start_line = prefix_lines + 1 + (1 if self.cfg.mode == "stdio" else 0)
+
+        template_patched = template.replace("{student_code}", _SENTINEL)
+        result = template_patched.format(
             delim                  = self.delim,
-            student_code           = student_code_escaped,
             tc_params_comma        = tc_params_comma,
             tc_args                = "",
             call_solve_and_capture = call_solve_and_capture,
             tc_runner_body         = self._build_cpp_parallel_runner(),
         )
-
-        prefix_lines = template[:template.index("{student_code}")].count("\n")
-        self.student_code_start_line = prefix_lines + 1 + (1 if self.cfg.mode == "stdio" else 0)
-
-        return result
+        return result.replace(_SENTINEL, student_raw)
 
     def _build_cpp_call(self) -> str:
         fn   = self.cfg.function_name
@@ -659,10 +748,11 @@ class HarnessBuilder:
             int   _saved_out = dup(STDOUT_FILENO);
             dup2(fileno(_tmp), STDOUT_FILENO);
 
-            /* Call with no args: handles both int main() and int main(void).
-             * Students who declare int main(int argc, char* argv[]) would get
-             * a compile error — they should use int main() for stdio mode. */
-            student_stdio_main();
+            /* Call through a reinterpret_cast to a no-arg function pointer.
+             * This suppresses the "too few arguments" error when the student
+             * declares int main(int argc, char** argv) — both signatures are
+             * accepted.  argc/argv are irrelevant since stdin is redirected. */
+            reinterpret_cast<int(*)()>(student_stdio_main)();
 
             /* Flush C and C++ output buffers before restoring fd */
             fflush(stdout);
@@ -878,25 +968,42 @@ class HarnessBuilder:
         """
         Split student code into (extra_imports, class_body).
 
-        Students commonly write a full top-level class:
-            import java.util.Scanner;
-            public class Student {
-                public static void main(String[] args) { ... }
-            }
+        Handles three distinct shapes of student code:
 
-        The harness embeds student code inside "static class Student { }",
-        so two transforms are required:
-          1. Import statements must be moved to file scope (before public class Main).
-          2. The outer class declaration must be stripped; only the body is kept.
+        1. No class declaration — raw method/field definitions (rare):
+           Return code as-is; it is embedded directly inside Student {}.
 
-        If no class declaration is detected the raw code is returned as-is.
+        2. Single class (most common):
+           Strip the outer class declaration and embed only the body.
+
+        3. Multiple top-level classes:
+           Students sometimes write helper classes before (or after) their
+           solution class, e.g.:
+
+               class Node { int val; Node next; ... }
+               public class Solution {
+                   public static void main(String[] args) { ... }
+               }
+
+           The OLD code used `.search()` which matched the FIRST class
+           declaration and extracted only its body, losing every subsequent
+           class — including the one that contains main().  Result:
+           NoSuchMethodException: Main$Student.main(String[]).
+
+           FIX: collect ALL top-level class declarations via brace-counting,
+           identify the PRIMARY class (the one with main(), else the public
+           class, else the last class), convert every helper class to a
+           `static` nested class prepended inside Student, then append the
+           primary class body. Because all helpers become static nested
+           classes of Student, references like `new Node()` inside main()
+           resolve to Main$Student$Node — the same loader, no access error.
         """
         import re
 
+        # ── Step 1: extract import statements ─────────────────────────────
         lines = student_code.split('\n')
         import_lines = []
         other_lines = []
-
         for line in lines:
             stripped = line.strip()
             if re.match(r'^import\s+[\w.*]+\s*;', stripped):
@@ -905,31 +1012,85 @@ class HarnessBuilder:
                 other_lines.append(line)
 
         remaining = '\n'.join(other_lines)
+        extra_imports = '\n'.join(import_lines)
 
-        # Match optional modifiers + "class" keyword + name + optional
-        # extends/implements clause + opening "{".
-        class_decl = re.compile(
+        # ── Step 2: find ALL top-level class declarations ──────────────────
+        # Regex: optional modifiers, "class", name, optional generic params,
+        # optional extends/implements clause, then the opening "{".
+        # (?:<[^>]*>) handles simple generics like <T>, <A, B>.
+        _class_decl_re = re.compile(
             r'(?:(?:public|protected|private|abstract|final|static)\s+)*'
-            r'class\s+\w+(?:\s+extends\s+\w+)?(?:\s+implements\s+[\w\s,]+)?\s*\{',
+            r'class\s+\w+(?:<[^>]*>)?'
+            r'(?:\s+extends\s+\w+(?:<[^>]*>)?)?'
+            r'(?:\s+implements\s+[\w\s,<>]+)?\s*\{',
         )
 
-        m = class_decl.search(remaining)
-        if m:
-            body_start = m.end()   # right after the opening '{'
+        classes = []      # list of dicts: {header, body, is_public}
+        search_from = 0
+        while True:
+            m = _class_decl_re.search(remaining, search_from)
+            if not m:
+                break
+            header_text = remaining[m.start():m.end()]
+            body_start  = m.end()
             depth = 1
             i = body_start
             while i < len(remaining) and depth > 0:
-                if remaining[i] == '{':
-                    depth += 1
-                elif remaining[i] == '}':
-                    depth -= 1
+                if   remaining[i] == '{': depth += 1
+                elif remaining[i] == '}': depth -= 1
                 i += 1
-            class_body = remaining[body_start : i - 1]
-        else:
-            class_body = remaining
+            classes.append({
+                'header':    header_text,
+                'body':      remaining[body_start : i - 1],
+                # "public" appears before the "class" keyword
+                'is_public': 'public' in header_text.split('class')[0],
+            })
+            # jump past this class's closing brace so inner classes
+            # are NOT picked up as separate top-level entries
+            search_from = i
 
-        extra_imports = '\n'.join(import_lines)
-        return extra_imports, class_body
+        # ── Step 3: no class found → return raw code ──────────────────────
+        if not classes:
+            return extra_imports, remaining
+
+        # ── Step 4: single class → strip wrapper, return body ─────────────
+        if len(classes) == 1:
+            return extra_imports, classes[0]['body']
+
+        # ── Step 5: multiple classes → find primary, nest helpers ──────────
+        def _has_main(body: str) -> bool:
+            return bool(re.search(
+                r'public\s+static\s+void\s+main\s*\(\s*String', body))
+
+        # Priority: class with main() > public class > last class
+        primary_idx = None
+        for idx, cls in enumerate(classes):
+            if _has_main(cls['body']):
+                primary_idx = idx
+                break
+        if primary_idx is None:
+            for idx, cls in enumerate(classes):
+                if cls['is_public']:
+                    primary_idx = idx
+                    break
+        if primary_idx is None:
+            primary_idx = len(classes) - 1
+
+        primary = classes[primary_idx]
+        helpers = [cls for idx, cls in enumerate(classes) if idx != primary_idx]
+
+        # Convert each helper to a static nested class inside Student.
+        # Top-level classes cannot carry 'static' in Java, so we add it here.
+        parts = []
+        for helper in helpers:
+            header = helper['header']
+            if 'static' not in header.split('class')[0]:
+                header = 'static ' + header
+            parts.append(header + helper['body'] + '\n}')
+
+        # Primary class body comes last (after all helper definitions)
+        parts.append(primary['body'])
+        return extra_imports, '\n'.join(parts)
 
     def _build_java(self) -> str:
         # Java has too many literal { } braces for Python .format() — use replace() instead.
@@ -943,7 +1104,7 @@ class HarnessBuilder:
             "\n    }\n"
         )
 
-        ptypes = self.cfg.param_types or []
+        ptypes = self._effective_param_types("java")
         if ptypes:
             items = ", ".join(f'"{t}"' for t in ptypes)
             param_types_array = "new String[]{" + items + "}"

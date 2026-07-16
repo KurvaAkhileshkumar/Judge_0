@@ -85,6 +85,39 @@ def _best_candidate(candidates: list[str], expected: str) -> str:
     return candidates[-1]
 
 
+_NSME_RE = re.compile(r'NoSuchMethodException')
+
+
+def _rewrite_java_no_method(
+    parsed,
+    mode: str,
+    function_name: str,
+) -> None:
+    """
+    Convert Java NoSuchMethodException results to user-friendly CE messages.
+
+    NoSuchMethodException means the harness's reflection lookup failed —
+    either the student didn't define the required method at all, or it has
+    the wrong parameter types / static modifier.  The raw Java exception text
+    is confusing; replace it with a concrete hint.
+    """
+    for tc in parsed.tc_results:
+        if tc.status == "ERROR" and _NSME_RE.search(tc.detail):
+            tc.status = "CE"
+            if mode == "stdio":
+                tc.detail = (
+                    "Compilation Error:\n"
+                    "Your code must define a public static main method:\n"
+                    "    public static void main(String[] args) { ... }"
+                )
+            else:
+                tc.detail = (
+                    f"Compilation Error:\n"
+                    f"Function '{function_name}' not found or has wrong parameters.\n"
+                    f"Make sure you define: public <returnType> {function_name}(<paramTypes>)"
+                )
+
+
 def _detect_function_name(code: str, language: str, expected: str) -> str | None:
     """
     Return the function name to call in the harness.
@@ -275,7 +308,7 @@ class Autograder:
 
             # SyntaxError: return as ERROR for all TCs (not as a "blocked" security violation)
             if sec.violations and sec.violations[0].rule == "SyntaxError":
-                detail = f"SyntaxError: {sec.violations[0].detail}"
+                detail = f"Compilation Error:\n{sec.violations[0].detail}"
                 err_results = [
                     TCResult(tc_num=i + 1, status="CE", detail=detail)
                     for i in range(len(submission.test_cases))
@@ -292,16 +325,22 @@ class Autograder:
                     harness_code = "",
                 )
 
-            # Real security violation — block the submission
-            empty_sub = ParsedSubmission(
-                tc_results = [],
-                total      = len(submission.test_cases),
-                score      = 0,
-            )
+            # Real security violation — block the submission.
+            # Return ERROR for every TC so the frontend always has tc_results
+            # to display.  security_error is kept for internal logging.
+            sec_detail = f"Runtime Error:\n{sec.reason}"
+            sec_results = [
+                TCResult(tc_num=i + 1, status="ERROR", detail=sec_detail)
+                for i in range(len(submission.test_cases))
+            ]
             return GradingResult(
                 student_id     = submission.student_id,
                 language       = submission.language,
-                submission     = empty_sub,
+                submission     = ParsedSubmission(
+                    tc_results = sec_results,
+                    total      = len(submission.test_cases),
+                    score      = 0,
+                ),
                 judge0_raw     = None,
                 harness_code   = "",
                 security_error = sec.reason,
@@ -416,6 +455,10 @@ class Autograder:
             compile_output           = judge0_result.compile_output,
             student_code_start_line  = builder.student_code_start_line,
         )
+
+        # Java reflection lookup failure → convert to a human-readable CE.
+        if submission.language == "java":
+            _rewrite_java_no_method(parsed, submission.mode, submission.function_name)
 
         # ── 6. Infrastructure failure detection ──────────────────────────
         # If ALL TCs are ERROR with our resource-limit keywords, the student's

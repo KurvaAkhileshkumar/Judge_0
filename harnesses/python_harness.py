@@ -249,6 +249,11 @@ def _child_run_stdio(tc):
 
     # Fix 1.6: whitelist of safe builtins for exec() namespace.
     # __import__ is intentionally NOT included — replaced with _restricted_import below.
+    # __build_class__ IS included: Python needs it internally to execute the 'class'
+    # statement.  Without it, any student solution that defines a class raises
+    # NameError: name '__build_class__' is not defined.  It poses no security risk
+    # — it only constructs class objects from a body function and base classes,
+    # capabilities the student already has through regular Python syntax.
     _safe_builtins = {{
         k: v for k, v in __builtins__.__dict__.items()
         if k in {{
@@ -262,8 +267,10 @@ def _child_run_stdio(tc):
             'KeyError', 'AttributeError', 'NameError', 'RuntimeError',
             'OverflowError', 'ZeroDivisionError', 'RecursionError',
             'MemoryError', 'Exception', 'BaseException',
+            'AssertionError', 'NotImplementedError', 'EOFError',
             'True', 'False', 'None', 'NotImplemented', 'Ellipsis',
             'object', 'super', 'property', 'staticmethod', 'classmethod',
+            '__build_class__',
         }}
     }}
     _safe_builtins['__import__'] = _restricted_import  # sandbox-aware import

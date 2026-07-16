@@ -143,11 +143,28 @@ public class Main {
                 @Override
                 protected Class<?> loadClass(String name, boolean resolve)
                         throws ClassNotFoundException {
-                    if ("Main$Student".equals(name)) {
-                        Class<?> _c = defineClass(name, STUDENT_CLASS_BYTES,
-                                0, STUDENT_CLASS_BYTES.length);
-                        if (resolve) resolveClass(_c);
-                        return _c;
+                    // Intercept ALL Main$Student* classes (outer + inner helpers).
+                    // Without this, inner classes like Main$Student$Node get loaded
+                    // by the parent 'app' loader while Main$Student lands in THIS
+                    // loader, causing IllegalAccessError on every cross-loader access.
+                    // Reading inner-class bytes on demand avoids storing a fixed list
+                    // at startup — works regardless of how many helper classes exist.
+                    if (name.startsWith("Main$Student")) {
+                        try {
+                            InputStream _is = _parent.getResourceAsStream(
+                                    name.replace('.', '/') + ".class");
+                            if (_is != null) {
+                                ByteArrayOutputStream _buf = new ByteArrayOutputStream();
+                                byte[] _tmp = new byte[4096];
+                                int _n;
+                                while ((_n = _is.read(_tmp)) != -1) _buf.write(_tmp, 0, _n);
+                                _is.close();
+                                byte[] _bytes = _buf.toByteArray();
+                                Class<?> _c = defineClass(name, _bytes, 0, _bytes.length);
+                                if (resolve) resolveClass(_c);
+                                return _c;
+                            }
+                        } catch (IOException _ioe) { /* fall through to super */ }
                     }
                     return super.loadClass(name, resolve);
                 }
@@ -413,14 +430,14 @@ public class Main {
         }
     }
 
-    /* printResult always uses ORIGINAL_OUT — never goes through dispatch */
+    /* printResult always uses ORIGINAL_OUT — never goes through dispatch.
+     * Fix 4.1: expected field omitted — OutputParser compares externally. */
     static void printResult(int tcNum, TCResult r) {
         ORIGINAL_OUT.println(DELIM + "START_" + tcNum);
         ORIGINAL_OUT.println("{");
-        ORIGINAL_OUT.println("  \"status\": \""   + r.status          + "\",");
-        ORIGINAL_OUT.println("  \"got\": \""      + escape(r.got)     + "\",");
-        ORIGINAL_OUT.println("  \"expected\": \"" + escape(r.expected)+ "\",");
-        ORIGINAL_OUT.println("  \"detail\": \""   + escape(r.detail)  + "\"");
+        ORIGINAL_OUT.println("  \"status\": \"" + r.status          + "\",");
+        ORIGINAL_OUT.println("  \"got\": \""    + escape(r.got)     + "\",");
+        ORIGINAL_OUT.println("  \"detail\": \"" + escape(r.detail)  + "\"");
         ORIGINAL_OUT.println("}");
         ORIGINAL_OUT.println(DELIM + "END_" + tcNum);
         ORIGINAL_OUT.flush();
