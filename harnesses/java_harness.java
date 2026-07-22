@@ -105,15 +105,21 @@ public class Main {
 
     /* ── Per-TC fresh classloader (fixes static state contamination) ────
      * Each TC gets its own ClassLoader that defines a brand-new copy of
-     * Harness$Student with zeroed static fields. Without this, a student's
+     * Main$_Harness_ with zeroed static fields. Without this, a student's
      * `static int[] dp = new int[N]` from TC1 persists into TC2..TCN,
      * causing stale-state wrong answers even for correct code.
      *
-     * How it works: at startup we read Harness$Student.class bytes once.
+     * How it works: at startup we read Main$_Harness_.class bytes once.
      * freshStudentClass() creates a new ClassLoader per call; since Java's
      * class identity is (loader, name), each call produces an independent
-     * class with its own static storage. Falls back to Student.class if the
-     * class bytes can't be read (e.g. unusual sandbox classpath layout).
+     * class with its own static storage. Falls back to _Harness_.class if
+     * the class bytes can't be read (e.g. unusual sandbox classpath layout).
+     *
+     * Why _Harness_ and not Student?
+     * The harness wraps all student code inside a class named _Harness_.
+     * Using "Student" caused a compile error whenever the student defined
+     * their own class named Student — Java forbids a nested class from
+     * sharing the simple name of its directly enclosing class.
      */
     static final byte[] STUDENT_CLASS_BYTES;
 
@@ -121,7 +127,7 @@ public class Main {
         byte[] _bytes = null;
         try {
             InputStream _is = Main.class.getClassLoader()
-                    .getResourceAsStream("Main$Student.class");
+                    .getResourceAsStream("Main$_Harness_.class");
             if (_is != null) {
                 ByteArrayOutputStream _buf = new ByteArrayOutputStream();
                 byte[] _tmp = new byte[4096];
@@ -136,20 +142,20 @@ public class Main {
 
     static Class<?> freshStudentClass() {
         if (STUDENT_CLASS_BYTES == null || STUDENT_CLASS_BYTES.length == 0)
-            return Student.class;
+            return _Harness_.class;
         try {
             ClassLoader _parent = Main.class.getClassLoader();
             ClassLoader _loader = new ClassLoader(_parent) {
                 @Override
                 protected Class<?> loadClass(String name, boolean resolve)
                         throws ClassNotFoundException {
-                    // Intercept ALL Main$Student* classes (outer + inner helpers).
-                    // Without this, inner classes like Main$Student$Node get loaded
-                    // by the parent 'app' loader while Main$Student lands in THIS
+                    // Intercept ALL Main$_Harness_* classes (outer + inner helpers).
+                    // Without this, inner classes like Main$_Harness_$Node get loaded
+                    // by the parent 'app' loader while Main$_Harness_ lands in THIS
                     // loader, causing IllegalAccessError on every cross-loader access.
                     // Reading inner-class bytes on demand avoids storing a fixed list
                     // at startup — works regardless of how many helper classes exist.
-                    if (name.startsWith("Main$Student")) {
+                    if (name.startsWith("Main$_Harness_")) {
                         try {
                             InputStream _is = _parent.getResourceAsStream(
                                     name.replace('.', '/') + ".class");
@@ -169,9 +175,9 @@ public class Main {
                     return super.loadClass(name, resolve);
                 }
             };
-            return _loader.loadClass("Main$Student");
+            return _loader.loadClass("Main$_Harness_");
         } catch (Exception _e) {
-            return Student.class;
+            return _Harness_.class;
         }
     }
 
@@ -376,7 +382,7 @@ public class Main {
 
     /**
      * Build a human-readable error detail from a Throwable.
-     * Walks the stack trace looking for a frame in the Student class and, if found,
+     * Walks the stack trace looking for a frame in the _Harness_ class and, if found,
      * appends the student-relative line number (harness line − STUDENT_LINE_OFFSET + 1).
      */
     static String studentDetailMsg(Throwable t) {
@@ -385,7 +391,7 @@ public class Main {
         if (STUDENT_LINE_OFFSET > 0) {
             for (StackTraceElement frame : t.getStackTrace()) {
                 String cls = frame.getClassName();
-                if (cls.contains("Student")) {
+                if (cls.contains("_Harness_")) {
                     int harnessLine = frame.getLineNumber();
                     if (harnessLine > 0) {
                         int studentLine = harnessLine - STUDENT_LINE_OFFSET + 1;

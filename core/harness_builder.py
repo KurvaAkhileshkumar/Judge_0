@@ -1099,7 +1099,7 @@ class HarnessBuilder:
         extra_imports, class_body = self._preprocess_java_student_code(self.cfg.student_code)
 
         inner_class = (
-            "\n    static class Student {\n" +
+            "\n    static class _Harness_ {\n" +
             textwrap.indent(class_body, "        ") +
             "\n    }\n"
         )
