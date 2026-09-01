@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
 Dump Docker container logs to S3 and truncate local log files.
-Run every 15 minutes via cron.
+Run once daily via cron (11:59 PM IST / 18:29 UTC).
 
-S3 structure:
+S3 structure — date first, then per-container folder:
   edwisely-logs/
     judge0/docker-logs/
-      server/        YYYY-MM-DD/HH-MM-SS.log.gz
-      workers/       YYYY-MM-DD/HH-MM-SS-<name>.log.gz
-      grading-worker/ YYYY-MM-DD/HH-MM-SS.log.gz
-      api/           YYYY-MM-DD/HH-MM-SS.log.gz
-      reconciler/    YYYY-MM-DD/HH-MM-SS.log.gz
+      YYYY-MM-DD/
+        api/            HH-MM-SS.log.gz
+        grading-worker/ HH-MM-SS.log.gz
+        workers/        HH-MM-SS-<name>.log.gz
+
+server and reconciler are NOT archived (local Docker log rotation caps).
 """
 
 import gzip
@@ -73,8 +74,8 @@ def upload_and_truncate(s3, name: str, folder: str, date_part: str, time_part: s
     else:
         filename = f"{time_part}.log.gz"
 
-    # S3 layout:  <PREFIX>/<folder>/YYYY-MM-DD/HH-MM-SS[-<name>].log.gz
-    s3_key = f"{PREFIX}/{folder}/{date_part}/{filename}"
+    # S3 layout:  <PREFIX>/YYYY-MM-DD/<folder>/HH-MM-SS[-<name>].log.gz
+    s3_key = f"{PREFIX}/{date_part}/{folder}/{filename}"
 
     try:
         # Read, compress, upload
