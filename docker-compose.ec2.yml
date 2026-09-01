@@ -152,6 +152,13 @@ services:
   # ── Reconciler (crash recovery + deadline enforcement) ────────────────────
   reconciler:
     build: .
+    # Rotation cap — reconciler logs are tiny (~50 KB) and not archived to S3;
+    # a small ceiling guarantees they can never accumulate.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
     command: ["python", "reconciler.py"]
     environment:
       - REDIS_HOST=redis
