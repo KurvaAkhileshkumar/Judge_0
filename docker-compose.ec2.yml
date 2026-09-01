@@ -47,6 +47,14 @@ services:
   # 2 Puma processes × 16 threads = 32 HTTP slots
   server:
     image: judge0/judge0:1.13.1
+    # Rotation cap: hard ceiling ~100 MB (2×50m). server logs are DEBUG-level
+    # Rails noise (duplicate base64 source) — not archived to S3, just capped
+    # so they can never accumulate and fill the disk.
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "2"
     volumes:
       - ./judge0.ec2.conf:/judge0.conf:ro
     ports:
