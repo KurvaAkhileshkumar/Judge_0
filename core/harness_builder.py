@@ -1014,21 +1014,31 @@ class HarnessBuilder:
         remaining = '\n'.join(other_lines)
         extra_imports = '\n'.join(import_lines)
 
-        # ── Step 2: find ALL top-level class declarations ──────────────────
-        # Regex: optional modifiers, "class", name, optional generic params,
-        # optional extends/implements clause, then the opening "{".
-        # (?:<[^>]*>) handles simple generics like <T>, <A, B>.
-        _class_decl_re = re.compile(
-            r'(?:(?:public|protected|private|abstract|final|static)\s+)*'
-            r'class\s+\w+(?:<[^>]*>)?'
-            r'(?:\s+extends\s+\w+(?:<[^>]*>)?)?'
-            r'(?:\s+implements\s+[\w\s,<>]+)?\s*\{',
+        # ── Step 2: find ALL top-level type declarations ───────────────────
+        # Matches class / interface / enum / record — not just "class".
+        # A previous version matched only "class", so a top-level
+        # `interface Payment { ... }` (or enum/record) preceding the solution
+        # class was silently dropped, and every class that `implements` it
+        # failed to compile with "cannot find symbol: Payment".
+        # Regex: optional modifiers, the type keyword, name, optional generic
+        # params, optional record components, optional extends/implements/
+        # permits clause, then the opening "{".
+        _type_decl_re = re.compile(
+            r'(?:(?:public|protected|private|abstract|final|static|sealed|non-sealed)\s+)*'
+            r'(?:class|interface|enum|record)\s+\w+'
+            r'(?:<[^>]*>)?'                          # generic params <T>, <A, B>
+            r'(?:\s*\([^)]*\))?'                     # record header components
+            r'(?:\s+extends\s+[\w.<>,\[\]\s]+?)?'    # extends A / A, B (interfaces)
+            r'(?:\s+implements\s+[\w.<>,\[\]\s]+?)?' # implements X, Y
+            r'(?:\s+permits\s+[\w.,\s]+?)?'          # sealed permits list
+            r'\s*\{',
         )
+        _kind_re = re.compile(r'\b(class|interface|enum|record)\b')
 
-        classes = []      # list of dicts: {header, body, is_public}
+        classes = []      # list of dicts: {header, body, kind, is_public}
         search_from = 0
         while True:
-            m = _class_decl_re.search(remaining, search_from)
+            m = _type_decl_re.search(remaining, search_from)
             if not m:
                 break
             header_text = remaining[m.start():m.end()]
@@ -1039,30 +1049,36 @@ class HarnessBuilder:
                 if   remaining[i] == '{': depth += 1
                 elif remaining[i] == '}': depth -= 1
                 i += 1
+            km     = _kind_re.search(header_text)
+            kind   = km.group(1) if km else 'class'
+            # Modifiers appear before the type keyword (class/interface/…).
+            prefix = header_text[:km.start()] if km else header_text
             classes.append({
                 'header':    header_text,
                 'body':      remaining[body_start : i - 1],
-                # "public" appears before the "class" keyword
-                'is_public': 'public' in header_text.split('class')[0],
+                'kind':      kind,
+                'is_public': 'public' in prefix,
             })
-            # jump past this class's closing brace so inner classes
+            # jump past this declaration's closing brace so inner types
             # are NOT picked up as separate top-level entries
             search_from = i
 
-        # ── Step 3: no class found → return raw code ──────────────────────
+        # ── Step 3: no type found → return raw code ───────────────────────
         if not classes:
             return extra_imports, remaining
 
-        # ── Step 4: single class → strip wrapper, return body ─────────────
+        # ── Step 4: single declaration → strip wrapper, return body ───────
         if len(classes) == 1:
             return extra_imports, classes[0]['body']
 
-        # ── Step 5: multiple classes → find primary, nest helpers ──────────
+        # ── Step 5: multiple types → find primary, nest helpers ────────────
         def _has_main(body: str) -> bool:
             return bool(re.search(
                 r'public\s+static\s+void\s+main\s*\(\s*String', body))
 
-        # Priority: class with main() > public class > last class
+        # Priority: type with main() > public class > last class > last decl.
+        # Interfaces/enums/records are never chosen as primary unless nothing
+        # else qualifies — the primary holds main()/the target method.
         primary_idx = None
         for idx, cls in enumerate(classes):
             if _has_main(cls['body']):
@@ -1070,7 +1086,12 @@ class HarnessBuilder:
                 break
         if primary_idx is None:
             for idx, cls in enumerate(classes):
-                if cls['is_public']:
+                if cls['is_public'] and cls['kind'] == 'class':
+                    primary_idx = idx
+                    break
+        if primary_idx is None:
+            for idx in range(len(classes) - 1, -1, -1):
+                if classes[idx]['kind'] == 'class':
                     primary_idx = idx
                     break
         if primary_idx is None:
@@ -1079,16 +1100,20 @@ class HarnessBuilder:
         primary = classes[primary_idx]
         helpers = [cls for idx, cls in enumerate(classes) if idx != primary_idx]
 
-        # Convert each helper to a static nested class inside Student.
-        # Top-level classes cannot carry 'static' in Java, so we add it here.
+        # Convert each helper to a static nested type inside _Harness_.
+        # Top-level types cannot carry 'static'; nested interfaces/enums are
+        # implicitly static, so adding it is harmless and lets helper classes
+        # be referenced from the primary body without an enclosing instance.
         parts = []
         for helper in helpers:
             header = helper['header']
-            if 'static' not in header.split('class')[0]:
+            km     = _kind_re.search(header)
+            prefix = header[:km.start()] if km else header
+            if 'static' not in prefix:
                 header = 'static ' + header
             parts.append(header + helper['body'] + '\n}')
 
-        # Primary class body comes last (after all helper definitions)
+        # Primary body comes last (after all helper definitions)
         parts.append(primary['body'])
         return extra_imports, '\n'.join(parts)
 
