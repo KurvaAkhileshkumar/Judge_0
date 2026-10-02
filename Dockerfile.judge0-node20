@@ -17,6 +17,11 @@
 
 FROM judge0/judge0:1.13.1
 
+# The base image runs as the non-root `judge0` user, which cannot write to
+# /usr/local/bin.  Switch to root for the install, then restore `judge0` so the
+# server/worker containers keep running as the original (non-root) user.
+USER root
+
 # Pinned version + verified checksum (supply-chain safety: a tampered tarball
 # fails the sha256 check and aborts the build).
 ARG NODE_VERSION=20.17.0
@@ -32,3 +37,6 @@ RUN set -eux; \
     # Sanity: new Node 20 present AND stock Node 12 untouched.
     node20 --version; \
     node --version
+
+# Restore the original non-root runtime user.
+USER judge0
