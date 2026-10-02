@@ -18,24 +18,23 @@
 --
 -- Idempotent: safe to run more than once (ON CONFLICT upserts the row).
 
-INSERT INTO languages (id, name, compile_cmd, run_cmd, source_file, is_archived, created_at, updated_at)
+-- NOTE: the Judge0 languages table has no created_at/updated_at columns —
+-- only (id, name, compile_cmd, run_cmd, source_file, is_archived).
+INSERT INTO languages (id, name, compile_cmd, run_cmd, source_file, is_archived)
 VALUES (
     1001,
     'JavaScript (Node.js 20.17.0)',
     NULL,                                  -- interpreted: no compile step
     '/usr/local/bin/node20 script.js',
     'script.js',
-    false,
-    NOW(),
-    NOW()
+    false
 )
 ON CONFLICT (id) DO UPDATE SET
     name        = EXCLUDED.name,
     compile_cmd = EXCLUDED.compile_cmd,
     run_cmd     = EXCLUDED.run_cmd,
     source_file = EXCLUDED.source_file,
-    is_archived = EXCLUDED.is_archived,
-    updated_at  = NOW();
+    is_archived = EXCLUDED.is_archived;
 
 -- Verify
 SELECT id, name, run_cmd, source_file, is_archived FROM languages WHERE id = 1001;
