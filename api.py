@@ -169,8 +169,8 @@ class _SubmitRequest(BaseModel):
     @field_validator("language")
     @classmethod
     def _check_language(cls, v: str) -> str:
-        if v not in ("python", "c", "cpp", "java"):
-            raise ValueError("language must be one of: python, c, cpp, java")
+        if v not in ("python", "c", "cpp", "java", "javascript"):
+            raise ValueError("language must be one of: python, c, cpp, java, javascript")
         return v
 
     @field_validator("function_name")
@@ -227,7 +227,7 @@ def submit():
     {
       "student_id":      "s123",
       "assessment_id":   "a456",       # used for idempotency only
-      "language":        "python",     # python | c | cpp | java
+      "language":        "python",     # python | c | cpp | java | javascript
       "student_code":    "def solve...",
       "test_cases": [
         { "expected": "42", "inputs": [...] },

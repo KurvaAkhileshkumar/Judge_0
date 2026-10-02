@@ -86,7 +86,7 @@ def grade():
 
     Request body:
     {
-      "language":        "python | c | cpp | java",
+      "language":        "python | c | cpp | java | javascript",
       "student_code":    "...",
       "test_cases":      [ { "stdin_text": "...", "expected": "..." } ],
       "mode":            "stdio | function",          (default: stdio)

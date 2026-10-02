@@ -76,13 +76,18 @@ else
   echo "      .env already exists — skipping."
 fi
 
-# ── 4. Pull Judge0 image (skip if already present) ────────────────────────
-echo "[4/6] Pulling Judge0 image..."
+# ── 4. Pull Judge0 base image + build Node 20 variant ─────────────────────
+echo "[4/6] Pulling Judge0 base image..."
 if sudo docker image inspect judge0/judge0:1.13.1 &>/dev/null; then
   echo "      judge0/judge0:1.13.1 already present — skipping pull."
 else
   sudo docker pull judge0/judge0:1.13.1
 fi
+
+# Build the custom image that adds Node 20 (used by server + workers).
+# ~90 MB layer on top of the 14 GB base — the FROM layer is reused, not copied.
+echo "      Building judge0-node20:1.13.1 (adds Node 20)..."
+sudo docker build -t judge0-node20:1.13.1 -f Dockerfile.judge0-node20 .
 
 # ── 5. Build Python services (skip if images already exist and up-to-date) ─
 echo "[5/6] Building Flask API + grading worker images..."
@@ -136,6 +141,14 @@ fi
 echo ""
 echo "=== Waiting 45s for Judge0 DB migrations... ==="
 sleep 45
+
+# ── Register the Node 20 language (id 1001) — idempotent ───────────────────
+echo ""
+echo "=== Registering JavaScript (Node.js 20) language id 1001... ==="
+sudo docker compose -f "$COMPOSE_FILE" exec -T db \
+  psql -U judge0 -d judge0 < sql/register_node20.sql \
+  && echo "      Node 20 language registered." \
+  || echo "      WARN: language registration failed — run sql/register_node20.sql manually."
 
 # ── Health checks ──────────────────────────────────────────────────────────
 echo ""

@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-SUPPORTED_LANGUAGES = ["python", "c", "cpp", "java"]
+SUPPORTED_LANGUAGES = ["python", "c", "cpp", "java", "javascript"]
 
 # Maximum TCs run in parallel within one batch.
 # Caps peak RSS to MAX_PARALLEL_TCS x memory_limit_mb (worst case).
@@ -134,6 +134,51 @@ class HarnessBuilder:
         # Substitute sentinel with repr() of student code — safe against triple-quotes,
         # backslashes, and any other characters that would break a string literal.
         return filled.replace(_SENTINEL, repr(self.cfg.student_code))
+
+    # ─────────────────────────────────────────────────────────────────
+    # JAVASCRIPT (Node.js)
+    # Parallel logic lives in the template (worker_threads pool).
+    # Like Python, the builder only fills in the data — student source and
+    # test cases are embedded as JSON (no per-arg literal serialization
+    # needed: JS takes JSON.stringify values natively, even arrays/objects).
+    # ─────────────────────────────────────────────────────────────────
+    def _build_javascript(self) -> str:
+        template = (_HARNESSES_DIR / "javascript_harness.js").read_text()
+
+        if self.cfg.mode == "stdio":
+            tc_dicts = [{"stdin_text": tc.stdin_text} for tc in self.cfg.test_cases]
+        else:
+            tc_dicts = [{"input": tc.inputs} for tc in self.cfg.test_cases]
+
+        # The JS harness has braces everywhere, so we substitute with replace()
+        # (like the Java builder) rather than str.format().  Student source is
+        # replaced LAST so none of the earlier values can match a placeholder
+        # token that happens to appear inside the student's code.
+        #
+        # Both the test cases and the student source are embedded as JSON:
+        # json.dumps() produces a valid JS literal (object/array for the test
+        # cases, a double-quoted string for the source) that safely handles
+        # quotes, backslashes, newlines and any other characters.
+        replacements = {
+            "{mode}":             self.cfg.mode,
+            "{session_id}":       self.session_id,
+            "{function_name}":    self.cfg.function_name,
+            "{per_tc_limit_s}":   str(self.cfg.per_tc_limit_s),
+            "{memory_limit_mb}":  str(self.cfg.memory_limit_mb),
+            "{max_parallel_tcs}": str(MAX_PARALLEL_TCS),
+            "{test_cases_json}":  json.dumps(tc_dicts),
+            "{student_source_json}": json.dumps(self.cfg.student_code),
+        }
+
+        result = template
+        for placeholder, value in replacements.items():
+            result = result.replace(placeholder, value)
+
+        # JS runtime errors already report `<student>:N` lines that map 1:1 to
+        # the student's own code (see wrapSource in the harness), so no
+        # post-hoc line adjustment is needed.
+        self.student_code_start_line = 0
+        return result
 
     # ─────────────────────────────────────────────────────────────────
     # C

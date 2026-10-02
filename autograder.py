@@ -63,6 +63,17 @@ def _find_defined_functions(code: str, language: str) -> list[str]:
             r"\w[\w<>\[\]]*\s+(\w+)\s*\(",
             code,
         )
+    elif lang == "javascript":
+        # function foo(...)            → function declaration
+        # const foo = (...) => / fn    → arrow/function assigned to a binding
+        # foo = function / (a) =>      → bare assignment
+        via_decl   = re.findall(r"\bfunction\s*\*?\s+(\w+)\s*\(", code)
+        via_assign = re.findall(
+            r"(?:^|[;{]|\b(?:const|let|var)\s+)\s*(\w+)\s*=\s*(?:async\s+)?"
+            r"(?:function\b|\([^)]*\)\s*=>|\w+\s*=>)",
+            code, re.MULTILINE,
+        )
+        return via_decl + via_assign
     return []
 
 
@@ -118,6 +129,22 @@ def _rewrite_java_no_method(
                 )
 
 
+def _rewrite_js_compile_error(parsed) -> None:
+    """
+    Promote JS syntax errors from ERROR to CE so students get the correct
+    "Compilation Error" label.
+
+    JavaScript has no separate compile step in Judge0 (it's interpreted), so a
+    syntax error never produces a Judge0 status-6 compile error — instead the
+    harness detects it with a vm.Script precheck and emits an ERROR result
+    whose detail starts with "Compilation Error:".  This mirrors the Java
+    NoSuchMethodException → CE rewrite.
+    """
+    for tc in parsed.tc_results:
+        if tc.status == "ERROR" and tc.detail.startswith("Compilation Error:"):
+            tc.status = "CE"
+
+
 def _detect_function_name(code: str, language: str, expected: str) -> str | None:
     """
     Return the function name to call in the harness.
@@ -145,6 +172,13 @@ def _detect_function_name(code: str, language: str, expected: str) -> str | None
         if re.search(
             rf"\b(?:(?:public|private|protected|static|final|synchronized)\s+)*"
             rf"\w[\w<>\[\]]*\s+{fn}\s*\(",
+            code,
+        ):
+            return expected
+    elif lang == "javascript":
+        if re.search(
+            rf"\bfunction\s*\*?\s+{fn}\s*\(|\b{fn}\s*=\s*(?:async\s+)?"
+            rf"(?:function\b|\([^)]*\)\s*=>|\w+\s*=>)",
             code,
         ):
             return expected
@@ -459,6 +493,10 @@ class Autograder:
         # Java reflection lookup failure → convert to a human-readable CE.
         if submission.language == "java":
             _rewrite_java_no_method(parsed, submission.mode, submission.function_name)
+
+        # JS syntax error (harness precheck) → promote ERROR to CE.
+        if submission.language == "javascript":
+            _rewrite_js_compile_error(parsed)
 
         # ── 6. Infrastructure failure detection ──────────────────────────
         # If ALL TCs are ERROR with our resource-limit keywords, the student's

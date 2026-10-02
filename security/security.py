@@ -395,6 +395,39 @@ _JAVA_BLOCKED: List[Tuple[str, str]] = [
     (r"\bPaths\s*\.\s*get\s*\(",             "java.nio.file.Paths.get() not allowed"),
 ]
 
+# ── JAVASCRIPT (Node.js) REGEX CHECKS ─────────────────────────────────────
+# JS runs on Node.js, so the attack surface is Node's built-in modules and the
+# dynamic-code builtins.  Regex is sufficient for the same reason as C/Java:
+# the dangerous capabilities are reached through recognizable structural
+# patterns (require('child_process'), eval(...), process.exit()).  The harness
+# runs each TC in a worker_threads isolate, and Judge0's sandbox is the real
+# boundary — these checks reject the obvious escapes up front.
+_JS_BLOCKED: List[Tuple[str, str]] = [
+    # require() / import of dangerous Node core modules.  Matches both
+    # require('fs') and ES-style   import ... from 'fs'   /   import('fs').
+    (r"""(?:require\s*\(|import\s*\(|from)\s*['"]\s*(?:node:)?child_process\b""",
+     "child_process module not allowed"),
+    (r"""(?:require\s*\(|import\s*\(|from)\s*['"]\s*(?:node:)?fs\b""",
+     "fs (filesystem) module not allowed"),
+    (r"""(?:require\s*\(|import\s*\(|from)\s*['"]\s*(?:node:)?(?:net|dgram|dns|tls|http2?|https)\b""",
+     "network modules not allowed"),
+    (r"""(?:require\s*\(|import\s*\(|from)\s*['"]\s*(?:node:)?(?:os|cluster|v8|vm|inspector|repl|module)\b""",
+     "system module not allowed"),
+    (r"""(?:require\s*\(|import\s*\(|from)\s*['"]\s*(?:node:)?worker_threads\b""",
+     "worker_threads module not allowed"),
+    # Dynamic code execution.
+    (r"\beval\s*\(",                         "eval() not allowed"),
+    (r"\bnew\s+Function\s*\(",               "Function constructor not allowed"),
+    # Process / runtime control.
+    (r"\bprocess\s*\.\s*exit\s*\(",          "process.exit() not allowed"),
+    (r"\bprocess\s*\.\s*binding\s*\(",       "process.binding() not allowed"),
+    (r"\bprocess\s*\.\s*dlopen\b",           "process.dlopen() not allowed"),
+    (r"\bprocess\s*\.\s*kill\s*\(",          "process.kill() not allowed"),
+    # require() called with a non-literal (variable) — defeats the literal
+    # module checks above by computing the module name at runtime.
+    (r"\brequire\s*\(\s*[^'\"\s)]",          "dynamic require() not allowed"),
+]
+
 
 # ── MAIN CHECKER CLASS ───────────────────────────────────────────────────
 
@@ -445,6 +478,11 @@ class SecurityChecker:
         elif lang == "java":
             violations.extend(_check_regex(student_code, _JAVA_BLOCKED))
             violations.extend(_check_c_infinite_loops(student_code))
+        elif lang == "javascript":
+            # JS uses C-style loops, so the C/C++/Java infinite-loop detector
+            # (while(true)/for(;;) with no break/return) applies unchanged.
+            violations.extend(_check_regex(student_code, _JS_BLOCKED))
+            violations.extend(_check_c_infinite_loops(student_code))
 
         if violations:
             return SecurityCheckResult(False, violations)
@@ -477,9 +515,9 @@ def sanitize_for_injection(student_code: str, language: str) -> str:
         # Strip trailing whitespace per line — prevents indentation issues
         return "\n".join(line.rstrip() for line in student_code.split("\n"))
 
-    elif language in ("c", "cpp", "java"):
-        # Student code is injected at file scope, not inside any block comment,
-        # so */ replacement is not needed and would break student comments.
+    elif language in ("c", "cpp", "java", "javascript"):
+        # Student code is embedded as a JSON string literal (JS) or at file
+        # scope (C/C++/Java) — no template-breaking characters to strip.
         return student_code
 
     return student_code

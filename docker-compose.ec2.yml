@@ -46,7 +46,9 @@ services:
   # ── Judge0 API server (Puma / Rails) ──────────────────────────────────────
   # 2 Puma processes × 16 threads = 32 HTTP slots
   server:
-    image: judge0/judge0:1.13.1
+    # Custom image = judge0/judge0:1.13.1 + Node 20 (see Dockerfile.judge0-node20).
+    # Build once:  docker build -t judge0-node20:1.13.1 -f Dockerfile.judge0-node20 .
+    image: judge0-node20:1.13.1
     # Rotation cap: hard ceiling ~100 MB (2×50m). server logs are DEBUG-level
     # Rails noise (duplicate base64 source) — not archived to S3, just capped
     # so they can never accumulate and fill the disk.
@@ -81,7 +83,9 @@ services:
   # mem_limit=1500m: 2 runners × 30 forks × ~50MB = ~3GB + Rails/Resque overhead
   # Override mem_limit via docker-compose.ec2.w*.yml for other configs.
   workers:
-    image: judge0/judge0:1.13.1
+    # Must carry the node20 binary — this is the container that executes code
+    # inside isolate sandboxes.  Same custom image as `server`.
+    image: judge0-node20:1.13.1
     command: ["./scripts/workers"]
     volumes:
       - ./judge0.ec2.conf:/judge0.conf:ro

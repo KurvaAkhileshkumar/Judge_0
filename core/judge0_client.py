@@ -84,10 +84,14 @@ _judge0_breaker = _CircuitBreaker(failure_threshold=10, recovery_s=30.0)
 MAX_PARALLEL_TCS = 200
 
 LANGUAGE_IDS = {
-    "python": 71,
-    "c":      50,
-    "cpp":    54,
-    "java":   62,
+    "python":     71,
+    "c":          50,
+    "cpp":        54,
+    "java":       62,
+    # JavaScript runs on Node 20 (language id 1001), registered via
+    # sql/register_node20.sql against the Dockerfile.judge0-node20 image.
+    # Stock Node 12.14.0 remains available at id 63 as a fallback.
+    "javascript": 1001,
 }
 
 JUDGE0_STATUS = {
@@ -310,8 +314,13 @@ class Judge0Client:
         #   Physical memory is bounded by the container mem_limit regardless of
         #   RLIMIT_AS, so a large RLIMIT_AS is safe — the kernel OOM-kills if
         #   physical usage exceeds the container limit.
-        if language.lower() == "java":
-            _RLIMIT_AS_KB = 8 * 1024 * 1024   # 8 GB — JVM + Rosetta 2 JIT
+        if language.lower() in ("java", "javascript"):
+            # Java: JVM heap + metaspace + code cache.
+            # JavaScript: a single Node process hosts ALL per-TC Worker
+            #   isolates (each its own V8 heap), so one RLIMIT_AS must cover the
+            #   whole pool — unlike Python/C where each forked child gets its own.
+            # Both need > 4 GB on top of Rosetta 2's JIT cache on Mac Docker.
+            _RLIMIT_AS_KB = 8 * 1024 * 1024   # 8 GB
         else:
             _RLIMIT_AS_KB = 4 * 1024 * 1024   # 4 GB — Python/C/C++ + Rosetta 2 JIT
         payload = {
@@ -331,6 +340,13 @@ class Judge0Client:
             # Judge0 conf sets MAX_MAX_PROCESSES_AND_OR_THREADS=500 as the ceiling.
             "number_of_processes": MAX_PARALLEL_TCS + 20,
         }
+        # JavaScript runs test cases as Worker threads inside ONE node process.
+        # Each Worker is ~1 thread, but node itself adds the libuv pool (~4) and
+        # V8 background threads (~4), and the isolate --processes limit counts
+        # processes AND threads.  Give JS extra headroom so a full batch of
+        # Workers never trips the limit (ceiling is MAX_MAX=500).
+        if language.lower() == "javascript":
+            payload["number_of_processes"] = MAX_PARALLEL_TCS + 120
         # Promote pointer↔integer implicit conversions from warning to error in C.
         # GCC 8 treats `char c = "\0"` (assigning a char* to a char) as a
         # -Wint-conversion warning; without this flag the code compiles, runs, and
