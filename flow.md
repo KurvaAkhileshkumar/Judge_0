@@ -1,1387 +1,489 @@
-This is a large topic — I'll cover every layer from HTTP request to SSE result, with full internal detail. No tools needed; I have everything from the audit.
+# Judge0 Autograder — System Flow
+
+> Code-verified walkthrough of the entire grading platform, from HTTP request to
+> result delivery. Every Redis key, status token, env var, and delimiter below is
+> read straight from the source on the EC2 deployment.
 
 ---
 
-# Complete Harness + Submission + Result Flow — Every Granular Detail
+## 1. The core idea
+
+Instead of sending Judge0 one job **per test case** (N jobs), the system wraps the
+student's code + **all N test cases** into a **single self-contained program** (the
+"harness"), submits it as **one** Judge0 job, runs every test case **in parallel**
+inside that one sandbox, and parses the N results back out of one stdout blob.
+
+```
+ Student code  +  N test cases
+        │
+        ▼
+ HarnessBuilder  ──►  ONE runnable program (student code + parallel TC runner + inline test data)
+        │
+        ▼
+ Judge0 sandbox  ──►  one stdout blob with N delimited TC results
+        │
+        ▼
+ OutputParser  ──►  {score, total, tc_results[...]}
+        │
+        ▼
+ Redis result + pub/sub  ──►  SSE stream / webhook / poll
+```
+
+This cuts Judge0 API traffic ~100× and makes wall-clock ≈ `max(tc_time)` instead of
+`sum(tc_time)`, because test cases run concurrently (fork/threads/workers).
+
+Time model: **global limit = per_tc_limit_s + overhead**, not `N × per_tc_limit_s`.
 
 ---
 
-## Part 1: The Mental Model First
+## 2. Service topology (`docker-compose.ec2.yml`)
 
-The system has one central idea: **instead of submitting N separate jobs to Judge0 (one per test case), it wraps ALL test cases into a single program (the "harness") that runs them all in parallel and emits structured output.** This reduces Judge0 API traffic by 100×.
+Single EC2 box (c5.xlarge: 4 vCPU, ~7.6 GB RAM, Ubuntu 22.04, ap-south-1). Seven
+services on the default bridge network:
 
-```
-Student Code
-     +
-Test Cases (N items)
-     │
-     ▼
-HarnessBuilder
-     │
-     ▼
-One complete program in Python/C/C++/Java
-(student code + harness runner + all N test inputs embedded)
-     │
-     ▼
-Submitted to Judge0 as ONE job
-     │
-     ▼
-Judge0 sandbox runs it → one stdout blob with N TC results
-     │
-     ▼
-OutputParser extracts all N results from stdout
-     │
-     ▼
-{score, tc_results[...]} stored in Redis → pushed via SSE
-```
+| Service | Image | Role | Count | mem_limit |
+|---|---|---|---|---|
+| `server` | `judge0-node20:1.13.1` | Judge0 API (Puma/Rails), port **2358** | 1 | — |
+| `workers` | `judge0-node20:1.13.1` | Judge0 Resque isolate sandboxes | **3** (`--scale workers=3`) | 1.5g |
+| `api` | custom Python 3.12 | Flask grading API (Gunicorn+gevent), port **5000** | 1 | — |
+| `grading_worker` | custom Python 3.12 | **async worker** — builds harness, submits, parses | 1 | — |
+| `reconciler` | custom Python 3.12 | crash recovery + deadline enforcement | 1 | — |
+| `db` | postgres:13 | Judge0 PostgreSQL | 1 | 400m |
+| `redis` | redis:6.0 | queue + results + pub/sub (bound to 127.0.0.1) | 1 | 512m |
 
----
+**Concurrency knobs:** total sandboxes = `workers × MAX_RUNNERS`. Current config is
+`workers=3 × MAX_RUNNERS=4`. Judge0 Puma HTTP slots = `WEB_CONCURRENCY=2 ×
+RAILS_MAX_THREADS=16 = 32`.
 
-## Part 2: The Submission — `POST /submit`
-
-### What the client sends
-
-```json
-{
-  "student_id":      "s123",
-  "assessment_id":   "a456",
-  "language":        "python",
-  "student_code":    "def solve(a, b):\n    return a + b",
-  "test_cases": [
-    { "inputs": [2, 3],   "expected": 5 },
-    { "inputs": [10, 20], "expected": 30 }
-  ],
-  "mode":            "function",
-  "function_name":   "solve",
-  "per_tc_limit_s":  2,
-  "memory_limit_mb": 256,
-  "param_types":     ["int", "int"],
-  "return_type":     "int"
-}
-```
-
-For stdio mode:
-```json
-{
-  "mode": "stdio",
-  "test_cases": [
-    { "stdin_text": "2 3\n",   "expected": "5" },
-    { "stdin_text": "10 20\n", "expected": "30" }
-  ]
-}
-```
-
-### What `api.py:submit()` does — step by step
-
-**Step 1: Pydantic validation.**  
-`_SubmitRequest.model_validate(body)` runs. It validates:
-- language is one of `python/c/cpp/java`
-- `function_name` matches `[A-Za-z_][A-Za-z0-9_]*`
-- `mode` is `function` or `stdio`
-- `per_tc_limit_s` is 1–30
-- `memory_limit_mb` is 16–3500
-- test_cases not empty, not > 500
-- Cross-validation: function mode requires `inputs` in each TC; stdio mode requires `stdin_text`
-
-**Step 2: Idempotency check.**
-```python
-code_hash = sha256(student_code)
-raw       = f"{student_id}:{assessment_id}:{code_hash}"
-idem_key  = "judge0:idem:" + sha256(raw)
-```
-Redis `GET judge0:idem:{key}`. If it exists → return the existing `ticket_id` with HTTP 200, status `"duplicate"`. The student gets the same ticket from a previous identical submission without re-running.
-
-**Step 3: Admission control.**
-```python
-queue.is_at_capacity(5000)
-# → r.llen("judge0:jobs:retry") + r.llen("judge0:jobs:normal") >= 5000
-```
-If true → 429.
-
-**Step 4: Build QueuedJob and enqueue.**
-```python
-ticket_id = str(uuid.uuid4())   # e.g. "a1b2c3d4-..."
-
-payload = {
-    "language":        "python",
-    "student_code":    "def solve...",
-    "test_cases":      [{"expected": 5, "inputs": [2,3], "stdin_text": None}, ...],
-    "mode":            "function",
-    "function_name":   "solve",
-    "per_tc_limit_s":  2,
-    "memory_limit_mb": 256,
-    "param_types":     ["int","int"],
-    "return_type":     "int",
-}
-
-job = QueuedJob(
-    ticket_id    = ticket_id,
-    student_id   = "s123",
-    submitted_at = time.time(),    # float epoch
-    payload      = payload,
-    retry_count  = 0,
-    idem_key     = "judge0:idem:abc...",
-)
-```
-
-`queue.enqueue(job)` does a Redis **pipeline** (atomic pair):
-```
-RPUSH  judge0:jobs:normal  <json-serialized QueuedJob>
-SETEX  judge0:pending_deadline:{ticket_id}  7200  "1"
-```
-
-The `pending_deadline` key is the "dead man's switch" — if it expires (2h) with no result stored, the reconciler writes a system_error. TTL reset on each requeue.
-
-**Step 5: Store idempotency key and return.**
-```
-SETEX  judge0:idem:{hash}  7200  "{ticket_id}"
-```
-Returns `202 {"ticket_id": "a1b2c3d4-...", "status": "queued"}`.
+**Images:**
+- `Dockerfile` — `python:3.12-slim`, non-root `appuser`, deps from
+  `requirements-api.txt` (flask, redis, gunicorn, gevent, requests, structlog,
+  pydantic, packaging). Default CMD runs `api:app` under gevent (2 workers, 1000
+  connections, 1900s timeout).
+- `Dockerfile.judge0-node20` — extends `judge0/judge0:1.13.1`, adds the Node.js
+  **20.17.0** binary as `/usr/local/bin/node20` (SHA256-verified) so modern JS and
+  per-worker memory limits work. Stock judge0 only ships Node 12. Registered as a
+  new language via `sql/register_node20.sql`.
 
 ---
 
-## Part 3: The Queue — What Sits in Redis
+## 3. End-to-end flow
 
-The `QueuedJob` serialized to JSON looks exactly like:
-```json
-{
-  "ticket_id":    "a1b2c3d4-...",
-  "student_id":   "s123",
-  "submitted_at": 1749500000.123,
-  "payload": {
-    "language":        "python",
-    "student_code":    "def solve(a, b):\n    return a + b",
-    "test_cases":      [{"expected": 5, "inputs": [2, 3], "stdin_text": null}],
-    "mode":            "function",
-    "function_name":   "solve",
-    "per_tc_limit_s":  2,
-    "memory_limit_mb": 256,
-    "param_types":     ["int", "int"],
-    "return_type":     "int"
-  },
-  "retry_count": 0,
-  "idem_key":    "judge0:idem:abc..."
-}
+```
+Student frontend
+   │  POST /api/grade   (Bearer student token)
+   ▼
+edwisely_api.py  ──verify token──►  Edwisely auth server
+   │  POST /submit  (+ callback_url)
+   ▼
+api.py  ──validate (pydantic)──► idempotency check ──► admission control
+   │  enqueue QueuedJob
+   ▼
+Redis  judge0:jobs:normal  (+ pending_deadline TTL)
+   │  BLPOP
+   ▼
+worker_async.py  (grading_worker)
+   │  Autograder.grade():
+   │    1. HarnessBuilder.build()
+   │    2. SecurityChecker.check()
+   │    3. Judge0Client.submit_and_wait()  ──► server (2358) ──► workers (isolate)
+   │    4. parse_judge0_response()
+   ▼
+Redis  judge0:result:{ticket}  +  PUBLISH judge0:notify:{ticket}
+   │                                   │
+   │ (webhook)                         │ (SSE)
+   ▼                                   ▼
+edwisely webhook  /api/webhook/result   api.py  GET /results/stream/{ticket}
+   │                                   │
+   ▼                                   ▼
+student polls GET /api/result/{ticket}   student receives SSE event
 ```
 
-This entire JSON string is pushed as a single element into the Redis list `judge0:jobs:normal`. Redis is just storing strings — the queue is a Redis List, FIFO (RPUSH at tail, BLPOP from head).
-
-**Two queues, one priority:**
-- `judge0:jobs:retry` — failed jobs waiting to be retried
-- `judge0:jobs:normal` — fresh submissions
-
-Worker always checks retry first via `BLPOP judge0:jobs:retry judge0:jobs:normal 5`. BLPOP checks keys left-to-right — any item in retry queue is always served before any normal job, no matter how many normal jobs are waiting.
+Three independent result-delivery paths exist (any/all may be used):
+1. **SSE** — `GET /results/stream/{ticket_id}` on api.py (pub/sub backed).
+2. **Webhook** — worker POSTs to `callback_url` when set.
+3. **Polling** — `GET /api/result/{ticket_id}` on edwisely_api.py.
 
 ---
 
-## Part 4: The Worker — `worker_async.py`
+## 4. Submission API — `api.py` (port 5000)
 
-### Startup sequence
+The core stateless grading engine. Redis-backed. Structured JSON logging via
+structlog (`core/log.py`, `LOG_LEVEL` env, logs `http_request`/`http_response` on
+every call).
 
-```python
-r = redis.Redis(host=REDIS_HOST, port=6379, password=..., decode_responses=False)
-queue = PriorityJobQueue(r)
+### `POST /submit`
 
-cb_server = CallbackServer()
-cb_server.start(port=0)        # OS picks a free port, e.g. 54321
-# cb_server is a tiny HTTP server running in a daemon thread
-# Judge0 will PUT results to http://{this_container_ip}:54321/result
+Validated by pydantic `_SubmitRequest`:
 
-callback_host = socket.gethostbyname(socket.gethostname())  # container's Docker bridge IP
+| Field | Rule |
+|---|---|
+| `student_id`, `assessment_id` | required str |
+| `language` | one of `python / c / cpp / java / javascript` |
+| `student_code` | required str |
+| `test_cases` | 1–500 items; each has `expected` + (`inputs` **or** `stdin_text`) |
+| `mode` | `function` (default) or `stdio` |
+| `function_name` | valid identifier `[A-Za-z_][A-Za-z0-9_]*`, default `solve` |
+| `per_tc_limit_s` | 1–30, default 2 |
+| `memory_limit_mb` | 16–3500, default 256 |
+| `param_types` | optional `list[str]` (function mode, C/C++/Java) |
+| `return_type` | default `auto` |
+| `callback_url` | optional, must start `http(s)://` |
+| `idem_key` | optional hex idempotency key |
 
-grader = Autograder(judge0_cfg, callback_server=cb_server, callback_host=callback_host)
+Cross-validation: `function` mode ⇒ all TCs use `inputs`; `stdio` mode ⇒ all TCs use
+`stdin_text`.
 
-executor = ThreadPoolExecutor(max_workers=52)   # 48 + 4
-loop = asyncio.new_event_loop()
-loop.set_default_executor(executor)
-loop.run_until_complete(run_worker_async(queue, grader))
-```
+Processing order:
+1. **Idempotency** — `judge0:idem:{idem_key}` (TTL 7200s). Hit ⇒ `200 {status:
+   "duplicate"}` with existing ticket.
+2. **Admission control** — `queue.is_at_capacity(MAX_QUEUE_DEPTH=5000)` ⇒ `429`.
+3. **Enqueue** — new UUID ticket, build `QueuedJob`, `queue.enqueue(job)`, store idem
+   key, return `202 {ticket_id, status: "queued"}`.
 
-### The async dequeue loop
+### `GET /results/stream/<ticket_id>` (SSE)
 
-```python
-sem = asyncio.Semaphore(48)   # max 48 concurrent grading coroutines
-tasks = set()
+Headers: `text/event-stream`, `no-cache`, `X-Accel-Buffering: no`, keep-alive.
+- First checks `judge0:result:{ticket}` — if present, emits `event: result` and
+  closes (avoids race).
+- Else subscribes to `judge0:notify:{ticket}`, polls at 1s, emits `: heartbeat`
+  every second, delivers the result on publish.
+- On `SSE_TIMEOUT_S` (default 1800s) emits a `system_error` result and closes.
 
-while running:
-    job = await asyncio.to_thread(queue.dequeue, 5)
-    # ↑ This calls queue.dequeue() in a thread-pool thread.
-    # queue.dequeue() does: r.blpop([RETRY_QUEUE, NORMAL_QUEUE], timeout=5)
-    # If timeout → returns None → loop continues (checks 'running' flag)
-    # If job found:
-    #   1. Parse JSON → QueuedJob
-    #   2. RPUSH job into PROCESSING_QUEUE
-    #   3. SETEX judge0:inflight:{ticket_id} 300 <raw_json>
-    #   All in one pipeline round-trip (atomic)
-    
-    if job is None:
-        continue
+### `GET /health`
 
-    # Reap completed tasks
-    tasks -= {t for t in tasks if t.done()}
-    
-    task = asyncio.create_task(process_job(job, queue, grader, sem))
-    tasks.add(task)
-```
-
-**Why asyncio.to_thread?** `r.blpop()` is a blocking call (blocks the OS thread for up to 5s). Running it in a thread-pool thread means the event loop can continue dispatching other coroutines while one thread is blocked waiting for Redis.
-
-### `process_job()` — inside the semaphore
-
-```python
-async with sem:   # blocks here if 48 jobs already running
-    submission = job_to_submission(job)
-    # ↑ Reconstructs Submission dataclass from job.payload dict
-
-    result = await asyncio.to_thread(grader.grade, submission, job.retry_count)
-    # ↑ grader.grade() is blocking (does HTTP to Judge0, waits for callback)
-    # Runs in a thread-pool thread so other coroutines can run concurrently
-
-    if result.needs_requeue:
-        if job.retry_count >= 3:
-            # Give up → store system_error
-            await asyncio.to_thread(queue.store_result, ticket_id, {system_error: ...}, job.idem_key)
-            await asyncio.to_thread(_flush_resque_queue, queue.r)
-            await asyncio.to_thread(queue.ack, job)
-        else:
-            backoff = 5.0 * (3 ** job.retry_count)  # 5s, 15s, 45s
-            # NOTE: falls through OUTSIDE the semaphore for the sleep
-    else:
-        await asyncio.to_thread(queue.store_result, ticket_id, result_to_dict(result), job.idem_key)
-        await asyncio.to_thread(queue.ack, job)
-
-# Outside semaphore: semaphore slot freed BEFORE sleeping
-if _requeue_backoff_s is not None:
-    await asyncio.sleep(_requeue_backoff_s)   # doesn't hold semaphore slot
-    await asyncio.to_thread(queue.requeue, job)
-    await asyncio.to_thread(queue.ack, job)
-```
-
-**Why sleep outside the semaphore?** If 48 jobs all fail simultaneously and sleep inside the semaphore, no new jobs can start for the full backoff duration. Moving sleep outside means the slot is freed immediately for other jobs.
-
-### `job_to_submission()` — deserializing the queue payload
-
-```python
-def job_to_submission(job: QueuedJob) -> Submission:
-    p = job.payload
-    return Submission(
-        student_id      = job.student_id,
-        language        = p["language"],          # "python"
-        student_code    = p["student_code"],       # "def solve(a,b): return a+b"
-        test_cases      = [
-            TestCase(
-                expected   = tc["expected"],       # 5
-                inputs     = tc.get("inputs"),     # [2, 3] for function mode
-                stdin_text = tc.get("stdin_text"), # None for function mode
-            )
-            for tc in p["test_cases"]
-        ],
-        mode            = p.get("mode", "function"),
-        function_name   = p.get("function_name", "solve"),
-        per_tc_limit_s  = p.get("per_tc_limit_s", 2),
-        memory_limit_mb = p.get("memory_limit_mb", 256),
-        param_types     = p.get("param_types"),    # ["int", "int"]
-        return_type     = p.get("return_type", "auto"),
-    )
-```
+Checks Redis + Judge0 + circuit breaker. Returns `ok` / `degraded` / `error`.
+Optional timing-safe bearer auth via `HEALTH_TOKEN` (`hmac.compare_digest`). `503`
+if Redis down, `401` on token mismatch.
 
 ---
 
-## Part 5: The Autograder Pipeline — `autograder.py:grade()`
+## 5. Frontend bridge — `edwisely_api.py` (port 8000)
 
-This is the brain. Seven stages, executed sequentially for each job.
+- **`POST /api/grade`** — requires `Authorization: Bearer <token>`; verifies against
+  `EDWISELY_AUTH_URL` (returns `student_id`, `assessment_id`). Injects
+  `callback_url = {WEBHOOK_BASE_URL}/api/webhook/result`, forwards to
+  `{JUDGE0_EC2_URL}/submit`. Propagates `202/200/400/401/429/502/503`.
+- **`POST /api/webhook/result`** — Judge0 side calls this on completion; stores into
+  in-memory `_results[ticket_id]` (hook point for DB write / WS push). *No signature
+  validation currently.*
+- **`GET /api/result/<ticket_id>`** — poll; `200 {status:"done", score, total,
+  tc_results[...]}` or `202 {status:"pending"}`.
+- **`GET /api/health`** — Judge0 reachability.
 
-### Stage 1: Build HarnessConfig + create session_id
-
-```python
-config = HarnessConfig(
-    student_code    = submission.student_code,
-    test_cases      = submission.test_cases,
-    language        = "python",
-    mode            = "function",
-    per_tc_limit_s  = 2,
-    memory_limit_mb = 256,
-    function_name   = "solve",
-    param_types     = ["int", "int"],
-    return_type     = "int",
-)
-builder = HarnessBuilder(config)
-# builder.session_id = "a3f9c2e1b8d4"   (12-char UUID hex, unique per grading call)
-# builder.delim      = "@@TC_RESULT__a3f9c2e1b8d4__"
-```
-
-The `session_id` and `delim` are critical. The delimiter is what separates each test case's output in the harness stdout. It's session-scoped so even if a student prints `@@TC_RESULT__` in their output, they can't forge it without knowing the current session_id.
-
-### Stage 2: Security check
-
-```python
-sec = self.security.check(
-    student_code  = submission.student_code,
-    language      = "python",
-    session_delim = builder.delim   # "@@TC_RESULT__a3f9c2e1b8d4__"
-)
-```
-
-**For Python — AST walk:**
-```python
-tree = ast.parse(student_code)
-checker = _PythonASTChecker()
-checker.visit(tree)
-```
-The AST walker catches:
-- `import os` → `visit_Import`: checks `alias.name.split(".")[0]` against BLOCKED_MODULES
-- `import os as operating_system` → same node, alias.asname logged in violation message
-- `from os import path` → `visit_ImportFrom`
-- `__import__("os")` → `visit_Call`: func.id in BLOCKED_BUILTINS
-- `os.system(...)` → `visit_Call`: func is Attribute, func.value.id in BLOCKED_MODULES
-- `().__class__.__bases__` → `visit_Attribute`: attr in BLOCKED_DUNDER
-- `while True: pass` → `visit_While`: test is const-True AND `_body_can_exit(body)` is False
-- `def solve(n): return solve(n)` → `visit_FunctionDef`: single-stmt body that calls itself
-
-Special violation handling:
-- `InfiniteLoop` → return TLE for ALL TCs immediately, never reach Judge0
-- `SyntaxError` (from `ast.parse` failing) → return ERROR for all TCs
-- Any other violation → return `security_error` (blocked, not graded)
-- `DelimiterInjection` → student code contains the session delimiter → blocked
-
-**For C/C++/Java — regex scan:**
-```python
-_check_regex(code, _C_BLOCKED)
-# Patterns: r"\bsystem\s*\(", r"\bfork\s*\(", r"\bsyscall\s*\(", 
-#           r'#\s*include\s*[<"]\s*sys/socket', r"\b__asm\b", etc.
-```
-
-### Stage 3: Auto-detect function name (function mode only)
-
-```python
-actual_fn = _detect_function_name(
-    code          = "def solve(a, b):\n    return a+b",
-    language      = "python",
-    expected      = "solve",
-)
-```
-
-This uses regex to search the code for the function definition:
-- Python: `re.search(r"(?:\bdef\s+solve\s*\(|^\s*solve\s*=\s*(?:lambda\b|\w))", code)`
-- If found → return `"solve"` (expected name is present, use it)
-- If NOT found (student named their function differently):
-  - `_find_defined_functions()` scans all definitions
-  - Filters out keywords: `main, int, void, bool, char, ...`
-  - If one candidate: return it
-  - If multiple: `_best_candidate()` — prefers names containing "solve" as substring, breaks ties by closest length
-
-Example: student wrote `def sum_values(a,b): return a+b`. Expected: `solve`.
-- `_find_defined_functions` → `["sum_values"]`
-- Returns `"sum_values"`
-- `config.function_name` updated to `"sum_values"` → harness calls `sum_values(a, b)`
-
-### Stage 4: Sanitize code
-
-```python
-config.student_code = sanitize_for_injection(student_code, language)
-```
-- Python: strips trailing whitespace per line (prevents indentation issues in template)
-- C/C++/Java: replaces `*/` with `* /` (prevents student code from closing harness's block comments)
-
-### Stage 5: Build harness
-
-```python
-harness_code = builder.build()
-# Routes to _build_python() / _build_c() / _build_cpp() / _build_java()
-```
-
-This is the most complex part. Covered in depth in Part 6.
-
-### Stage 6: Submit to Judge0 and wait
-
-```python
-judge0_result = self.judge0.submit_and_wait(
-    source_code     = harness_code,
-    language        = "python",
-    per_tc_limit_s  = 2,
-    tc_count        = 2,            # number of test cases
-    memory_limit_mb = 256,
-)
-```
-
-Full Judge0 flow in Part 7.
-
-### Stage 7: Parse output and return
-
-```python
-parsed = parse_judge0_response(
-    judge0_stdout   = judge0_result.stdout,
-    judge0_status   = judge0_result.status_str,
-    session_id      = builder.session_id,
-    total_tc_count  = 2,
-    expected_values = ["5", "30"],    # str(tc.expected).strip() for each TC
-    compile_output  = judge0_result.compile_output,
-)
-```
-
-Full parsing flow in Part 8.
+> Note: `_results` is an in-memory dict — results live in the edwisely_api process
+> only and should be moved to a DB for durability/scale.
 
 ---
 
-## Part 6: The Harness Builder — Deep Dive
+## 6. Queue & job lifecycle — `core/job_queue.py`
 
-### The Delimiter Protocol (shared by all languages)
+`PriorityJobQueue` over Redis. Keys:
 
-Every harness produces stdout in this exact format:
-```
-<anything the student might print — ignored>
-@@TC_RESULT__a3f9c2e1b8d4__START_1
-{"status": "OUTPUT", "got": "5", "detail": ""}
-@@TC_RESULT__a3f9c2e1b8d4__END_1
-@@TC_RESULT__a3f9c2e1b8d4__START_2
-{"status": "OUTPUT", "got": "30", "detail": ""}
-@@TC_RESULT__a3f9c2e1b8d4__END_2
-@@TC_RESULT__a3f9c2e1b8d4__DONE
-```
+| Key | Purpose | TTL |
+|---|---|---|
+| `judge0:jobs:normal` | new submissions (RPUSH / BLPOP, FIFO) | — |
+| `judge0:jobs:retry` | retried jobs (polled first) | — |
+| `judge0:jobs:processing` | in-flight list (visibility pattern) | — |
+| `judge0:inflight:{ticket}` | worker heartbeat / crash timeout | 300s |
+| `judge0:pending_deadline:{ticket}` | max-wait deadline trigger | 7200s |
+| `judge0:result:{ticket}` | stored result JSON | 7200s |
+| `judge0:notify:{ticket}` | SSE pub/sub channel | — |
+| `judge0:idem:{key}` | idempotency lock | 7200s |
 
-Note the harness emits `"OUTPUT"` status — it never emits `PASS` or `FAIL`. The comparison against expected values happens in `OutputParser` (outside the sandbox), not inside the harness. This is "Fix 4.1" — prevents students from forging verdicts.
+`QueuedJob` dataclass: `ticket_id, student_id, submitted_at, payload, retry_count=0,
+idem_key=""`. `payload` carries `language, student_code, test_cases, mode,
+function_name, per_tc_limit_s, memory_limit_mb, param_types, return_type,
+callback_url`.
 
-### Python Harness — Function Mode
+**Priority** = BLPOP key order: `BLPOP judge0:jobs:retry judge0:jobs:normal timeout`
+— retry queue drains first; FIFO within each.
 
-**Template placeholders filled:**
-```
-{session_id}      → "a3f9c2e1b8d4"
-{mode}            → "function"
-{student_code}    → the sanitized student code (inserted at module level)
-{student_code_raw}→ repr() of original student code (for _STUDENT_SOURCE)
-{test_cases_json} → [{"input": [2, 3]}, {"input": [10, 20]}]
-{per_tc_limit_s}  → 2
-{memory_limit_mb} → 256
-{function_name}   → "solve"
-```
+Key methods:
+- `enqueue(job)` — RPUSH to normal + set `pending_deadline` TTL (atomic pipeline).
+- `dequeue(timeout=30)` — BLPOP; on hit, RPUSH to processing + set `inflight` key.
+  Catches `redis.TimeoutError`/`ConnectionError` → returns `None` (no crash-restart
+  storm — this is the recent hardening fix).
+- `requeue(job)` — `retry_count++`, RPUSH to retry, reset deadline TTL.
+- `ack(job)` — Lua `_ACK_LUA` atomically `GET inflight → LREM processing → DEL
+  inflight` (removes TOCTOU race).
+- `store_result(ticket, result, idem_key)` — SETEX result, DEL pending_deadline, DEL
+  idem_key if `system_error`, PUBLISH notify — one pipeline.
+- `get_result(ticket)`, `depths()`, `is_at_capacity(max_depth)`.
 
-**The generated harness looks like:**
-```python
-import os, sys, io, signal, select, resource, traceback, json, builtins, time
-
-MODE  = "function"
-DELIM = "@@TC_RESULT__a3f9c2e1b8d4__"
-
-# Security monkey-patches
-_real_open   = open
-_real_signal = signal.signal
-_HARNESS_FILE = __file__
-
-def _safe_open(file, mode="r", *args, **kwargs):
-    if isinstance(file, int):
-        raise PermissionError("Direct file descriptor access not allowed")
-    if os.path.abspath(str(file)) == os.path.abspath(_HARNESS_FILE):
-        raise PermissionError("Access denied")
-    return _real_open(file, mode, *args, **kwargs)
-builtins.open = _safe_open   # student's open() calls go through this
-
-def _safe_signal(signum, handler):
-    if signum == signal.SIGALRM: return   # block SIGALRM override attempts
-    return _real_signal(signum, handler)
-signal.signal = _safe_signal
-
-def _safe_exit(*args): raise SystemExit("__HARNESS_BLOCKED__")
-sys.exit = builtins.exit = builtins.quit = _safe_exit
-
-# ══ STUDENT CODE at module level (function mode) ══
-def solve(a, b):
-    return a + b
-
-# ══ HARNESS RUNNER ══
-_STUDENT_SOURCE = 'def solve(a, b):\n    return a + b'   # repr() of original
-
-def _child_run_function(tc):
-    actual = solve(*tc["input"])   # {function_name} was replaced with "solve"
-    got_s  = str(actual).strip()
-    return {"status": "OUTPUT", "got": got_s}
-
-def _child_run(tc, write_fd, per_tc_limit_s, mem_limit_mb):
-    # Strip dangerous modules from sys.modules AFTER fork
-    for _m in ('os', 'subprocess', 'socket', 'signal', 'resource', ...):
-        sys.modules.pop(_m, None)
-    
-    # Per-child SIGALRM
-    def _tle(s, f): raise TimeoutError("TLE")
-    _real_signal(signal.SIGALRM, _tle)
-    signal.alarm(per_tc_limit_s)
-    
-    result = None
-    try:
-        result = _child_run_function(tc)   # MODE == "function"
-        signal.alarm(0)
-    except TimeoutError:
-        result = {"status": "TLE", "detail": "Exceeded 2s"}
-    except MemoryError:
-        result = {"status": "MLE", "detail": "Memory limit exceeded"}
-    except Exception:
-        result = {"status": "ERROR", "detail": <last 2 traceback lines>}
-    
-    data = json.dumps(result).encode()
-    os.write(write_fd, data)
-    os.close(write_fd)
-    os._exit(0)   # skip atexit, no cleanup
-
-def _run_all_parallel(test_cases, per_tc_limit_s, memory_limit_mb):
-    n = 2
-    # Preflight: check RLIMIT_NOFILE and RLIMIT_NPROC
-    
-    results = {}
-    for batch_start in range(0, n, 200):  # batches of 200
-        batch_tcs = test_cases[batch_start : batch_start+200]
-        jobs = []
-        
-        for b_i, tc in enumerate(batch_tcs):
-            g_i = batch_start + b_i
-            r_fd, w_fd = os.pipe()
-            pid = os.fork()
-            if pid == 0:
-                os.close(r_fd)
-                _child_run(tc, w_fd, 2, 256)   # in child
-                os._exit(0)
-            else:
-                os.close(w_fd)
-                jobs.append((pid, r_fd, g_i))
-        
-        # Collect via poll()
-        poller = select.poll()
-        for _, r_fd, _ in jobs: poller.register(r_fd, select.POLLIN)
-        deadline = time.monotonic() + 2 + 5
-        
-        while pending_fds:
-            ready = poller.poll(remaining_ms)
-            for r_fd, event in ready:
-                chunk = os.read(r_fd, 65536)
-                if chunk: bufs[idx].append(chunk)
-                else:  # EOF = child finished
-                    raw = b"".join(bufs[idx])
-                    results[idx] = json.loads(raw)
-        
-        # Kill any still-running children (TLE)
-    
-    # Emit results in order
-    for i in range(n):
-        result = results.get(i, {"status": "ERROR", ...})
-        sys.stdout.write(f"{DELIM}START_{i+1}\n")
-        sys.stdout.write(json.dumps(result) + "\n")
-        sys.stdout.write(f"{DELIM}END_{i+1}\n")
-        sys.stdout.flush()
-    sys.stdout.write(f"{DELIM}DONE\n")
-    sys.stdout.flush()
-
-_TEST_CASES      = [{"input": [2, 3]}, {"input": [10, 20]}]
-_PER_TC_LIMIT_S  = 2
-_MEMORY_LIMIT_MB = 256
-_run_all(_TEST_CASES, _PER_TC_LIMIT_S, _MEMORY_LIMIT_MB)
-```
-
-**What happens at runtime inside Judge0:**
-1. Python interpreter runs the harness file
-2. Student's `solve` function is defined at module level
-3. `_run_all_parallel()` is called
-4. For N=2 TCs (fits in one batch): both `os.fork()` calls happen immediately
-5. Child 0: alarm(2), calls `solve(2, 3)` → returns 5 → writes `{"status":"OUTPUT","got":"5"}` to pipe → `_exit(0)`
-6. Child 1: alarm(2), calls `solve(10, 20)` → returns 30 → writes `{"status":"OUTPUT","got":"30"}` to pipe → `_exit(0)`
-7. Parent: `poll()` on both pipe read-ends simultaneously, reads each child's result as it arrives
-8. Both results arrive (in whatever order, fastest first), stored in `results` dict
-9. Emits in order: TC1 result, TC2 result, then DONE
-
-**Total wall time = max(time_for_TC1, time_for_TC2)**, not sum.
-
-### Python Harness — Stdio Mode
-
-**Key differences from function mode:**
-
-`test_cases_json` becomes: `[{"stdin_text": "2 3\n"}, {"stdin_text": "10 20\n"}]`
-
-The student code is NOT executed at module level. Instead:
-```python
-# module_level_code = "# stdio mode: student code runs only in child processes via exec()"
-```
-The student source is stored raw:
-```python
-_STUDENT_SOURCE = 'a, b = map(int, input().split())\nprint(a + b)\n'
-```
-
-In each child, `_child_run_stdio()` is called:
-```python
-def _child_run_stdio(tc):
-    fake_stdin  = io.StringIO(tc.get("stdin_text", ""))  # "2 3\n"
-    fake_stdout = io.StringIO()
-    sys.stdin   = fake_stdin
-    sys.stdout  = fake_stdout
-    
-    # Whitelisted builtins — exec() cannot escape via __builtins__
-    _safe_builtins = {k:v for k,v in __builtins__.__dict__.items()
-                      if k in {'print', 'input', 'range', 'len', 'int', ...}}
-    
-    ns = {
-        "__name__":     "__main__",
-        "__builtins__": _safe_builtins,
-        "open":         _safe_open,
-        "exit":         _safe_exit,
-    }
-    exec(compile(_STUDENT_SOURCE, "<student>", "exec"), ns)
-    
-    got = fake_stdout.getvalue().strip()
-    return {"status": "OUTPUT", "got": got}
-```
-
-**What happens:**
-1. Fork N children simultaneously
-2. Each child: replace `sys.stdin` with `io.StringIO("2 3\n")`, `sys.stdout` with `io.StringIO()`
-3. `exec(_STUDENT_SOURCE, ns)` — runs the student program in a restricted namespace
-4. `input()` reads from the fake stdin → returns `"2 3"`
-5. `print(a + b)` writes to the fake stdout
-6. `fake_stdout.getvalue().strip()` → `"5"` → written to pipe
-
-**Why exec and not a subprocess?** Faster. No process creation, no file I/O, no Python startup overhead. The fake stdin/stdout redirect is pure Python, works inside the existing forked child.
-
-**The `__import__` in whitelisted builtins** allows `import bisect`, `import math` etc. inside student code, since those stdlib modules are harmless. The AST checker already blocked dangerous imports before reaching this point.
-
-### C Harness — Function Mode
-
-`_build_c()` generates the complete C source by filling `c_harness.c` template + generating inline C code for the parallel runner.
-
-**The TC runner is NOT from the template** — it's generated programmatically by `_build_c_parallel_runner()`. For N=2 TCs with `param_types=["int","int"]`, `return_type="int"`:
-
-`tc_params_comma` = `"int p0, int p1, "` (params + trailing comma when params exist)
-
-`call_solve_and_capture` = (from `_build_c_call("int")`):
-```c
-int ret = solve(p0, p1);
-snprintf(result.got, sizeof(result.got), "%d", (int)ret);
-```
-
-The generated child function signature:
-```c
-static void run_tc_child(int pipe_fd, int p0, int p1, int per_tc_limit_s, int memory_limit_mb) {
-    // apply memory limit via RLIMIT_AS
-    // block fork via RLIMIT_NPROC = 1
-    // close all FDs except stdin/stdout/stderr/pipe_fd
-    // set SIGALRM handler
-    // alarm(2)
-    
-    TCResult result;
-    memset(&result, 0, sizeof(result));
-    
-    int ret = solve(p0, p1);
-    snprintf(result.got, sizeof(result.got), "%d", (int)ret);
-    
-    alarm(0);
-    strncpy(result.status, "OUTPUT", sizeof(result.status)-1);
-    
-    write(pipe_fd, &result, sizeof(TCResult));
-    close(pipe_fd);
-    _exit(0);
-}
-```
-
-**The `tc_runner_body` for BATCH 0 (TC1 and TC2):**
-```c
-// Preflight: RLIMIT_NOFILE check
-
-TCResult *_results = (TCResult*)calloc(2, sizeof(TCResult));
-
-/* BATCH 0: TCs 1..2 */
-{
-    pid_t _pids[2];
-    int   _fds[2];
-    int   _done[2];
-    // memset all to 0
-
-    /* Phase 1: Fork both children simultaneously */
-    {
-        int _pfd[2];
-        pipe(_pfd);
-        pid_t _p = fork();
-        if (_p == 0) {
-            close(_pfd[0]);
-            run_tc_child(_pfd[1], 2, 3, 2, 256);   // TC1 inputs
-        }
-        close(_pfd[1]);
-        _pids[0] = _p;
-        _fds[0]  = _pfd[0];
-    }
-    {
-        int _pfd[2];
-        pipe(_pfd);
-        pid_t _p = fork();
-        if (_p == 0) {
-            close(_pfd[0]);
-            run_tc_child(_pfd[1], 10, 20, 2, 256);  // TC2 inputs
-        }
-        close(_pfd[1]);
-        _pids[1] = _p;
-        _fds[1]  = _pfd[0];
-    }
-
-    /* Phase 2: Collect via poll() */
-    alarm(2 + 2);   // global safety alarm
-    struct pollfd _pfds[2];
-    // set up pollfd for each pipe read-end
-    
-    while (_pending > 0 && !_global_tle) {
-        poll(_pfds, 2, 4000);   // (2+2)*1000 ms
-        for each ready fd:
-            read(_pfds[i].fd, &_results[g_i], sizeof(TCResult));
-            waitpid(_pids[i], &_st, 0);
-            // if child wrote < sizeof(TCResult): check WIFSIGNALED → SEGV/MLE/FPE
-    }
-    // Kill any survivors → TLE
-    alarm(0);
-}
-
-/* Phase 3: Print results */
-for i in 0..1:
-    json_escape(_results[i].status, ...)
-    json_escape(_results[i].got, ...)
-    printf("@@TC_RESULT__a3f9c2e1b8d4__START_%d\n", i+1);
-    printf("{\n  \"status\": \"%s\",\n  \"got\": \"%s\",\n  \"detail\": \"%s\"\n}\n", ...);
-    printf("@@TC_RESULT__a3f9c2e1b8d4__END_%d\n", i+1);
-    fflush(stdout);
-
-free(_results);
-printf("@@TC_RESULT__a3f9c2e1b8d4__DONE\n");
-fflush(stdout);
-```
-
-**Key C-specific details:**
-- Test case input values are embedded as **C literals** in the fork code. `2` → `2`, `"hello"` → `"hello"`, `True` → `1`, `3.14` → `3.14`
-- The `TCResult` struct is passed through the pipe as raw binary (`sizeof(TCResult)` bytes). The parent reads exactly `sizeof(TCResult)` bytes — if fewer bytes arrive (child crashed before writing), the parent checks `WIFSIGNALED()` to determine SEGV/MLE/FPE
-- `poll()` has no FD_SETSIZE=1024 limit (unlike `select()`). Works for 200+ parallel TCs
-- `calloc()` on heap for `_results` — avoids stack overflow from VLA for large N
-- SIGALRM in child: child sets its own alarm, writes TLE result, `_exit(0)`. Parent's alarm is a safety backstop only
-
-**C Harness — Stdio Mode**
-
-`call_solve_and_capture` = result of `_build_c_stdio_call()`:
-```c
-{
-    int _sp[2];
-    pipe(_sp);
-    // Feed _stdin_text into pipe, close write end (student gets EOF)
-    write(_sp[1], _stdin_text, strlen(_stdin_text));
-    close(_sp[1]);
-    
-    int _saved_in = dup(STDIN_FILENO);
-    dup2(_sp[0], STDIN_FILENO);   // fd 0 → read end of pipe
-    close(_sp[0]);
-    
-    FILE* _tmp = tmpfile();
-    int _saved_out = dup(STDOUT_FILENO);
-    dup2(fileno(_tmp), STDOUT_FILENO);  // fd 1 → tmpfile
-    
-    student_stdio_main(0, NULL);   // #define main student_stdio_main
-    fflush(stdout);
-    
-    // Restore fds
-    dup2(_saved_in, STDIN_FILENO);  close(_saved_in);
-    dup2(_saved_out, STDOUT_FILENO); close(_saved_out);
-    
-    // Read captured output
-    fread(_cbuf, 1, MAX_OUTPUT-1, _tmp);
-    fclose(_tmp);
-    // strip trailing whitespace
-    strncpy(result.got, _cbuf, sizeof(result.got)-1);
-}
-```
-
-The `#define main student_stdio_main` trick: the builder prepends this define to the student code, and follows with `#undef main`. So the student's `int main()` becomes `int student_stdio_main()`. The harness has its own real `int main(void)` that is unaffected.
-
-**Stdio TC parameters:** `tc_params_comma = "const char* _stdin_text, "` so `run_tc_child` receives the stdin as a C string. Fork calls become:
-```c
-run_tc_child(_pfd[1], "2 3\n", 2, 256);   // TC1
-run_tc_child(_pfd[1], "10 20\n", 2, 256); // TC2
-```
-
-### Java Harness — Function Mode
-
-Java can't fork. It uses **one thread per TC** with a shared deadline.
-
-The harness wraps student code as an inner class:
-```java
-public class Harness {
-    static class Student {
-        public int solve(int a, int b) {
-            return a + b;
-        }
-    }
-    // ... thread dispatch, result collection
-```
-
-**ThreadLocal stream dispatch** — the key innovation for parallel TC isolation:
-```java
-// DISPATCH_STREAM is set as System.out once at startup
-static final ThreadLocal<PrintStream> TL_OUT = new ThreadLocal<>();
-static final PrintStream DISPATCH_STREAM = new PrintStream(new OutputStream() {
-    @Override public void write(int b) {
-        PrintStream s = TL_OUT.get();  // routes to THIS thread's stream
-        if (s != null) s.write(b);
-    }
-});
-System.setOut(DISPATCH_STREAM);
-```
-
-Every worker thread sets `TL_OUT.set(capture)` before running. Any `System.out.println()` in student code routes through `DISPATCH_STREAM` → `TL_OUT.get()` → that thread's capture stream. Two threads can call `System.out.println()` simultaneously without interfering.
-
-**`launchFunctionTC()` for TC1 (inputs=[2,3]):**
-```java
-Thread t = new Thread(() -> {
-    TCResult result = new TCResult();
-    
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    PrintStream capture = new PrintStream(baos);
-    TL_OUT.set(capture);
-    TL_IN.set(null);  // no stdin in function mode
-    
-    try {
-        forceGC();
-        long memBefore = MX.getHeapMemoryUsage().getUsed();
-        
-        Class<?> _studentClass = freshStudentClass();  // new ClassLoader per TC!
-        Class<?>[] paramClasses = resolveParamClasses(new String[]{"int","int"});
-        Method m = _studentClass.getDeclaredMethod("solve", paramClasses);
-        m.setAccessible(true);
-        Constructor<?> _ctor = _studentClass.getDeclaredConstructor();
-        _ctor.setAccessible(true);
-        Object retVal = m.invoke(_ctor.newInstance(), new Object[]{(Object)(2), (Object)(3)});
-        
-        // Check memory usage
-        long memUsedMb = (MX.getHeapMemoryUsage().getUsed() - memBefore) / (1024*1024);
-        if (memUsedMb > 256) { result.status="MLE"; ... }
-        
-        String returned = retVal != null ? retVal.toString().trim() : "null";
-        result.got    = returned;   // "5"
-        result.status = "OUTPUT";
-        
-    } catch (OutOfMemoryError e) { result.status = "MLE"; ... }
-    catch (InvocationTargetException e) { /* unwrap cause */ }
-    catch (Exception e) { result.status = "ERROR"; }
-    finally { TL_OUT.remove(); TL_IN.remove(); }
-    
-    resultRef.set(result);
-});
-t.setDaemon(true);  // JVM exits even if thread still running
-return t;
-```
-
-**`freshStudentClass()`** — why it's needed:
-```java
-ClassLoader _loader = new ClassLoader(parent) {
-    @Override
-    protected Class<?> loadClass(String name, boolean resolve) {
-        if ("Harness$Student".equals(name)) {
-            return defineClass(name, STUDENT_CLASS_BYTES, 0, STUDENT_CLASS_BYTES.length);
-        }
-        return super.loadClass(name, resolve);
-    }
-};
-return _loader.loadClass("Harness$Student");
-```
-
-Without this: if the student has `static int[] dp = new int[N]`, that static array persists across ALL test cases (class-level state). TC2 inherits TC1's dp. By loading a fresh class per TC, static fields are zeroed out for each TC independently.
-
-**The `tc_runner_body` for N=2 TCs:**
-```java
-AtomicReference<TCResult>[] _resultRefs = new AtomicReference[2];
-Thread[] _threads = new Thread[2];
-for (int i = 0; i < 2; i++) _resultRefs[i] = new AtomicReference<>(null);
-
-// Phase 1: Create threads (not started yet)
-{
-    Object[] _in0 = { (Object)(2), (Object)(3) };
-    _threads[0] = launchFunctionTC(_in0, paramTypes, functionName, memoryLimitMb, _resultRefs[0]);
-}
-{
-    Object[] _in1 = { (Object)(10), (Object)(20) };
-    _threads[1] = launchFunctionTC(_in1, paramTypes, functionName, memoryLimitMb, _resultRefs[1]);
-}
-
-// Phase 2: Start ALL threads simultaneously — t=0 for both
-for (int i = 0; i < 2; i++) _threads[i].start();
-
-// Phase 3: Join with shared deadline
-long _deadline = System.currentTimeMillis() + 2000 + 500;
-for (int i = 0; i < 2; i++) {
-    long _remaining = _deadline - System.currentTimeMillis();
-    _threads[i].join(Math.max(1L, _remaining));   // min 1ms (join(0) = wait forever!)
-    if (_threads[i].isAlive()) {
-        boolean _dead = killThread(_threads[i]);
-        _resultRefs[i].set(new TCResult() {{ status="TLE"; detail="Exceeded 2s"; }});
-    }
-}
-
-// Phase 4: Print results
-for (int i = 0; i < 2; i++) {
-    TCResult _r = _resultRefs[i].get();
-    printResult(i+1, _r);   // uses ORIGINAL_OUT, not DISPATCH_STREAM
-}
-```
-
-**Join(max(1L, remaining)) fix:** Old code used `join(_remaining)` which could call `join(0)` meaning "wait forever". The fix ensures minimum 1ms join — if remaining time is 0 or negative, we still poll the thread once (1ms) and then check isAlive.
-
-### Java Harness — Stdio Mode
-
-Uses `launchStdioTC(stdinInput, resultRef)` instead of `launchFunctionTC`:
-```java
-InputStream fakeIn = new ByteArrayInputStream("2 3\n".getBytes());
-TL_IN.set(fakeIn);   // DISPATCH_STDIN routes read() to this
-
-Method m = _studentClass.getMethod("main", String[].class);
-m.invoke(null, (Object) new String[]{});  // static method, null receiver
-```
-
-`DISPATCH_STDIN` routes all `System.in.read()` calls to the per-thread `TL_IN`, same pattern as stdout.
+Constants: `RESULT_TTL_S=7200`, `INFLIGHT_TTL_S=300`, `MAX_JOB_WAIT_S=7200`.
 
 ---
 
-## Part 7: Judge0 Client — Submission and Callback
+## 7. Worker — `worker_async.py` (active; `worker.py` is the deprecated sync version)
 
-### Building the payload
+asyncio loop; blocking I/O offloaded via `asyncio.to_thread`. `WORKER_CONCURRENCY`
+(default 48) bounds concurrent jobs via a semaphore; thread pool = concurrency + 4.
 
-```python
-global_limit_s = math.ceil(max(tc_count, 1) / 200) * per_tc_limit_s + 5
-# For N=2 TCs, per_tc=2s: ceil(2/200)*2+5 = 1*2+5 = 7s
-# For N=500 TCs, per_tc=2s: ceil(500/200)*2+5 = 3*2+5 = 11s
+Loop: `dequeue(5)` → `asyncio.create_task(process_job(...))` → reap done tasks. Each
+`process_job`:
+1. `async with sem:` → `grader.grade(submission, retry_count)` in a thread.
+2. On infra failure (`needs_requeue=True`): compute backoff
+   `5 × 3^retry_count` s (5 / 15 / 45) — **sleep outside the semaphore** so it doesn't
+   hold a slot — then requeue + ack. At `MAX_RETRY_COUNT` (default 3): store
+   `system_error`, no sleep, ack.
+3. Else store result + ack. Every exception path still calls `ack` (no stuck jobs).
 
-payload = {
-    "source_code":   base64.b64encode(harness_code.encode()).decode(),
-    "language_id":   71,       # Python
-    "cpu_time_limit": 7,
-    "wall_time_limit": 9,      # +2s wall buffer
-    "memory_limit":   4194304, # 4 GB (RLIMIT_AS, for Rosetta 2 compatibility)
-    "stdin":          "",
-    "base64_encoded": True,
-    "enable_per_process_and_thread_time_limit":   True,  # no cgroups needed
-    "enable_per_process_and_thread_memory_limit": True,
-    "number_of_processes": 220,   # harness forks up to 200 children + overhead
-    "callback_url": "http://172.17.0.5:54321/result",  # this worker's callback URL
-}
-```
+Extras:
+- **Webhook** — if `payload.callback_url` set, `_fire_webhook` POSTs the result with
+  3 retries / backoff; logs `webhook_delivered` / `_server_error` / `_failed` /
+  `_gave_up`. Never blocks the job.
+- **Resque flush** — on retry exhaustion, one-shot `_flush_resque_queue` deletes
+  `resque:queue:default` + `resque:failed` and the stuck Judge0 submission, breaking
+  OOM-kill cascades.
+- Graceful shutdown awaits in-flight tasks on SIGTERM/SIGINT.
 
-**Why memory_limit=4GB:** On Mac Docker Desktop, Rosetta 2's JIT needs gigabytes of virtual address space. Setting RLIMIT_AS to 4GB prevents spurious MLE kills. On Linux/EC2, actual physical memory is bounded by the container's `mem_limit=1g`.
-
-**Why `enable_per_process_and_thread_*=True`:** These flags make Judge0 use RLIMIT_CPU/RLIMIT_AS per-process instead of cgroup limits. Required on Mac (no cgroup v1). On Linux this is valid too — the harness sets its own RLIMIT_AS per child anyway.
-
-**Why `number_of_processes=220`:** Judge0's sandbox default is 60. The harness forks up to 200 children per batch. This overrides the per-submission process limit.
-
-### Circuit breaker check
-
-Before the POST:
-```python
-if _judge0_breaker.is_open():
-    raise RuntimeError("Judge0 circuit breaker open...")
-```
-
-The breaker is module-level singleton — shared across ALL `Judge0Client` instances (all 48 concurrent coroutines). Opens after 10 consecutive 5xx/connection errors, stays open 30s.
-
-### The HTTP POST
-
-```python
-resp = requests.post(
-    "http://server:2358/submissions?base64_encoded=true&wait=false",
-    json=payload,
-    headers=headers,
-    timeout=120,   # queue drain can take >10s at 1000 concurrent users
-)
-# Response: {"token": "abc123-..."}
-token = resp.json()["token"]
-```
-
-**`wait=false`:** Don't wait for execution to complete. Judge0 returns a token immediately and queues the job in its Resque queue.
-
-**Internal Judge0 flow:**
-1. Rails/Puma receives the POST
-2. Validates the submission, creates a record in PostgreSQL
-3. Enqueues to Resque (Redis `resque:queue:default`)
-4. Returns `{"token": "abc123-..."}`
-5. A Resque worker (the `workers` Docker service running `./scripts/workers`) picks up the job
-6. Resque worker calls isolate to compile and run the harness in a Linux sandbox
-7. When done, Rails fires a PUT to `callback_url` with the full result JSON
-
-### The Callback Server — waiting for the result
-
-```python
-evt = self.callback_server.register(token)
-# register() atomically:
-#   - creates threading.Event
-#   - stores event in _events[token]
-#   - IF result already in _results[token] (early arrival), pre-sets event
-
-fired = evt.wait(timeout=7+120)   # global_limit + 120s buffer for queue drain
-```
-
-The 120s extra buffer: at 1000 concurrent users, Judge0's Resque queue can hold a job for 60-90s before execution even starts. Without this buffer, the callback timeout fires before the job finishes, causing spurious SYSTEM_ERRORs.
-
-**Race condition handled:** Judge0 can fire the callback webhook **before** `register()` is called. For example, a compilation error resolves in ~100ms — faster than Python's GIL round-trip after `requests.post()` returns. The `CallbackServer._deliver()` buffers the result. `register()` checks the buffer:
-
-```python
-def register(self, token):
-    evt = threading.Event()
-    with self._lock:
-        self._events[token] = evt
-        if token in self._results:
-            evt.set()   # already arrived → signal immediately
-    return evt
-```
-
-**The callback HTTP handler:**
-```python
-class _Handler(BaseHTTPRequestHandler):
-    def do_PUT(self): self._handle()
-    def do_POST(self): self._handle()
-    
-    def _handle(self):
-        length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length)
-        self.send_response(200)   # respond immediately — Judge0 doesn't retry
-        self.end_headers()
-        
-        payload = json.loads(body)
-        token = payload.get("token", "")
-        server_ref._deliver(token, payload)   # signal waiting coroutine
-```
-
-The server uses a `ThreadPoolExecutor(32)` for connection handling — under 1000 concurrent webhooks, this prevents spawning 1000 OS threads (which would consume ~8GB of stack space on Linux).
-
-**Poll fallback:** If callback never fires within the timeout:
-```python
-poll_result = self._poll_fallback(token, global_limit_s)
-# Polls GET /submissions/{token} every 5s for up to 60s
-# Returns result if status not in (1=InQueue, 2=Processing)
-# Returns None if still pending → raises TimeoutError → worker requeues
-```
-
-### Parsing the webhook payload
-
-```python
-def _parse_webhook_payload(data: dict) -> Judge0Result:
-    status_id = data.get("status", {}).get("id", 11)
-    return Judge0Result(
-        stdout         = base64.b64decode(data.get("stdout", "") or "").decode(errors="replace"),
-        stderr         = base64.b64decode(data.get("stderr", "") or "").decode(errors="replace"),
-        status_str     = JUDGE0_STATUS.get(status_id, "Unknown"),  # "Accepted", "TLE", etc.
-        status_id      = status_id,
-        compile_output = base64.b64decode(data.get("compile_output", "") or "").decode(errors="replace"),
-        time_taken_s   = float(data.get("time")) if data.get("time") else None,
-        memory_kb      = data.get("memory"),
-        token          = token,
-    )
-```
-
-Stdout is base64-encoded by Judge0 (because it may contain binary). Decoded here into a Python string.
+Env: `REDIS_*`, `JUDGE0_URL` (default `http://localhost:2358`), `JUDGE0_API_KEY`,
+`MAX_RETRY_COUNT=3`, `WORKER_CONCURRENCY=48`, `CALLBACK_HOST/PORT`.
 
 ---
 
-## Part 8: Output Parser — Extracting TC Results
+## 8. Orchestration — `autograder.py` (`Autograder.grade`)
 
-### Top-level: `parse_judge0_response()`
+1. **Build harness** → `HarnessBuilder(HarnessConfig(...))`; captures `session_id`,
+   `delim`, `student_code_start_line`.
+2. **Security** → `security.check(code, language, delim)`:
+   - infinite loop → all TCs `TLE` (never hits Judge0)
+   - syntax error → all TCs `CE`
+   - real violation (e.g. `import os`) → all TCs `ERROR` + `security_error`
+3. **Function detection** (function mode) → `_detect_function_name`: uses the
+   requested name if defined, else best candidate (name containing the expected, or
+   last-defined), skipping `main/int/void/...`. None found → all TCs `ERROR`.
+4. **Sanitize** → `sanitize_for_injection`.
+5. **Submit** → `judge0.submit_and_wait(source, language, per_tc_limit_s, tc_count,
+   memory_limit_mb)`. Retriable exceptions (5xx, timeout, breaker open, Judge0 status
+   12) → return `needs_requeue=True`.
+6. **Parse** → `parse_judge0_response(stdout, status, session_id, total_tc_count,
+   expected_values, compile_output, student_code_start_line)`.
+7. **Language rewrites** — Java `NoSuchMethodException` → CE; JS `Compilation Error:`
+   detail → CE.
+8. **Infra-failure guard** → `_is_infrastructure_failure`: empty results, or all
+   `ERROR` with infra keywords (`fork() failed`, `RLIMIT_NPROC`, `EMFILE`, `Cannot
+   allocate memory`, `out of memory`, …) → `needs_requeue=True`.
+9. **Cleanup** → best-effort `judge0.delete_submission(token)`.
 
-First checks Judge0-level failures:
-```python
-if judge0_status == "Time Limit Exceeded":
-    # Judge0's own time limit fired (harness exceeded global_limit_s)
-    # No harness output at all → ALL TCs = TLE
-    return ParsedSubmission(tc_results=[TCResult(i, "TLE", ...) for i in 1..N])
-
-if judge0_status in ("Compilation Error", "Internal Error"):
-    # compile_output has the error message
-    # ALL TCs = ERROR with compile error detail (trimmed to 500 chars)
-    return ParsedSubmission(tc_results=[TCResult(i, "ERROR", detail=compile_output) for i in 1..N])
-
-# Otherwise: parse harness output
-parser = OutputParser(stdout, session_id, N, expected_values)
-return parser.parse()
-```
-
-### `OutputParser.parse()`
-
-```python
-def parse(self) -> ParsedSubmission:
-    result = ParsedSubmission(tc_results=[], total=N)
-    found_tcs = set()
-    
-    # Check DONE marker presence
-    result.global_tle = (f"{self.delim}DONE" not in self.raw)
-    
-    # Extract all TC blocks with regex
-    pattern = re.compile(
-        rf"{re.escape(self.delim)}START_(\d+)\n(.*?){re.escape(self.delim)}END_\1",
-        re.DOTALL   # . matches newlines
-    )
-    
-    for match in pattern.finditer(self.raw):
-        tc_num  = int(match.group(1))    # 1-indexed
-        content = match.group(2).strip() # JSON content between START and END
-        found_tcs.add(tc_num)
-        result.tc_results.append(self._parse_tc_block(tc_num, content))
-    
-    # Handle missing TCs
-    for i in range(1, N+1):
-        if i not in found_tcs:
-            if result.global_tle:
-                result.tc_results.append(TCResult(i, "TLE", detail="TC not reached — global TLE"))
-            else:
-                result.tc_results.append(TCResult(i, "MISSING", detail="TC not reached — crash"))
-    
-    result.tc_results.sort(key=lambda r: r.tc_num)
-    result.score = sum(1 for r in result.tc_results if r.status == "PASS")
-    return result
-```
-
-### `_parse_tc_block()` — the critical verdict logic
-
-```python
-def _parse_tc_block(self, tc_num, content):
-    try:
-        data = json.loads(content)
-        # {"status": "OUTPUT", "got": "5", "detail": ""}
-        
-        status = data.get("status", "ERROR")
-        
-        # SECURITY: reject PASS/FAIL from harness — harness NEVER emits them legitimately
-        # A student who writes fake TCResult structs to the pipe in C
-        # could try to inject status="PASS" — this rejects it
-        if status not in _HARNESS_STATUSES:  # {"TLE","MLE","SEGV","FPE","ERROR","OUTPUT"}
-            status = "ERROR"
-        
-        if status == "OUTPUT":
-            # This is the normal case — harness emits "OUTPUT", we compare here
-            expected_str = str(self.expected_values[tc_num-1]).strip()
-            got_str      = str(data.get("got", "")).strip()
-            
-            # Comparison: exact string match OR float-tolerant
-            passed = (got_str == expected_str) or _num_equal(got_str, expected_str)
-            
-            return TCResult(
-                tc_num   = tc_num,
-                status   = "PASS" if passed else "FAIL",
-                got      = got_str,       # "5"
-                expected = expected_str,  # "5"
-                detail   = data.get("detail", ""),
-                warning  = data.get("warning", ""),
-            )
-        
-        # For TLE/MLE/SEGV/FPE/ERROR — pass through directly
-        return TCResult(tc_num=tc_num, status=status, got=..., detail=...)
-    
-    except json.JSONDecodeError:
-        # Student corrupted the harness output (printed garbage between delimiters)
-        # Scan raw text for harness statuses — never assign PASS/FAIL from raw text
-        status = "ERROR"
-        for s in _HARNESS_STATUSES:
-            if s in content:
-                status = s; break
-        return TCResult(tc_num=tc_num, status=status, detail=f"Output parse error: {content[:100]}")
-```
-
-**Float-tolerant comparison:**
-```python
-def _num_equal(a_str, b_str):
-    a, b = float(a_str), float(b_str)
-    if a != a or b != b: return False   # NaN check
-    return abs(a-b) <= max(1e-9, abs(b)*1e-6)
-    # "0.30000000000000004" vs "0.3" → passes (relative error < 1e-6)
-```
+`GradingResult` carries: `submission` (`ParsedSubmission`), `judge0_raw`,
+`harness_code`, `security_error`, `system_error`, `needs_requeue`.
 
 ---
 
-## Part 9: Storing Result + Infrastructure Failure Detection
+## 9. Harness builder — `core/harness_builder.py`
 
-### Infrastructure failure detection (before storing)
+`SUPPORTED_LANGUAGES = [python, c, cpp, java, javascript]`, `MAX_PARALLEL_TCS = 200`.
 
-```python
-if _is_infrastructure_failure(parsed):
-    # All TCs are ERROR with keywords: "fork() failed", "RLIMIT_NPROC",
-    # "Cannot allocate memory", "calloc failed", etc.
-    # OR: parsed.tc_results is empty (harness produced no output)
-    # → Not the student's fault. Worker requeues.
-    return GradingResult(needs_requeue=True, ...)
-```
+`build()` dispatches to `_build_<lang>()`, which: loads `harnesses/<lang>_harness.<ext>`,
+serializes test data to language literals, escapes + embeds student code (sentinel
+approach to avoid brace clashes), fills placeholders, and records
+`student_code_start_line` for error attribution.
 
-### `queue.store_result()` — one Redis pipeline call
+**Modes:**
+- **function** — student defines `solve(...)`; harness calls it with positional
+  `inputs`; captures the return value.
+- **stdio** — student program reads stdin / writes stdout; harness feeds
+  `stdin_text` and captures stdout per TC. (Python stores student source as a string
+  and `exec`s it per child so it doesn't run at import with empty stdin.)
 
-```python
-def store_result(self, ticket_id, result, idem_key=""):
-    result_json = json.dumps(result)
-    # e.g.: '{"score":2,"total":2,"tc_results":[{"tc_num":1,"status":"PASS",...}]}'
-    
-    pipe = self.r.pipeline()
-    pipe.setex(f"judge0:result:{ticket_id}", 7200, result_json)
-    pipe.delete(f"judge0:pending_deadline:{ticket_id}")   # job done, cancel timeout
-    if idem_key and "system_error" in result:
-        pipe.delete(idem_key)   # release idempotency so student can resubmit
-    pipe.publish(f"judge0:notify:{ticket_id}", result_json)  # triggers SSE
-    pipe.execute()   # all 3-4 ops in one round-trip
-```
+**Type handling:**
+- C/C++: per-position int→`long long` upgrade when a value overflows 32-bit.
+- Java: all-or-nothing int→`long` upgrade (reflection needs exact types). Literals
+  autoboxed via `(Object)(...)`.
+- `_c_literal` / `_java_literal` serialize bool/None/str/int/float correctly.
 
-The `PUBLISH` on `judge0:notify:{ticket_id}` is the trigger for SSE delivery. Any subscriber on that channel receives the result JSON immediately.
-
-### `queue.ack()` — atomic Lua script
-
-```lua
--- KEYS[1] = "judge0:inflight:{ticket_id}"
--- KEYS[2] = "judge0:jobs:processing"
-local raw = redis.call('GET', KEYS[1])
-if raw then
-    redis.call('LREM', KEYS[2], 1, raw)   -- remove from PROCESSING list
-    redis.call('DEL',  KEYS[1])            -- delete inflight key
-end
-return raw
-```
-
-This is atomic — no window between the GET and LREM where the reconciler could race.
-
-### Judge0 submission cleanup
-
-```python
-self.judge0.delete_submission(judge0_result.token)
-# → DELETE http://server:2358/submissions/{token}
-# Best-effort, never raises. Keeps PostgreSQL submissions table from growing.
-```
+**Expected values are never embedded in the harness** (Fix 4.1) — comparison happens
+outside the sandbox in OutputParser, so student code can't forge verdicts.
 
 ---
 
-## Part 10: SSE Delivery — The Client Gets Their Result
+## 10. Harness runtime & output protocol (`harnesses/*`)
 
-The client opened `GET /results/stream/{ticket_id}` immediately after submit (or even before the result arrives — the SSE stream waits).
-
-### `results_stream()` in `api.py`
-
-```python
-def _generate():
-    # Check if result already stored (handles race: result arrived before stream opened)
-    existing = r.get(f"judge0:result:{ticket_id}")
-    if existing:
-        payload = existing.decode()
-        yield f"event: result\ndata: {payload}\n\n"
-        return
-    
-    # Subscribe to pub/sub channel
-    pubsub = r.pubsub()
-    pubsub.subscribe(f"judge0:notify:{ticket_id}")
-    
-    deadline = time.monotonic() + 1800   # 30 min timeout
-    try:
-        while time.monotonic() < deadline:
-            msg = pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-            # get_message with timeout=1.0 blocks up to 1 second
-            
-            if msg and msg["type"] == "message":
-                data = msg["data"].decode()
-                yield f"event: result\ndata: {data}\n\n"
-                return   # stream closes after first result event
-            
-            # Keep connection alive through load balancers
-            yield ": heartbeat\n\n"
-        
-        # 30-min timeout
-        yield f"event: result\ndata: {json.dumps({'system_error': 'Timed out'})}\n\n"
-    finally:
-        pubsub.unsubscribe(...)
-        pubsub.close()
-
-return Response(_generate(), mimetype="text/event-stream",
-                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
-```
-
-**What the client receives over the wire (raw HTTP stream):**
-```
-HTTP/1.1 200 OK
-Content-Type: text/event-stream
-Cache-Control: no-cache
-X-Accel-Buffering: no
-
-: heartbeat
-
-: heartbeat
-
-: heartbeat
-
-event: result
-data: {"score":2,"total":2,"global_tle":false,"tc_results":[{"tc_num":1,"status":"PASS","got":"5","expected":"5","detail":"","warning":""},{"tc_num":2,"status":"PASS","got":"30","expected":"30","detail":"","warning":""}],"time_taken_s":0.123,"memory_kb":8192}
+Every harness emits each TC framed by a session-unique delimiter:
 
 ```
+@@TC_RESULT__{session_id}__START_{n}
+{"status": "...", "got": "...", "detail": "..."}
+@@TC_RESULT__{session_id}__END_{n}
+...
+@@TC_RESULT__{session_id}__DONE
+```
 
-The `X-Accel-Buffering: no` header disables nginx proxy buffering so heartbeats and events reach the client immediately without nginx holding them in a buffer.
+`DONE` present ⇒ harness finished. Absent ⇒ global TLE (an earlier TC blew the global
+limit). `session_id` = 12 hex chars.
 
-**Why gunicorn uses gevent:** SSE is a long-lived connection (up to 30 min). With normal sync gunicorn workers, each SSE stream occupies a worker thread. With `--workers=2 --worker-connections=1000`, each gunicorn process can handle 1000 concurrent SSE streams as gevent greenlets — cooperatively switching when waiting on Redis pub/sub. No OS threads, no 8GB RAM spike.
+**Harness-emitted statuses:** `OUTPUT` (ran, awaiting comparison), `TLE`, `MLE`,
+`SEGV`, `FPE`, `ERROR`. Harnesses may **never** emit `PASS`/`FAIL` — those are
+assigned only by the parser; a harness-emitted PASS/FAIL is downgraded to `ERROR`.
+
+**Per-language execution:**
+
+| Lang | Parallelism | Per-TC timeout | Crash detect | Output capture |
+|---|---|---|---|---|
+| Python | `os.fork()` + `select.poll()` | `signal.alarm` per child | poll EOF + `WIFSIGNALED` | fake `sys.stdout` |
+| C | `fork()` + `poll()` | `alarm()` in child + parent backstop | poll EOF + `WIFSIGNALED` | `tmpfile()`/dup |
+| C++ | `fork()` + `poll()` | `alarm()` in child | poll EOF + `WIFSIGNALED` | `tmpfile()`/dup, try/catch (`bad_alloc`→MLE) |
+| Java | threads + `join(deadline)` | `join(remaining_ms)` | catch `OOM`/exception | `ByteArrayOutputStream` + ThreadLocal dispatch |
+| JavaScript | `worker_threads` pool | `setTimeout` + `worker.terminate()` | `worker.on('error')`, `ERR_WORKER_OUT_OF_MEMORY` | `process.stdout.write` override |
+
+Notes:
+- **Python** strips dangerous modules in each child, hardens `open`/`signal`/
+  `sys.exit`, and in stdio mode `exec`s student code with a whitelisted builtins set.
+- **C/C++** generate a batched fork+poll runner; `poll()` avoids `select()`'s
+  FD_SETSIZE cap; signal → status mapping SIGSEGV→SEGV, SIGFPE→FPE, SIGKILL→MLE.
+- **Java** uses ThreadLocal stdout/stdin dispatch (avoids `System.setOut` contention),
+  a fresh ClassLoader per TC (no static bleed), and interrupt→stop kill escalation;
+  `_preprocess_java_student_code` promotes all helper classes to static nested classes.
+- **JavaScript** uses `worker_threads` (not child_process — far lighter), a syntax
+  pre-check via `vm.Script` (SyntaxError → CE), and per-worker
+  `resourceLimits.maxOldGenerationSizeMb`.
 
 ---
 
-## Complete Data Flow Summary (One Submission, Two TCs)
+## 11. Judge0 client — `core/judge0_client.py`
 
-```
-CLIENT
-  POST /submit → api.py validates → enqueue QueuedJob to Redis normal queue
-  202 {ticket_id}
-  
-  GET /results/stream/{ticket_id} → SSE stream opens → subscribes to pub/sub channel
+**Callback-first** (not polling): submits with `wait=false` and a `callback_url`,
+then blocks on a small embedded `CallbackServer` (ThreadPoolExecutor, 32 workers)
+until Judge0 PUTs/POSTs the result to `/result`. ~2 Judge0 calls per submission.
 
-WORKER (worker_async.py)
-  BLPOP → dequeues job → moves to PROCESSING_QUEUE + sets inflight TTL
+- **Submit:** `POST /submissions?base64_encoded=true&wait=false` (source base64).
+- **Delete:** `DELETE /submissions/{token}` (best-effort cleanup — keeps the
+  submissions table small).
+- **Fallback poll:** `GET /submissions/{token}?...fields=stdout,stderr,compile_output,
+  status,time,memory` for up to 60s if the callback times out.
 
-AUTOGRADER
-  SecurityChecker.check() → no violations → proceed
-  _detect_function_name() → "solve" found → use as-is
-  sanitize_for_injection() → strip trailing whitespace
-  HarnessBuilder.build() → template.format() → complete Python source (200+ lines)
-    contains: student code, 2 fork calls, poll loop, delimiter protocol
-    test inputs embedded: [2,3] and [10,20]
-    session_id: "a3f9c2e1b8d4"
+Language IDs: `python 71, c 50, cpp 54, java 62, javascript 1001` (Node 20). Auth
+header `X-Auth-Token` (if key set).
 
-JUDGE0 CLIENT
-  base64(harness_code) → POST /submissions?wait=false
-  → Judge0 returns {token: "abc123"}
-  → register token with CallbackServer → threading.Event created
+Payload highlights: `cpu_time_limit = ceil(tc_count / 200) × per_tc_limit_s +
+overhead`, `wall_time_limit = cpu + 2`, per-process + per-thread time/memory limits
+on, `number_of_processes = 200 + 20` (JS 200+120), `memory_limit` 4 GB (Py/C/C++) or
+8 GB (Java/JS), C compiled with `-Werror=int-conversion`.
 
-JUDGE0 SANDBOX (isolate)
-  Python interpreter runs harness
-  fork() × 2 → 2 children simultaneously
-  Child 1: alarm(2), call solve(2,3)=5, write {"status":"OUTPUT","got":"5"} to pipe, _exit(0)
-  Child 2: alarm(2), call solve(10,20)=30, write {"status":"OUTPUT","got":"30"} to pipe, _exit(0)
-  Parent: poll() collects both results in ~0ms
-  Parent: prints @@TC_RESULT__a3f9c2e1b8d4__START_1...END_1, START_2...END_2, DONE
-  
-JUDGE0 → PUT http://172.17.0.5:54321/result {token, stdout(b64), status, time, memory}
+Resilience:
+- `_post_with_retry` — 3 attempts, exponential backoff on 5xx/network only (4xx
+  raised immediately), 120s timeout.
+- **Circuit breaker** (singleton `_judge0_breaker`) — opens after 10 consecutive
+  errors for 30s; open ⇒ fail fast with `RuntimeError`.
 
-CALLBACK SERVER
-  Handler decodes body → _deliver("abc123", payload)
-  → threading.Event.set() → unblocks waiting coroutine
+Status map (`JUDGE0_STATUS`): 1 In Queue, 2 Processing, 3 Accepted, 4 Wrong Answer,
+5 TLE, 6 Compilation Error, 7–11 Runtime Error (SIGSEGV/SIGFPE/SIGABRT/NZEC/Other),
+12 Internal Error (**retriable**), 13 Exec Format Error. Returns a `Judge0Result`
+(`stdout, stderr, status_str, status_id, compile_output, time_taken_s, memory_kb,
+token`).
 
-JUDGE0 CLIENT
-  evt.wait() returns → pop_result("abc123") → parse payload
-  Judge0Result: stdout="@@TC_RESULT__...START_1\n{...}\n...DONE\n", status_str="Accepted"
+---
 
-AUTOGRADER
-  _is_infrastructure_failure() → False (TCs present, no resource errors)
-  parse_judge0_response() → OutputParser.parse()
-    regex extracts TC1 block: {"status":"OUTPUT","got":"5"}
-    status=="OUTPUT" → compare "5" == "5" → PASS
-    regex extracts TC2 block: {"status":"OUTPUT","got":"30"}
-    compare "30" == "30" → PASS
-    DONE marker found → global_tle=False
-  ParsedSubmission: score=2, total=2, tc_results=[PASS, PASS]
-  
-  delete_submission("abc123") → DELETE /submissions/abc123 (cleanup)
-  
-  GradingResult: score=2/2, no system_error, no security_error, needs_requeue=False
+## 12. Output parser — `core/output_parser.py`
 
-WORKER
-  result_to_dict(result) → {"score":2,"total":2,"tc_results":[...]}
-  queue.store_result(ticket_id, result_dict, idem_key)
-    → SETEX judge0:result:{ticket_id} 7200 "{...}"
-    → DEL judge0:pending_deadline:{ticket_id}
-    → PUBLISH judge0:notify:{ticket_id} "{...}"
-  queue.ack(job) → Lua: LREM PROCESSING_QUEUE + DEL inflight key
+Parses the stdout blob into per-TC results.
+- Detects `DONE` (absent → `global_tle`). Regex-extracts each
+  `START_(\d+)\n…END_\1` block (`re.DOTALL`).
+- Missing TC numbers → `TLE` (if global_tle) or `MISSING` (crash before reaching it).
+- **Comparison** (`_num_equal`): exact string match first; numeric tolerance only
+  when expected looks like a float (contains `.`/`e`) — `abs_err ≤ max(1e-9, |b|×1e-6)`.
+  Integer expected (`"3"`) compared exactly (`"3.0" ≠ "3"`).
+- **Compile errors** (`_adjust_compile_output`): rewrites compiler diagnostics to be
+  student-relative — shifts line numbers by `student_code_start_line`, strips harness
+  frames (`run_tc_child`), renames `student_stdio_main`→`main`, maps
+  "undefined reference to student_stdio_main" → "'main' function not found", normalizes
+  gcc-14 unicode quotes.
 
-API (SSE stream)
-  pubsub.get_message() → receives published result JSON
-  yield "event: result\ndata: {score:2,total:2,...}\n\n"
-  stream closes
+Produces `ParsedSubmission(tc_results[TCResult], global_tle, score, total,
+partial_execution)`. `TCResult = {tc_num, status, got, expected, detail, warning}`.
+Final statuses: `PASS / FAIL / TLE / MLE / SEGV / FPE / ERROR / CE / MISSING`.
 
-CLIENT
-  receives SSE event → parses JSON → shows student "2/2 PASS"
-```
+---
 
-That is every layer, every data structure, every Redis key, every network call — from the moment a student hits submit to the moment they see their score.
+## 13. Security — `security/security.py`
+
+`SecurityChecker.check(code, language, delim)` runs **before** Judge0. Common checks:
+reject null bytes, `MAX_CODE_LENGTH = 10_000` chars, and delimiter-spoofing attempts.
+
+- **Python** — AST walk (catches aliased/dynamic imports). Blocks ~25 modules
+  (`os, subprocess, socket, ctypes, signal, importlib, multiprocessing, threading,
+  pty, resource, sys, builtins, …`), dangerous builtins (`__import__, exec, eval,
+  compile, globals, …`), and dunder escapes (`__class__, __subclasses__, __globals__,
+  …`). Flags trivial self-recursion and `while True` with no exit.
+- **C/C++/Java** — regex: `system/popen/exec*/fork/ptrace/syscall`, socket/net
+  includes, `dlopen/dlsym`, `mmap`, `signal(SIGALRM)`, inline `asm`, absolute-path
+  file opens. Infinite-loop flag only if the whole submission has no `break`/`return`.
+- **JavaScript** — blocks `child_process/fs/net/http/os/vm/worker_threads/…`,
+  `eval`/`new Function`, `process.exit/binding/kill`, dynamic `require(var)`.
+
+Returns `SecurityCheckResult(passed, violations[{rule, detail, line}])`.
+
+---
+
+## 14. Failure recovery — `reconciler.py`
+
+Two recovery mechanisms:
+1. **Crash recovery (visibility timeout)** — scans `judge0:jobs:processing` every
+   `RECONCILER_SCAN_INTERVAL_S` (60s). For each entry: if `inflight` key still exists,
+   skip; if a result exists, LREM the stale entry; else LREM and requeue to retry
+   (`retry_count++`). Handles workers that died mid-job.
+2. **Deadline enforcement** — enables keyspace notifications (`notify-keyspace-events
+   Ex`), subscribes to `__keyevent@{db}__:expired`. When a
+   `judge0:pending_deadline:{ticket}` expires (job waited > `MAX_JOB_WAIT_S` = 7200s
+   without being picked up), writes a `system_error` result (`SET … NX`) and
+   PUBLISHes notify — so the student sees a failure instead of an infinite spinner.
+
+---
+
+## 15. Operations
+
+**Deploy** (`deploy-ec2.sh`, idempotent, 6 stages): disk check → install Docker →
+clone/pull repo → generate `.env` secrets (`openssl rand`) → build images (judge0
+base, node20, Python services) → `docker compose up -d --scale workers=3` → run
+`register_node20.sql` → health checks (`/system_info` on 2358, `/health` on 5000).
+
+**Cleanup** (`cleanup.sh`, after load tests; `--full` weekly): `TRUNCATE submissions
+CASCADE` + `VACUUM ANALYZE`, Redis `BGREWRITEAOF`, truncate Docker container logs;
+`--full` adds `docker system prune` + `journalctl --vacuum-time=3d`. Color-coded disk
+warnings at 85% / 95%.
+
+**Daily S3 log dump + purge** (`dump_judge0_docker_logs_to_s3.py`, ~18:29 UTC /
+23:59 IST): gzips and uploads `api`, `grading_worker`, `workers` container logs to
+`s3://edwisely-logs/judge0/docker-logs/YYYY-MM-DD/…`, truncating locally **only on
+upload success**. Then purges Judge0's `submissions` table older than
+`SUBMISSIONS_RETENTION_DAYS = 1` (real results already live in the app DB via webhook)
+and VACUUMs. `server`/`reconciler` use Docker log rotation instead.
+
+**judge0.ec2.conf** key values: `MAX_QUEUE_SIZE=200`, `MAX_RUNNERS=4`,
+`INTERVAL=0.1`, `MAX_PROCESSES_AND_OR_THREADS=220` (`MAX_MAX…=500`),
+`SOURCE_CODE_SIZE_LIMIT=524288`, `MAX_MEMORY_LIMIT=16777216` (16 GB ceiling; actual
+bounded by container `mem_limit`), defaults `CPU_TIME_LIMIT=5 / WALL_TIME_LIMIT=10 /
+MEMORY_LIMIT=256000`.
+
+---
+
+## 16. Redis key reference
+
+| Key | Set by | Read by | TTL |
+|---|---|---|---|
+| `judge0:jobs:normal` | api enqueue | worker dequeue | — |
+| `judge0:jobs:retry` | requeue / reconciler | worker dequeue (first) | — |
+| `judge0:jobs:processing` | dequeue | reconciler, ack | — |
+| `judge0:inflight:{ticket}` | dequeue | reconciler, ack | 300s |
+| `judge0:pending_deadline:{ticket}` | enqueue/requeue | reconciler (expiry) | 7200s |
+| `judge0:result:{ticket}` | store_result / reconciler | api, edwisely_api | 7200s |
+| `judge0:notify:{ticket}` | store_result / reconciler | SSE stream | — |
+| `judge0:idem:{key}` | api submit | api submit | 7200s |
+
+---
+
+## 17. Adding a new language
+
+1. Add `harnesses/<lang>_harness.<ext>` implementing the parallel TC runner + the
+   `@@TC_RESULT__{session_id}__START/END/DONE` protocol (statuses OUTPUT/TLE/MLE/
+   SEGV/FPE/ERROR only).
+2. Add `_build_<lang>()` in `core/harness_builder.py` (load template, serialize test
+   data, embed student code, track `student_code_start_line`) and add the id to
+   `SUPPORTED_LANGUAGES`.
+3. Add the Judge0 `language_id` to `LANGUAGE_IDS` in `core/judge0_client.py` (register
+   it in Judge0's DB if custom, like `register_node20.sql`).
+4. Add the language's validation rules to `security/security.py` and literal
+   serialization if the type system needs it.
+5. Add the language to the `_SubmitRequest` enum in `api.py`.
