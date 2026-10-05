@@ -33,6 +33,8 @@ import uuid
 from dataclasses import dataclass, asdict, field
 from typing import Optional, Any
 
+import redis
+
 
 RETRY_QUEUE   = "judge0:jobs:retry"
 NORMAL_QUEUE  = "judge0:jobs:normal"
@@ -185,7 +187,14 @@ class PriorityJobQueue:
 
         Returns None on timeout (worker should loop and call again).
         """
-        result = self.r.blpop([RETRY_QUEUE, NORMAL_QUEUE], timeout=timeout)
+        try:
+            result = self.r.blpop([RETRY_QUEUE, NORMAL_QUEUE], timeout=timeout)
+        except (redis.exceptions.TimeoutError, redis.exceptions.ConnectionError):
+            # BLPOP sets the socket read timeout to `timeout`; an idle queue (or a
+            # brief Redis blip) can surface as a socket TimeoutError/ConnectionError
+            # right as the block elapses. Treat it like a normal no-job timeout so
+            # the worker loops again instead of crashing (exit 1 → restart storm).
+            return None
         if result is None:
             return None
         _, raw = result
