@@ -3,30 +3,18 @@
 # WHY: judge0/judge0:1.13.1 ships only Node.js 12.14.0 (language id 63), which
 # predates modern JS syntax (?., ??, top-level await) and per-Worker memory
 # limits.  This image ADDS a Node 20 binary without touching the existing
-# toolchain (gcc/g++/javac/python/node12 all stay byte-for-byte unchanged), so
-# the blast radius is JavaScript only — no other language needs re-validation.
-#
-# The binary lands in /usr/local/bin so the isolate sandbox (which exposes /usr
-# read-only inside every sandbox) can execute it.  We copy ONLY the `node`
-# binary (not npm/npx/headers/docs) to keep the added layer ~90 MB.
+# toolchain, and ADDS Python data-science libraries to the grading Python.
 #
 # Build:
 #   docker build -t judge0-node20:1.13.1 -f Dockerfile.judge0-node20 .
-# Then point the `server` and `workers` services at judge0-node20:1.13.1 and
-# register the new language (see sql/register_node20.sql).
 
 FROM judge0/judge0:1.13.1
 
-# The base image runs as the non-root `judge0` user, which cannot write to
-# /usr/local/bin.  Switch to root for the install, then restore `judge0` so the
-# server/worker containers keep running as the original (non-root) user.
 USER root
 
-# Pinned version + verified checksum (supply-chain safety: a tampered tarball
-# fails the sha256 check and aborts the build).
+# ── Node.js 20 (pinned + checksum-verified) ────────────────────────────────
 ARG NODE_VERSION=20.17.0
 ARG NODE_SHA256=a24db3dcd151a52e75965dba04cf1b3cd579ff30d6e0af9da1aede4d0f17486b
-
 RUN set -eux; \
     cd /tmp; \
     curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"; \
@@ -34,9 +22,36 @@ RUN set -eux; \
     tar -xJf "node-v${NODE_VERSION}-linux-x64.tar.xz"; \
     cp "node-v${NODE_VERSION}-linux-x64/bin/node" /usr/local/bin/node20; \
     rm -rf "node-v${NODE_VERSION}-linux-x64" "node-v${NODE_VERSION}-linux-x64.tar.xz"; \
-    # Sanity: new Node 20 present AND stock Node 12 untouched.
     node20 --version; \
     node --version
+
+# ── Python data-science libraries for the grading sandbox ──────────────────
+# Grading Python (language id 71) is /usr/local/python-3.8.1, which isolate
+# exposes read-only inside every sandbox, so student code can import these.
+# Pinned to the last releases shipping cp38 wheels (Python 3.8 is EOL).
+# NOTE: enabling these bypasses the harness module-ban layer (numpy.ctypeslib,
+# pandas.io.common.os, pd.read_csv file access) -> isolate is the security
+# boundary; keep isolate network-off and filesystem-restricted.
+RUN /usr/local/python-3.8.1/bin/python3 -m pip install --no-cache-dir --upgrade 'pip<25.1' \
+ && /usr/local/python-3.8.1/bin/python3 -m pip install --no-cache-dir --only-binary=:all: \
+      numpy==1.24.4 pandas==2.0.3 matplotlib==3.7.5 scipy==1.10.1 \
+      scikit-learn==1.3.2 seaborn==0.13.2 sympy==1.12 networkx==3.1
+
+# Force single-threaded BLAS/OpenMP so numpy/scipy/sklearn do not spawn one
+# thread per core and blow the isolate MAX_PROCESSES_AND_OR_THREADS cap.
+ENV OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1 \
+    MPLBACKEND=Agg \
+    MPLCONFIGDIR=/usr/local/share/mpl-cache
+
+# Pre-build the matplotlib font cache at a read-only path isolate exposes, so
+# sandboxed runs do not try to build it on first use.
+RUN mkdir -p /usr/local/share/mpl-cache \
+ && MPLCONFIGDIR=/usr/local/share/mpl-cache MPLBACKEND=Agg \
+      /usr/local/python-3.8.1/bin/python3 -c "import matplotlib.pyplot" \
+ && chmod -R a+rX /usr/local/share/mpl-cache
 
 # Restore the original non-root runtime user.
 USER judge0
