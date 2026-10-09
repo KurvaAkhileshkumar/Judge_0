@@ -116,10 +116,11 @@ services:
       - gunicorn
       - api:app
       - --worker-class=gevent
-      - --workers=2
+      - --workers=8
       - --worker-connections=500
       - --bind=0.0.0.0:5000
       - --timeout=1900
+      - --keep-alive=30
     ports:
       - "5000:5000"
     environment:

@@ -149,6 +149,10 @@ class _SubmitRequest(BaseModel):
     # Caller-supplied idempotency key (hex string).  The backend computes this
     # hash; judge0 uses it directly for Redis deduplication.
     idem_key:        str | None       = None
+    # Caller-supplied ticket id. If present, the backend has already persisted a
+    # pending row keyed on it (closes the webhook-before-insert race); judge0 uses
+    # it as-is. If absent, judge0 generates one (back-compat).
+    ticket_id:       str | None       = None
 
     @field_validator("callback_url")
     @classmethod
@@ -282,8 +286,9 @@ def submit():
         log.warning("submit_queue_full", max_depth=MAX_QUEUE_DEPTH)
         return jsonify({"error": "Queue at capacity. Try again later."}), 429
 
-    # Build ticket + payload
-    ticket_id = str(uuid.uuid4())
+    # Build ticket + payload. Honor a caller-supplied ticket (the backend has
+    # already persisted a row keyed on it); otherwise generate one.
+    ticket_id = req.ticket_id or str(uuid.uuid4())
     payload = {
         "language":        language,
         "student_code":    student_code,
